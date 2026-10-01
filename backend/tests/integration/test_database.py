@@ -17,6 +17,7 @@ from villasanj.shared.infrastructure.db.repositories import (
     PgJobRepository,
     PgLLMCache,
     PgLLMLedger,
+    PgLLMSpendQuery,
 )
 from villasanj.shared.infrastructure.db.tables import CONTEXT_SCHEMAS, REQUIRED_EXTENSIONS
 from villasanj.shared.infrastructure.health_probes import DatabaseProbe
@@ -104,3 +105,40 @@ async def test_jobs_start_and_finish(engine: AsyncEngine) -> None:
 
 async def test_database_probe(engine: AsyncEngine) -> None:
     assert (await DatabaseProbe(engine).check()).detail == "ok"
+
+
+async def test_spend_report_groups_by_task_and_model(engine: AsyncEngine) -> None:
+    model = f"spend-model-{id(engine)}"
+    ledger = PgLLMLedger(engine)
+
+    def entry(status: CallStatus, cost: str, source: UsageSource) -> LedgerEntry:
+        return LedgerEntry(
+            job_id="spend-job",
+            task=LLMTask.REVIEW_SUMMARY,
+            model=model,
+            prompt_id="p",
+            prompt_version="1",
+            attempt=1,
+            status=status,
+            usage=TokenUsage(100, 50, reasoning_tokens=20, source=source),
+            cost_usd=Decimal(cost),
+            latency_ms=3,
+            created_at=NOW,
+        )
+
+    for status, cost, source in (
+        (CallStatus.OK, "0.002", UsageSource.REPORTED),
+        (CallStatus.TRUNCATED, "0.003", UsageSource.REPORTED),
+        (CallStatus.CACHE_HIT, "0", UsageSource.ESTIMATED),
+    ):
+        await ledger.record(entry(status, cost, source))
+    (row,) = [r for r in await PgLLMSpendQuery(engine).by_task_and_model() if r.model == model]
+    assert (row.task, row.calls, row.cache_hits, row.failed, row.estimated) == (
+        "review_summary",
+        3,
+        1,
+        1,
+        1,
+    )
+    assert (row.input_tokens, row.output_tokens, row.reasoning_tokens) == (300, 150, 60)
+    assert row.cost_usd == Decimal("0.005")

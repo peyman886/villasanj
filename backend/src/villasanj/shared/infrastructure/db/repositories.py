@@ -12,7 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from villasanj.shared.application.clock import Clock
 from villasanj.shared.application.jobs import JobStatus
-from villasanj.shared.application.llm.ports import CachedCompletion, LedgerEntry
+from villasanj.shared.application.llm.ports import (
+    CachedCompletion,
+    CallStatus,
+    LedgerEntry,
+    SpendRow,
+)
 from villasanj.shared.application.llm.types import JobContext, LLMTask, TokenUsage, UsageSource
 from villasanj.shared.infrastructure.db.tables import job, llm_cache, llm_call
 
@@ -85,6 +90,51 @@ class PgLLMLedger:
             query = query.where(llm_call.c.job_id == job_id)
         async with self._engine.connect() as conn:
             return Decimal((await conn.execute(query)).scalar_one())
+
+
+class PgLLMSpendQuery:
+    def __init__(self, engine: AsyncEngine) -> None:
+        self._engine = engine
+
+    async def by_task_and_model(self) -> list[SpendRow]:
+        c = llm_call.c
+        query = (
+            select(
+                c.task,
+                c.model,
+                func.count().label("calls"),
+                func.count().filter(c.status == CallStatus.CACHE_HIT.value).label("cache_hits"),
+                func.count()
+                .filter(c.status.not_in([CallStatus.OK.value, CallStatus.CACHE_HIT.value]))
+                .label("failed"),
+                func.sum(c.input_tokens).label("input_tokens"),
+                func.sum(c.output_tokens).label("output_tokens"),
+                func.sum(c.reasoning_tokens).label("reasoning_tokens"),
+                func.sum(c.cost_usd).label("cost_usd"),
+                func.count()
+                .filter(c.usage_source != UsageSource.REPORTED.value)
+                .label("estimated"),
+            )
+            .group_by(c.task, c.model)
+            .order_by(func.sum(c.cost_usd).desc(), c.task, c.model)
+        )
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        return [
+            SpendRow(
+                r.task,
+                r.model,
+                int(r.calls),
+                int(r.cache_hits),
+                int(r.failed),
+                int(r.input_tokens),
+                int(r.output_tokens),
+                int(r.reasoning_tokens),
+                Decimal(r.cost_usd),
+                int(r.estimated),
+            )
+            for r in rows
+        ]
 
 
 class PgLLMCache:

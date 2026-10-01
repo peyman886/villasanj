@@ -204,6 +204,28 @@ class LedgerEntry:
     error_code: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class SpendRow:
+    """Ledger totals for one task and model (every attempt, failed ones included)."""
+
+    task: str
+    model: str
+    calls: int  # ledger rows: paid attempts and cache hits
+    cache_hits: int
+    failed: int  # attempts that did not return a valid answer (truncated, errors)
+    input_tokens: int
+    output_tokens: int  # reasoning included
+    reasoning_tokens: int
+    cost_usd: Decimal
+    estimated: int  # calls whose usage the provider did not report
+
+
+class LLMSpendQuery(Protocol):
+    async def by_task_and_model(self) -> list[SpendRow]:
+        """Totals over the whole ledger, most expensive first."""
+        ...
+
+
 class LLMLedger(Protocol):
     async def record(self, entry: LedgerEntry) -> None: ...
 

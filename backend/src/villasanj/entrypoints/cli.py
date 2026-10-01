@@ -53,6 +53,7 @@ from villasanj.shared.application.llm.smoke import LLMSmokeCheck
 from villasanj.shared.domain.jalali import iran_today
 from villasanj.shared.domain.money import MoneyRange
 from villasanj.shared.domain.stay import DateRange, GuestCount
+from villasanj.shared.infrastructure.db.repositories import PgLLMSpendQuery
 from villasanj.shared.infrastructure.llm.models_snapshot import (
     compact_snapshot,
     fetch_models,
@@ -152,6 +153,27 @@ def llm_smoke(
 
     if not asyncio.run(_with_container(run)):
         raise typer.Exit(code=1)
+
+
+@llm_app.command("spend")
+def llm_spend() -> None:
+    """LLM spend per task and model from the ledger, and what is left under the project cap."""
+
+    async def run(container: Container) -> bool:
+        rows = await PgLLMSpendQuery(container.engine).by_task_and_model()
+        for r in rows:
+            typer.echo(
+                f"{r.task:<20} {r.model:<24} calls={r.calls} cache_hits={r.cache_hits} "
+                f"failed={r.failed} in={r.input_tokens} out={r.output_tokens} "
+                f"(reasoning {r.reasoning_tokens}) estimated_usage={r.estimated} "
+                f"${r.cost_usd:.6f}"
+            )
+        total = sum((r.cost_usd for r in rows), Decimal(0))
+        cap = container.llm.routing.project_budget_usd
+        typer.echo(f"TOTAL ${total:.6f} of the ${cap} project cap (${cap - total:.6f} left)")
+        return True
+
+    asyncio.run(_with_container(run))
 
 
 @llm_app.command("refresh-models")
