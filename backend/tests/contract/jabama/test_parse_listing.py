@@ -140,3 +140,46 @@ def test_non_listing_pages_parse_to_nothing() -> None:
         PageRequest(SLUG, PageKind.SEARCH, URL), 200, URL, page.headers, page.body, NOW, "fixture"
     )
     assert JabamaAdapter().parse_listing(search) is None
+
+
+SPARSE_URL = "https://www.jabama.com/stay/villa-699639"
+
+
+def test_new_listing_with_unset_prices_and_no_reviews() -> None:
+    """A real listing where jabama uses 0 for "not set": unknown, never free or zero-rated."""
+    listing = JabamaAdapter().parse_listing(stay_page("699639", "stay_sparse.html", SPARSE_URL))
+    assert listing is not None
+    assert (listing.base_capacity, listing.extra_capacity) == (4, 2)
+    assert listing.rate_card == ParsedRateCard(
+        base=Money.from_rial(40_000_000),
+        weekend=None,
+        holiday=None,
+        extra_guest_base=None,  # 2 extra guests allowed, but their price is not published
+        extra_guest_weekend=None,
+        extra_guest_holiday=None,
+    )
+    assert (listing.rating_avg, listing.rating_count) == (None, 0)
+    assert listing.instant_booking is False  # "preApprove"
+    assert listing.locality_fa is None
+    assert [(d.night, d.availability, d.nightly_price) for d in listing.calendar] == [
+        (date(2026, 10, 1), Availability.AVAILABLE, Money.from_rial(40_000_000)),
+        (date(2026, 10, 2), Availability.AVAILABLE, Money.from_rial(40_000_000)),
+        (date(2026, 10, 3), Availability.UNAVAILABLE, None),
+        (date(2026, 10, 4), Availability.AVAILABLE, Money.from_rial(40_000_000)),
+    ]
+    assert all(d.extra_guest_price is None for d in listing.calendar)
+
+
+def test_removed_listing_is_not_a_structure_change() -> None:
+    """Two stays seen in search results returned 404 by the time they were fetched."""
+    page = stay_page("80780", "stay_removed.html", "https://www.jabama.com/stay/ecotourism-80780")
+    removed = FetchedPage(
+        request=page.request,
+        status=404,
+        final_url=page.final_url,
+        headers=page.headers,
+        body=page.body,
+        fetched_at=page.fetched_at,
+        fetcher=page.fetcher,
+    )
+    assert JabamaAdapter().parse_listing(removed) is None
