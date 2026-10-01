@@ -1,0 +1,725 @@
+# Gazetteer v1 for Ramsar–Tonekabon (ROADMAP M2). Curated on 2026-10-01 from the place names
+# observed in crawled listings (city and locality fields of both platforms).
+#
+# Rules:
+# - kind = "city" iff a platform lists the name in its city field; everything else is a locality.
+# - parent = the platform city most of the locality's listings are filed under (majority vote).
+# - aliases only where place_key() cannot already bridge the spelling and the meaning is clear.
+# - not included: streets, squares, boulevards, landmarks, roads ("جاده X"), sentences, and
+#   guessed typo merges (precision first; an unknown name resolves to nothing).
+version = 1
+
+[[places]]
+slug = "ramsar"
+name_fa = "رامسر"
+kind = "city"
+aliases = ["سخت سر"]
+
+[[places]]
+slug = "tonekabon"
+name_fa = "تنکابن"
+kind = "city"
+
+[[places]]
+slug = "nashtarud"
+name_fa = "نشتارود"
+kind = "city"
+
+[[places]]
+slug = "shirud"
+name_fa = "شیرود"
+kind = "city"
+aliases = ["shiroud"]
+
+[[places]]
+slug = "katalom-sadat-shahr"
+name_fa = "کتالم و سادات‌شهر"
+kind = "city"
+aliases = ["ketalem"]
+
+[[places]]
+slug = "javaherdeh"
+name_fa = "جواهرده"
+kind = "city"
+aliases = ["ییلاق جواهرده"]
+
+[[places]]
+slug = "sefid-tameshk"
+name_fa = "سفیدتمشک"
+kind = "locality"
+parent = "ramsar"
+aliases = ["تله کابین سفید تمشک"]
+
+[[places]]
+slug = "katalom"
+name_fa = "کتالم"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "sadat-shahr"
+name_fa = "سادات‌شهر"
+kind = "locality"
+parent = "ramsar"
+aliases = ["رامسر ساداتشهر"]
+
+[[places]]
+slug = "arbeh-kaleh"
+name_fa = "اربکله"
+kind = "locality"
+parent = "ramsar"
+aliases = ["اربه کله"]
+
+[[places]]
+slug = "lapasarak"
+name_fa = "لپاسرک"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "chalkrud"
+name_fa = "چالکرود"
+kind = "locality"
+parent = "ramsar"
+aliases = ["روستای ساحلی چالکرود"]
+
+[[places]]
+slug = "razi-mahalleh"
+name_fa = "رضی‌محله"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "lamtar"
+name_fa = "لمتر"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "ramak"
+name_fa = "رمک"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "dalkhani"
+name_fa = "دالخانی"
+kind = "locality"
+parent = "ramsar"
+aliases = ["دالیخانی", "شهردالیخانی"]
+
+[[places]]
+slug = "khazar-kenar"
+name_fa = "خزرکنار"
+kind = "locality"
+# parent votes: ramsar 7, tonekabon 1
+parent = "ramsar"
+
+[[places]]
+slug = "zaki-mahalleh"
+name_fa = "زکی‌محله"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "qaleh-gardan"
+name_fa = "قلعه‌گردن"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "do-hezar"
+name_fa = "دوهزار"
+kind = "locality"
+parent = "tonekabon"
+aliases = ["دوهزار امامزاده قاسم"]
+
+[[places]]
+slug = "se-hezar"
+name_fa = "سه‌هزار"
+kind = "locality"
+
+[[places]]
+slug = "tangdareh"
+name_fa = "تنگدره"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "talesh-mahalleh-fatuk"
+name_fa = "طالش‌محله فتوک"
+kind = "locality"
+parent = "ramsar"
+aliases = ["طالش محله ی فتوک"]
+
+[[places]]
+slug = "nemat-abad"
+name_fa = "نعمت‌آباد"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "surkhani"
+name_fa = "سورخانی"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "tuban"
+name_fa = "توبن"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "gohar-sara"
+name_fa = "گوهرسرا"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "niasteh"
+name_fa = "نیاسته"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "bagh-melli"
+name_fa = "باغ ملی"
+kind = "locality"
+parent = "ramsar"
+aliases = ["پلاژ ساحلی باغ ملی"]
+
+[[places]]
+slug = "shilu"
+name_fa = "شیلو"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "lazarban"
+name_fa = "لزربن"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "chaharsad-dastgah"
+name_fa = "چهارصددستگاه"
+kind = "locality"
+parent = "ramsar"
+aliases = ["شهرک چهارصد دستگاه"]
+
+[[places]]
+slug = "miandaj-mahalleh"
+name_fa = "میاندج‌محله"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "lorsanur"
+name_fa = "لرسانور"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "tusasan"
+name_fa = "توساسان"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "tashgun"
+name_fa = "تشگون"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "gavramak"
+name_fa = "گاورمک"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "abrisham-mahalleh"
+name_fa = "ابریشم‌محله"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "vankuh"
+name_fa = "وانکوه"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "chaparsar"
+name_fa = "چپرسر"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "talarsar"
+name_fa = "تلارسر"
+kind = "locality"
+parent = "ramsar"
+aliases = ["طلارسر"]
+
+[[places]]
+slug = "darya-poshteh"
+name_fa = "دریاپشته"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "karajub-kenar"
+name_fa = "کراجوبکنار"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "hemmat-abad"
+name_fa = "همت‌آباد"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "palat-haleh"
+name_fa = "پلت‌هاله"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "naranj-bon"
+name_fa = "نارنج‌بن"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "khorram-abad"
+name_fa = "خرم‌آباد"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "dareh-dam"
+name_fa = "دره‌دم"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "limak"
+name_fa = "لیماک"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "valsialam"
+name_fa = "ولسیالم"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "hatam-sara"
+name_fa = "حاتم‌سرا"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "astal-kenar"
+name_fa = "استل‌کنار"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "shel-mahalleh"
+name_fa = "شل‌محله"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "siahgol-chal"
+name_fa = "سیاهگل‌چال"
+kind = "locality"
+parent = "tonekabon"
+aliases = ["سیاهگل چال با نام جدید سلیم آباد"]
+
+[[places]]
+slug = "mian-haleh"
+name_fa = "میان‌هاله"
+kind = "locality"
+parent = "ramsar"
+aliases = ["میانحاله"]
+
+[[places]]
+slug = "haris"
+name_fa = "هریس"
+kind = "locality"
+parent = "ramsar"
+aliases = ["رامسر هریس"]
+
+[[places]]
+slug = "asiab-sar"
+name_fa = "آسیاب‌سر"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "barseh"
+name_fa = "برسه"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "jannat-rudbar"
+name_fa = "جنت‌رودبار"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "tusa-kuti"
+name_fa = "توساکوتی"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "shasta"
+name_fa = "شستا"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "sarku-sara"
+name_fa = "سرکوسرا"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "soleiman-abad"
+name_fa = "سلیمان‌آباد"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "lat-mahalleh"
+name_fa = "لات‌محله"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "heidar-mahalleh"
+name_fa = "حیدر‌محله"
+kind = "locality"
+parent = "ramsar"
+aliases = ["حیدر محله بهار12"]
+
+[[places]]
+slug = "kelayeh-bon"
+name_fa = "کلایه‌بن"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "seif-mahalleh"
+name_fa = "سیف‌محله"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "bamsi"
+name_fa = "بامسی"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "bazar-mahalleh"
+name_fa = "بازار‌محله"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "akbar-abad"
+name_fa = "اکبر‌آباد"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "aghuz-kaleh"
+name_fa = "آغوزکله"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "eshkur-mahalleh"
+name_fa = "اشکور‌محله"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "tudarak"
+name_fa = "تودارک"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "letransa"
+name_fa = "لترنسا"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "kord-mahalleh"
+name_fa = "کرد‌محله"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "mianlat"
+name_fa = "میانلات"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "akrasar"
+name_fa = "اکراسر"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "zamin-bon"
+name_fa = "زمین‌بن"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "zangesha-mahalleh"
+name_fa = "زنگشا‌محله"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "letar"
+name_fa = "لتر"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "palham-dasht"
+name_fa = "پلهم‌دشت"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "siasan"
+name_fa = "سیاسان"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "chalkesh"
+name_fa = "چالکش"
+kind = "locality"
+# parent votes: ramsar 1, tonekabon 1
+aliases = ["چالکش عظیمیه"]
+
+[[places]]
+slug = "alkaleh"
+name_fa = "الکله"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "kuzehgar-mahalleh"
+name_fa = "کوزه‌گر محله"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "sharif-abad"
+name_fa = "شریف‌آباد"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "faqih-mahalleh"
+name_fa = "فقیه‌محله"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "khoshk-rud"
+name_fa = "خشکرود"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "garsamasar"
+name_fa = "گرسماسر"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "ghanbar-abad"
+name_fa = "قنبر‌آباد"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "zeinabiyeh"
+name_fa = "زینبیه"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "shah-mansur"
+name_fa = "شاه منصور"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "sarmeshk"
+name_fa = "سرمشک"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "vali-abad"
+name_fa = "ولی‌آباد"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "kabud-kelayeh"
+name_fa = "کبودکلایه"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "lireh-sar"
+name_fa = "لیره‌سر"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "akhund-mahalleh"
+name_fa = "آخوند‌محله"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "markuh"
+name_fa = "مارکوه"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "pudeh"
+name_fa = "پوده"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "zardkand"
+name_fa = "زردکند"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "talesh-sara"
+name_fa = "طالش‌سرا"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "kasgar-mahalleh"
+name_fa = "کاسگرمحله"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "dasht-jalam"
+name_fa = "دشت جلم"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "patak"
+name_fa = "پتک"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "izaki"
+name_fa = "ایزکی"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "gavbar"
+name_fa = "گاوبر"
+kind = "locality"
+
+[[places]]
+slug = "vachkelayeh"
+name_fa = "واچکلایه"
+kind = "locality"
+parent = "ramsar"
+aliases = ["جواهرده واچکلایه"]
+
+[[places]]
+slug = "sadat-mahalleh"
+name_fa = "سادات‌محله"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "barishi"
+name_fa = "بریشی"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "masha-kelayeh"
+name_fa = "مشاءکلایه"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "mazu-baghsar"
+name_fa = "مازوباغسر"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "pas-kelayeh-bozorg"
+name_fa = "پسکلایه بزرگ"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "shabkhoskul"
+name_fa = "شبخسکول"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "mazubon-sofla"
+name_fa = "مازوبن سفلی"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "pain-eshtuj"
+name_fa = "پایین اشتوج"
+kind = "locality"
+parent = "ramsar"
+
+[[places]]
+slug = "kerat-chal"
+name_fa = "کرات‌چال"
+kind = "locality"
+parent = "tonekabon"
+
+[[places]]
+slug = "rajub"
+name_fa = "راجوب"
+kind = "locality"
+parent = "ramsar"

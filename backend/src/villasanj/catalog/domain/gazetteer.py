@@ -12,6 +12,14 @@ from villasanj.shared.domain.persian_text import ZWNJ, normalize_persian
 _PREFIXES = ("روستای ", "روستا ", "دهکده ", "شهر ", "منطقه ", "محله ")
 _PARTS = re.compile(r"[،,.;/()\-]+|\s+و\s+")
 _IGNORED = re.compile(rf"[\s{ZWNJ}]+")
+# Orthographic variants writers use interchangeably in place names ("اکبراباد", "رجائی").
+_SPELLING = str.maketrans(
+    {
+        "\N{ARABIC LETTER ALEF WITH MADDA ABOVE}": "\N{ARABIC LETTER ALEF}",
+        "\N{ARABIC LETTER YEH WITH HAMZA ABOVE}": "\N{ARABIC LETTER FARSI YEH}",
+        "\N{ARABIC LETTER HAMZA}": None,
+    }
+)
 
 
 class PlaceKind(StrEnum):
@@ -30,7 +38,7 @@ class Place:
 
 def place_key(text: str) -> str:
     """Spelling-insensitive key: normalized Persian, no prefixes, no spaces or ZWNJ, lower Latin."""
-    normalized = normalize_persian(text).lower()
+    normalized = normalize_persian(text).lower().translate(_SPELLING)
     for prefix in _PREFIXES:
         if normalized.startswith(prefix):
             normalized = normalized.removeprefix(prefix)
@@ -57,7 +65,11 @@ class Gazetteer:
         return self._places.get(slug)
 
     def resolve(self, text: str | None) -> Place | None:
-        """The most specific known place mentioned in ``text`` (localities beat cities)."""
+        """The most specific known place mentioned in ``text``.
+
+        Localities beat cities; among several, the last one wins, because addresses are written
+        from general to specific ("منطقه دوهزار - روستای برسه"). Unknown text resolves to nothing.
+        """
         if not text:
             return None
         whole = self._index.get(place_key(text))
@@ -70,4 +82,4 @@ class Gazetteer:
         ]
         localities = [m for m in matches if m.kind is PlaceKind.LOCALITY]
         best = localities or matches
-        return best[0] if best else None
+        return best[-1] if best else None

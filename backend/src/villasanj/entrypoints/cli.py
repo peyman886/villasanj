@@ -11,7 +11,9 @@ from typing import Annotated
 import typer
 
 from villasanj.catalog.application.coverage import MeasureScenarioCoverage
-from villasanj.catalog.infrastructure.repositories import PgCoverageQuery
+from villasanj.catalog.application.places import MeasurePlaceResolution
+from villasanj.catalog.infrastructure.gazetteer_file import load_gazetteer
+from villasanj.catalog.infrastructure.repositories import PgCoverageQuery, PgPlaceNameQuery
 from villasanj.entrypoints.container import Container, build_container
 from villasanj.ingestion.application.errors import CrawlError
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
@@ -245,6 +247,28 @@ def catalog_coverage() -> None:
                 f"{row.platform:<8} {row.scenario:<8} covered={row.covered}/{row.listings} "
                 f"({row.ratio:.1%}) observation_spread={spread}"
             )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@catalog_app.command("places")
+def catalog_places() -> None:
+    """How many listings the gazetteer places at locality or city level (zero network requests)."""
+
+    async def run(container: Container) -> bool:
+        gazetteer = load_gazetteer(container.settings.gazetteer_path)
+        measure = MeasurePlaceResolution(PgPlaceNameQuery(container.engine), gazetteer)
+        typer.echo(f"gazetteer: {len(gazetteer)} places")
+        for platform in sorted(container.crawl.adapters):
+            r = await measure.run(platform)
+            typer.echo(
+                f"{platform:<8} listings={r.listings} locality_text={r.with_locality_text} "
+                f"locality={r.locality_resolved} city_only={r.city_resolved} "
+                f"unresolved={r.unresolved}"
+            )
+            for name, count in r.top_unresolved:
+                typer.echo(f"    unresolved locality text ({count}): {name}")
         return True
 
     asyncio.run(_with_container(run))

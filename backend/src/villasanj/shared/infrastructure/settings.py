@@ -81,6 +81,10 @@ class Settings(BaseSettings):
         return self.config_dir / "scenarios.toml"
 
     @property
+    def gazetteer_path(self) -> Path:
+        return self.config_dir / "gazetteer.toml"
+
+    @property
     def region_path(self) -> Path:
         return self.config_dir / self.crawl.region_file
 

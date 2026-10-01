@@ -21,6 +21,10 @@ GAZETTEER = Gazetteer(
         Place("sadat-shahr", f"سادات{ZWNJ}شهر", PlaceKind.LOCALITY, parent="ramsar"),
         Place("lorsanur", "لرسانور", PlaceKind.LOCALITY, parent="ramsar"),
         Place("zaki-mahalleh", f"زکی{ZWNJ}محله", PlaceKind.LOCALITY, parent="ramsar"),
+        Place("do-hezar", "دوهزار", PlaceKind.LOCALITY, parent="tonekabon"),
+        Place("barseh", "برسه", PlaceKind.LOCALITY, parent="tonekabon"),
+        Place("akbar-abad", f"اکبر{ZWNJ}آباد", PlaceKind.LOCALITY, parent="ramsar"),
+        Place("masha-kelayeh", "مشاءکلایه", PlaceKind.LOCALITY, parent="ramsar"),
     ]
 )
 
@@ -45,6 +49,12 @@ GAZETTEER = Gazetteer(
         ("رامسر - سفید تمشک", "sefid-tameshk"),
         ("تنکابن", "tonekabon"),
         ("  تنکابن ", "tonekabon"),
+        ("منطقه دوهزار - روستای برسه", "barseh"),  # general to specific: the last locality wins
+        ("برسه، دوهزار", "do-hezar"),
+        ("اکبراباد", "akbar-abad"),  # alef without madda
+        ("اکبر آباد", "akbar-abad"),
+        ("مشاکلایه", "masha-kelayeh"),  # hamza dropped
+        ("سفید تمشک، خیابان اصلی", "sefid-tameshk"),  # unknown parts are ignored
     ],
 )
 def test_resolves_spelling_variants(text: str, slug: str) -> None:
@@ -64,6 +74,11 @@ def test_unknown_or_non_place_text_resolves_to_nothing(text: str | None) -> None
 def test_key_ignores_spacing_prefixes_and_case() -> None:
     assert place_key("روستای  لرسانور") == place_key("لرسانور")
     assert place_key("Kelar Dasht") == place_key("kelardasht")
+
+
+def test_key_folds_interchangeable_spellings() -> None:
+    assert place_key("آسیاب سر") == place_key("اسیابسر")
+    assert place_key("رجائی") == place_key("رجایی")
 
 
 def test_ambiguous_names_are_rejected() -> None:

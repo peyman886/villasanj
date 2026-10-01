@@ -7,12 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from tests.fakes.llm import NOW
 from tests.unit.catalog.test_listing import parsed
+from villasanj.catalog.application.places import PlaceNames
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.catalog.domain.photo import ListingPhoto, PerceptualFingerprint
 from villasanj.catalog.infrastructure.repositories import (
     PgCoverageQuery,
     PgListingRepository,
     PgPhotoRepository,
+    PgPlaceNameQuery,
 )
 from villasanj.ingestion.domain.parsed import Availability, ParsedCalendarDay
 
@@ -70,3 +72,17 @@ async def test_coverage_counts_listings_with_every_scenario_night(engine: AsyncE
     counts = await PgCoverageQuery(engine).counts(platform, NIGHTS)
     assert (counts.listings, counts.covered) == (2, 1)
     assert counts.earliest == counts.latest == NOW + timedelta(hours=1)
+
+
+async def test_place_names_are_grouped_per_platform(engine: AsyncEngine) -> None:
+    platform = f"places-{id(engine)}"
+    repo = PgListingRepository(engine)
+    for external_id in ("1", "2"):
+        listing = Listing.from_parsed(
+            parsed(platform=platform, external_id=external_id), SNAPSHOT, NOW
+        )
+        await repo.save(listing, [])
+    names = await PgPlaceNameQuery(engine).names(platform)
+    assert len(names) == 1
+    assert isinstance(names[0], PlaceNames)
+    assert names[0].listings == 2

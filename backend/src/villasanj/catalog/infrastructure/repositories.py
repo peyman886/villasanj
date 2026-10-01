@@ -12,6 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from villasanj.catalog.application.coverage import CoverageCounts
+from villasanj.catalog.application.places import PlaceNames
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.catalog.domain.photo import ListingPhoto
 from villasanj.catalog.infrastructure.tables import (
@@ -230,3 +231,19 @@ class PgCoverageQuery:
             earliest=row.earliest,
             latest=row.latest,
         )
+
+
+class PgPlaceNameQuery:
+    def __init__(self, engine: AsyncEngine) -> None:
+        self._engine = engine
+
+    async def names(self, platform: str) -> list[PlaceNames]:
+        query = (
+            select(listing.c.city_fa, listing.c.locality_fa, func.count().label("listings"))
+            .where(listing.c.platform == platform)
+            .group_by(listing.c.city_fa, listing.c.locality_fa)
+            .order_by(listing.c.city_fa, listing.c.locality_fa)
+        )
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        return [PlaceNames(row.city_fa, row.locality_fa, int(row.listings)) for row in rows]
