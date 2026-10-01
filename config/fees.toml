@@ -1,0 +1,18 @@
+# Platform fee policies for the pricing engine (ROADMAP M3; product rule 1).
+# fees_known = true only when a source says the listed prices are what the guest finally pays.
+# Otherwise quotes get an open upper bound ("≥ X") and the caveat fees_unknown.
+
+[[policies]]
+platform = "jabama"
+fees_known = false
+source = """Checked 2026-10-01. Stay pages show nightly and extra-guest prices and a vatStatus flag \
+(true on every regional listing), but no VAT rate, service fee or final total; the checkout is not \
+crawled (ADR-0008). The terms (https://www.jabama.com/help/faq/policy/) forbid hosts from charging \
+guests extra, which covers host fees only."""
+
+[[policies]]
+platform = "shab"
+fees_known = false
+source = """Checked 2026-10-01. House pages and the calendar API show nightly prices only; no \
+service fee or tax statement was found on public pages, and reservation paths are disallowed by \
+robots.txt."""

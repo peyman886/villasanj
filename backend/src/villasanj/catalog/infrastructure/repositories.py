@@ -13,7 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from villasanj.catalog.application.coverage import CoverageCounts
 from villasanj.catalog.application.places import PlaceNames
-from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
+from villasanj.catalog.domain.listing import (
+    CalendarObservation,
+    Listing,
+    ListingId,
+    LocationEvidence,
+)
 from villasanj.catalog.domain.photo import ListingPhoto
 from villasanj.catalog.infrastructure.tables import (
     calendar_observation,
@@ -21,7 +26,17 @@ from villasanj.catalog.infrastructure.tables import (
     parse_failure,
     photo,
 )
+from villasanj.ingestion.domain.parsed import (
+    Availability,
+    ParsedAmenity,
+    ParsedDistanceClaim,
+    ParsedRateCard,
+    TravelMode,
+)
+from villasanj.shared.domain.geo import GeoPoint
 from villasanj.shared.domain.money import Money
+from villasanj.shared.domain.provenance import Provenance, ProvenanceMethod, SourceRef
+from villasanj.shared.domain.stay import DateRange
 
 _CALENDAR_BATCH = 500
 
@@ -75,6 +90,79 @@ def _listing_row(item: Listing) -> dict[str, Any]:
         "snapshot_id": uuid.UUID(item.provenance.snapshot_id or ""),
         "observed_at": item.provenance.observed_at,
     }
+
+
+def _money(rial: int | None) -> Money | None:
+    return Money.from_rial(rial) if rial is not None else None
+
+
+def _listing_from_row(row: Any) -> Listing:
+    location = (
+        LocationEvidence(GeoPoint(row.lat, row.lon), row.location_radius_m)
+        if row.lat is not None and row.lon is not None
+        else None
+    )
+    return Listing(
+        id=ListingId(row.platform, row.external_id),
+        url=row.url,
+        title=row.title,
+        title_norm=row.title_norm,
+        description=row.description,
+        description_norm=row.description_norm,
+        property_type=row.property_type,
+        city_fa=row.city_fa,
+        city_slug=row.city_slug,
+        locality_fa=row.locality_fa,
+        location=location,
+        bedrooms=row.bedrooms,
+        bathrooms=row.bathrooms,
+        area_m2=row.area_m2,
+        base_capacity=row.base_capacity,
+        extra_capacity=row.extra_capacity,
+        rating_avg=row.rating_avg,
+        rating_count=row.rating_count,
+        check_in_time=row.check_in_time,
+        check_out_time=row.check_out_time,
+        min_nights=row.min_nights,
+        instant_booking=row.instant_booking,
+        host_ref=row.host_ref,
+        cancellation_policy_text=row.cancellation_policy_text,
+        vat_applies=row.vat_applies,
+        rate_card=ParsedRateCard(
+            base=_money(row.rate_base_rial),
+            weekend=_money(row.rate_weekend_rial),
+            holiday=_money(row.rate_holiday_rial),
+            extra_guest_base=_money(row.extra_guest_base_rial),
+            extra_guest_weekend=_money(row.extra_guest_weekend_rial),
+            extra_guest_holiday=_money(row.extra_guest_holiday_rial),
+        ),
+        provenance=Provenance(
+            method=ProvenanceMethod.OBSERVED,
+            observed_at=row.observed_at,
+            source=SourceRef(row.platform, row.url),
+            snapshot_id=str(row.snapshot_id),
+        ),
+        photos=tuple(str(url) for url in row.photos),
+        amenities=tuple(ParsedAmenity(c, label, bool(p)) for c, label, p in row.amenities),
+        distance_claims=tuple(
+            ParsedDistanceClaim(target, value, TravelMode(mode))
+            for target, value, mode in row.distance_claims
+        ),
+    )
+
+
+def _calendar_from_row(row: Any) -> CalendarObservation:
+    return CalendarObservation(
+        listing_id=ListingId(row.platform, row.external_id),
+        night=row.night,
+        availability=Availability(row.availability),
+        nightly_price=_money(row.nightly_rial),
+        extra_guest_price=_money(row.extra_guest_rial),
+        min_nights=row.min_nights,
+        is_holiday=row.is_holiday,
+        snapshot_id=str(row.snapshot_id),
+        observed_at=row.observed_at,
+    )
 
 
 def _calendar_row(observation: CalendarObservation) -> dict[str, Any]:
@@ -158,6 +246,38 @@ class PgListingRepository:
         query = select(func.count()).select_from(listing).where(listing.c.platform == platform)
         async with self._engine.connect() as conn:
             return int((await conn.execute(query)).scalar_one())
+
+    async def get(self, listing_id: ListingId) -> Listing | None:
+        query = select(listing).where(
+            listing.c.platform == listing_id.platform,
+            listing.c.external_id == listing_id.external_id,
+        )
+        async with self._engine.connect() as conn:
+            row = (await conn.execute(query)).first()
+        return _listing_from_row(row) if row is not None else None
+
+    async def listings(self, platform: str) -> list[Listing]:
+        query = (
+            select(listing).where(listing.c.platform == platform).order_by(listing.c.external_id)
+        )
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        return [_listing_from_row(row) for row in rows]
+
+    async def calendar(self, listing_id: ListingId, stay: DateRange) -> list[CalendarObservation]:
+        query = (
+            select(calendar_observation)
+            .where(
+                calendar_observation.c.platform == listing_id.platform,
+                calendar_observation.c.external_id == listing_id.external_id,
+                calendar_observation.c.night >= stay.check_in,
+                calendar_observation.c.night < stay.check_out,
+            )
+            .order_by(calendar_observation.c.night, calendar_observation.c.observed_at)
+        )
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        return [_calendar_from_row(row) for row in rows]
 
 
 class PgPhotoRepository:

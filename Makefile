@@ -43,9 +43,10 @@ migrate: ## Apply database migrations
 
 # ---------------------------------------------------------------- quality
 
-test: ## Unit, contract and architecture tests (no network, no Docker); domain coverage >= 95%
+test: ## Unit, contract and architecture tests (no network, no Docker); domain coverage >= 95%, pricing 100%
 	cd backend && uv run pytest -q --cov --cov-report= \
-		&& uv run coverage report --include='*/domain/*' --fail-under=95
+		&& uv run coverage report --include='*/domain/*' --fail-under=95 \
+		&& uv run coverage report --include='*/pricing/domain/*' --fail-under=100
 	cd frontend && npm test
 
 test-integration: ## Integration tests against a throwaway Postgres (needs Docker)

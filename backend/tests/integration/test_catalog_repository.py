@@ -1,6 +1,6 @@
 """PgListingRepository: newest wins, calendar history is append-only, reparse is stable."""
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from sqlalchemy import text
@@ -8,10 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from tests.fakes.llm import NOW
 from tests.unit.catalog.test_listing import parsed
-from villasanj.catalog.domain.listing import CalendarObservation, Listing
+from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.catalog.infrastructure.repositories import PgListingRepository
-from villasanj.ingestion.domain.parsed import Availability, ParsedCalendarDay
+from villasanj.ingestion.domain.parsed import Availability, ParsedCalendarDay, ParsedRateCard
 from villasanj.shared.domain.money import Money
+from villasanj.shared.domain.stay import DateRange
 
 pytestmark = pytest.mark.integration
 
@@ -98,3 +99,30 @@ async def test_failures_are_recorded_once(engine: AsyncEngine) -> None:
             )
         ).scalar_one()
     assert count == 1
+
+
+async def test_listings_and_calendars_read_back_as_stored(engine: AsyncEngine) -> None:
+    platform = f"read-{id(engine)}"
+    repo = PgListingRepository(engine)
+    card = ParsedRateCard(base=Money.from_toman(1_000_000), extra_guest_holiday=Money.from_rial(7))
+    stored = Listing.from_parsed(
+        parsed(platform=platform, rate_card=card, photos=("https://c.test/a.jpg",)),
+        "00000000-0000-0000-0000-000000000601",
+        NOW,
+    )
+    nights = [date(2026, 10, 15), date(2026, 10, 16), date(2026, 10, 17)]
+    calendar = [
+        CalendarObservation.from_parsed(
+            stored.id,
+            ParsedCalendarDay(n, Availability.AVAILABLE, Money.from_toman(9), None, 2, False),
+            "00000000-0000-0000-0000-000000000601",
+            NOW,
+        )
+        for n in nights
+    ]
+    await repo.save(stored, calendar)
+    assert await repo.get(stored.id) == stored
+    assert await repo.get(ListingId(platform, "missing")) is None
+    assert await repo.listings(platform) == [stored]
+    two_nights = await repo.calendar(stored.id, DateRange(nights[0], nights[2]))
+    assert two_nights == calendar[:2]

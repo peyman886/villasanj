@@ -12,13 +12,19 @@ import typer
 
 from villasanj.catalog.application.coverage import MeasureScenarioCoverage
 from villasanj.catalog.application.places import MeasurePlaceResolution
+from villasanj.catalog.domain.listing import ListingId
 from villasanj.catalog.infrastructure.gazetteer_file import load_gazetteer
 from villasanj.catalog.infrastructure.repositories import PgCoverageQuery, PgPlaceNameQuery
 from villasanj.entrypoints.container import Container, build_container
 from villasanj.ingestion.application.errors import CrawlError, SourceBlocked
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
+from villasanj.pricing.application.quotes import QuoteStays
+from villasanj.pricing.domain.quote import Quote, StayRequest
+from villasanj.pricing.infrastructure.fees_file import load_fee_policies
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.application.llm.smoke import LLMSmokeCheck
+from villasanj.shared.domain.money import MoneyRange
+from villasanj.shared.domain.stay import DateRange, GuestCount
 from villasanj.shared.infrastructure.llm.models_snapshot import (
     compact_snapshot,
     fetch_models,
@@ -31,9 +37,11 @@ app = typer.Typer(no_args_is_help=True, add_completion=False)
 llm_app = typer.Typer(no_args_is_help=True, help="LLM gateway operations.")
 crawl_app = typer.Typer(no_args_is_help=True, help="Polite crawling (ADR-0008, ADR-0011).")
 catalog_app = typer.Typer(no_args_is_help=True, help="Build the catalog from stored snapshots.")
+pricing_app = typer.Typer(no_args_is_help=True, help="All-in quotes from stored observations.")
 app.add_typer(llm_app, name="llm")
 app.add_typer(crawl_app, name="crawl")
 app.add_typer(catalog_app, name="catalog")
+app.add_typer(pricing_app, name="pricing")
 
 DEFAULT_SMOKE_BUDGET_USD = "0.05"
 
@@ -283,6 +291,59 @@ def catalog_places() -> None:
         return True
 
     asyncio.run(_with_container(run))
+
+
+@pricing_app.command("quote")
+def pricing_quote(
+    platform: Annotated[str, typer.Argument(help="Platform slug.")],
+    external_id: Annotated[str, typer.Argument(help="The platform's listing id.")],
+    check_in: Annotated[
+        datetime | None, typer.Option(formats=["%Y-%m-%d"], help="Default: every scenario.")
+    ] = None,
+    check_out: Annotated[datetime | None, typer.Option(formats=["%Y-%m-%d"])] = None,
+    guests: Annotated[int, typer.Option(min=1)] = 4,
+) -> None:
+    """Quote one listing for a stay, or for every scenario x group size (zero network)."""
+
+    async def run(container: Container) -> bool:
+        quotes = QuoteStays(container.listings, load_fee_policies(container.settings.fees_path))
+        listing_id = ListingId(platform, external_id)
+        if check_in and check_out:
+            request = StayRequest(DateRange(check_in.date(), check_out.date()), GuestCount(guests))
+            quote = await quotes.quote(listing_id, request)
+            results = [quote] if quote else []
+        else:
+            scenarios = load_scenarios(container.settings.scenarios_path)
+            results = await quotes.scenarios(listing_id, scenarios)
+        if not results:
+            typer.echo(f"{listing_id}: not in the catalog", err=True)
+            return False
+        for quote in results:
+            typer.echo(_render_quote(quote))
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+def _toman(amount: MoneyRange) -> str:
+    low = f"{amount.low.toman:,.0f}"
+    if amount.high is None:
+        return f">= {low} toman"
+    if amount.is_exact:
+        return f"{low} toman"
+    return f"{low}-{amount.high.toman:,.0f} toman"
+
+
+def _render_quote(quote: Quote) -> str:
+    stay = quote.request.stay
+    head = f"{stay.check_in}..{stay.check_out} x{quote.request.guests.value}: {quote.status}"
+    total = f" total={_toman(quote.total)}" if quote.total else ""
+    caveats = f" caveats={','.join(sorted(quote.caveats))}" if quote.caveats else ""
+    seen = (
+        f" observed={quote.newest_observation:%Y-%m-%d %H:%M}Z" if quote.newest_observation else ""
+    )
+    return f"{head}{total} source={quote.source}{caveats}{seen}"
 
 
 async def _with_container[R](run: Callable[[Container], Awaitable[R]]) -> R:
