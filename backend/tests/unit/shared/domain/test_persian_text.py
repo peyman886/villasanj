@@ -47,6 +47,13 @@ persian_like = st.text(
 )
 
 
+@pytest.mark.parametrize("text", [f"0 {ZWNJ} {ZWNJ}0", f"a{ZWNJ} {ZWNJ} b"])
+def test_idempotent_on_overlapping_joiners_and_spaces(text: str) -> None:
+    once = normalize_persian(text)  # found by hypothesis on 2026-10-02
+    assert normalize_persian(once) == once
+    assert ZWNJ not in once
+
+
 @given(persian_like)
 def test_idempotent(text: str) -> None:
     once = normalize_persian(text)

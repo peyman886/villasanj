@@ -39,7 +39,9 @@ _DIGITS_TO_LATIN = str.maketrans(_PERSIAN_DIGITS + _ARABIC_DIGITS, _LATIN_DIGITS
 _LATIN_TO_PERSIAN = str.maketrans(_LATIN_DIGITS, _PERSIAN_DIGITS)
 _SPACES = re.compile(r"[ \t\r\f\v]+")
 _ZWNJ_RUNS = re.compile(f"{ZWNJ}+")
-_ZWNJ_BESIDE_SPACE = re.compile(f" ?{ZWNJ} | {ZWNJ}")
+# Any run of spaces and ZWNJs that holds a space is one space (a single pass, so the result is
+# stable: overlapping " ZWNJ " pairs used to leave a ZWNJ for the next call to remove).
+_ZWNJ_BESIDE_SPACE = re.compile(f"[ {ZWNJ}]* [ {ZWNJ}]*")
 _ZWNJ_AT_LINE_EDGES = re.compile(f"^{ZWNJ}|{ZWNJ}$", re.MULTILINE)
 
 
