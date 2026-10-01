@@ -19,12 +19,13 @@ from villasanj.catalog.domain.listing import (
     ListingId,
     LocationEvidence,
 )
-from villasanj.catalog.domain.photo import ListingPhoto
+from villasanj.catalog.domain.photo import ListingPhoto, PerceptualFingerprint, PhotoEmbedding
 from villasanj.catalog.infrastructure.tables import (
     calendar_observation,
     listing,
     parse_failure,
     photo,
+    photo_embedding,
 )
 from villasanj.ingestion.domain.parsed import (
     Availability,
@@ -33,6 +34,7 @@ from villasanj.ingestion.domain.parsed import (
     ParsedRateCard,
     TravelMode,
 )
+from villasanj.shared.application.clock import Clock
 from villasanj.shared.domain.geo import GeoPoint
 from villasanj.shared.domain.money import Money
 from villasanj.shared.domain.provenance import Provenance, ProvenanceMethod, SourceRef
@@ -310,6 +312,61 @@ class PgPhotoRepository:
         )
         async with self._engine.begin() as conn:
             await conn.execute(upsert)
+
+    async def photos(self, platforms: Sequence[str]) -> list[ListingPhoto]:
+        query = (
+            select(photo)
+            .where(photo.c.platform.in_(list(platforms)))
+            .order_by(photo.c.platform, photo.c.external_id, photo.c.position)
+        )
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        return [
+            ListingPhoto(
+                listing_id=ListingId(row.platform, row.external_id),
+                position=row.position,
+                url=row.url,
+                snapshot_id=str(row.snapshot_id),
+                sha256=row.sha256,
+                fingerprint=PerceptualFingerprint(row.phash, row.dhash, row.width, row.height),
+                observed_at=row.observed_at,
+            )
+            for row in rows
+        ]
+
+
+class PgEmbeddingStore:
+    def __init__(self, engine: AsyncEngine, clock: Clock) -> None:
+        self._engine = engine
+        self._clock = clock
+
+    async def embedded(self, model_id: str) -> set[str]:
+        query = select(photo_embedding.c.sha256).where(photo_embedding.c.model_id == model_id)
+        async with self._engine.connect() as conn:
+            return set((await conn.execute(query)).scalars())
+
+    async def save(self, embeddings: Sequence[PhotoEmbedding]) -> None:
+        if not embeddings:
+            return
+        now = self._clock.now()
+        rows = [
+            {
+                "sha256": e.sha256,
+                "model_id": e.model_id,
+                "vector": list(e.vector),
+                "created_at": now,
+            }
+            for e in embeddings
+        ]
+        async with self._engine.begin() as conn:
+            await conn.execute(insert(photo_embedding).values(rows).on_conflict_do_nothing())
+
+    async def vectors(self, model_id: str) -> dict[str, tuple[float, ...]]:
+        query = select(photo_embedding.c.sha256, photo_embedding.c.vector).where(
+            photo_embedding.c.model_id == model_id
+        )
+        async with self._engine.connect() as conn:
+            return {row.sha256: tuple(row.vector) for row in (await conn.execute(query)).all()}
 
 
 _COVERAGE_SQL = text(

@@ -15,6 +15,9 @@ from villasanj.catalog.application.places import MeasurePlaceResolution
 from villasanj.catalog.domain.listing import ListingId
 from villasanj.catalog.infrastructure.gazetteer_file import load_gazetteer
 from villasanj.catalog.infrastructure.repositories import PgCoverageQuery, PgPlaceNameQuery
+from villasanj.entity_resolution.application.evaluation import EvaluationReport
+from villasanj.entity_resolution.application.labeling import QueueExists
+from villasanj.entity_resolution.domain.evaluation import Interval
 from villasanj.entrypoints.container import Container, build_container
 from villasanj.ingestion.application.errors import CrawlError, SourceBlocked
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
@@ -38,10 +41,12 @@ llm_app = typer.Typer(no_args_is_help=True, help="LLM gateway operations.")
 crawl_app = typer.Typer(no_args_is_help=True, help="Polite crawling (ADR-0008, ADR-0011).")
 catalog_app = typer.Typer(no_args_is_help=True, help="Build the catalog from stored snapshots.")
 pricing_app = typer.Typer(no_args_is_help=True, help="All-in quotes from stored observations.")
+er_app = typer.Typer(no_args_is_help=True, help="Entity resolution: candidates, gold set, eval.")
 app.add_typer(llm_app, name="llm")
 app.add_typer(crawl_app, name="crawl")
 app.add_typer(catalog_app, name="catalog")
 app.add_typer(pricing_app, name="pricing")
+app.add_typer(er_app, name="er")
 
 DEFAULT_SMOKE_BUDGET_USD = "0.05"
 
@@ -291,6 +296,114 @@ def catalog_places() -> None:
         return True
 
     asyncio.run(_with_container(run))
+
+
+@catalog_app.command("embed-photos")
+def catalog_embed_photos(
+    platforms: Annotated[
+        list[str] | None, typer.Argument(help="Platforms; default: all registered.")
+    ] = None,
+) -> None:
+    """Embed every not-yet-embedded photo image with the local image model (zero network)."""
+
+    async def run(container: Container) -> bool:
+        chosen = platforms or sorted(container.crawl.adapters)
+        report = await container.embed_photos().run(chosen)
+        typer.echo(
+            f"model={report.model_id} images={report.images} "
+            f"already_embedded={report.already_embedded} embedded={report.embedded} "
+            f"unreadable={report.unreadable}"
+        )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@er_app.command("match")
+def er_match() -> None:
+    """Blocking + evidence + rule scores for all platforms; replaces the current candidates."""
+
+    async def run(container: Container) -> bool:
+        platforms = sorted(container.crawl.adapters)
+        result = await (await container.match_listings(platforms)).run(platforms)
+        counts = " ".join(f"{k}={v}" for k, v in sorted(result.counts.items()))
+        typer.echo(f"run={result.id} dataset={result.dataset_hash[:12]} {counts}")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@er_app.command("queue")
+def er_queue(
+    name: Annotated[str, typer.Option(help="Queue name (used once).")] = "gold-v1",
+) -> None:
+    """Draw the stratified labelling queue from the current candidates."""
+
+    async def run(container: Container) -> bool:
+        try:
+            items = await container.build_label_queue().run(name)
+        except QueueExists:
+            typer.echo(f"queue {name!r} already exists; choose a new name", err=True)
+            return False
+        strata: dict[str, int] = {}
+        for item in items:
+            strata[item.stratum] = strata.get(item.stratum, 0) + 1
+        typer.echo(f"queue={name} pairs={len(items)}")
+        for stratum, count in sorted(strata.items()):
+            size = next(i.stratum_size for i in items if i.stratum == stratum)
+            typer.echo(f"  {stratum:<22} {count:>4} of {size}")
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@er_app.command("evaluate")
+def er_evaluate(
+    queue: Annotated[str, typer.Option(help="Queue name.")] = "gold-v1",
+    labeler: Annotated[str, typer.Option(help="Whose labels.")] = "owner",
+) -> None:
+    """Precision/recall with Wilson 95% intervals against the labels (zero network)."""
+
+    async def run(container: Container) -> bool:
+        report = await container.evaluate_matcher().run(queue, labeler)
+        typer.echo(_render_evaluation(report))
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+def _interval(interval: Interval) -> str:
+    if interval.estimate is None:
+        return "n/a"
+    return f"{interval.estimate:.1%} [{interval.low:.1%}, {interval.high:.1%}]"
+
+
+def _render_evaluation(report: EvaluationReport) -> str:
+    lines = [
+        f"queue={report.queue} labeler={report.labeler} labelled={report.labelled}/{report.queued}"
+        f" unsure={_interval(report.unsure)}",
+        f"run={report.run.id if report.run else '-'} "
+        f"dataset={report.run.dataset_hash[:12] if report.run else '-'}",
+        f"blocking recall on gold matches: {_interval(report.blocking_recall)}",
+    ]
+    point = report.operating_point
+    if point is None:
+        lines.append("operating point: none meets precision >= 95% with lower bound >= 92%")
+    else:
+        lines.append(
+            f"operating point: score >= {point.threshold:g} precision={_interval(point.precision)}"
+            f" recall={_interval(point.recall)} tp={point.true_positives} "
+            f"fp={point.false_positives} fn={point.false_negatives} tn={point.true_negatives}"
+        )
+    for metrics in report.curve:
+        lines.append(
+            f"  score >= {metrics.threshold:>4g}: precision={_interval(metrics.precision)} "
+            f"recall={_interval(metrics.recall)}"
+        )
+    for stratum, counts in report.labels_by_stratum.items():
+        lines.append(f"  {stratum:<22} {counts}")
+    return "\n".join(lines)
 
 
 @pricing_app.command("quote")

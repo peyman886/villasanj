@@ -13,12 +13,12 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-default-groups --no-install-project
 
 COPY backend/src ./src
 COPY backend/alembic.ini ./
 COPY backend/migrations ./migrations
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-editable
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-default-groups --no-editable
 
 COPY config /app/config
 

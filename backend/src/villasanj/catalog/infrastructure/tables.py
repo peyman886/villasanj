@@ -13,7 +13,7 @@ from sqlalchemy import (
     Text,
     Uuid,
 )
-from sqlalchemy.dialects.postgresql import BIGINT, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, BIGINT, JSONB, REAL
 
 SCHEMA = "catalog"
 
@@ -113,5 +113,16 @@ photo = Table(
     Column("dhash", BIGINT, nullable=False),
     Column("observed_at", DateTime(timezone=True), nullable=False),
     PrimaryKeyConstraint("platform", "external_id", "position", name="pk_photo"),
+    schema=SCHEMA,
+)
+
+photo_embedding = Table(
+    "photo_embedding",
+    metadata,
+    Column("sha256", Text, nullable=False),
+    Column("model_id", Text, nullable=False),
+    Column("vector", ARRAY(REAL), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("sha256", "model_id", name="pk_photo_embedding"),
     schema=SCHEMA,
 )

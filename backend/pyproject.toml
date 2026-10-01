@@ -41,6 +41,15 @@ dev = [
     "ruff>=0.8",
     "testcontainers>=4.8",
 ]
+ml = [
+    "torch>=2.14.1",
+    "transformers>=5.18.0",
+]
+
+# ML packages (local image embeddings, ADR-0012) are installed for development and batch jobs,
+# never in the API image.
+[tool.uv]
+default-groups = ["dev", "ml"]
 
 [build-system]
 requires = ["hatchling"]
@@ -89,10 +98,11 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "-ra --strict-markers -m 'not live_llm and not integration'"
+addopts = "-ra --strict-markers -m 'not live_llm and not integration and not ml'"
 markers = [
     "live_llm: calls the real AvalAI API (opt-in, costs money; run with `make test-live`)",
     "integration: needs Docker (testcontainers); run with `make test-integration`",
+    "ml: loads real model weights (downloads once); run with `make test-ml`",
 ]
 
 [tool.coverage.run]

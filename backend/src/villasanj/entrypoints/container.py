@@ -7,10 +7,21 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from villasanj.catalog.application.embeddings import EmbedPhotos, ImageEmbedder
 from villasanj.catalog.application.ingest import IngestListingSnapshots
 from villasanj.catalog.application.photos import EnqueueListingPhotos, FingerprintPhotos
+from villasanj.catalog.infrastructure.dinov2 import DinoV2Embedder
 from villasanj.catalog.infrastructure.imaging import ImagehashHasher
-from villasanj.catalog.infrastructure.repositories import PgListingRepository, PgPhotoRepository
+from villasanj.catalog.infrastructure.repositories import (
+    PgEmbeddingStore,
+    PgListingRepository,
+    PgPhotoRepository,
+)
+from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
+from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
+from villasanj.entity_resolution.application.matching import MatchListings
+from villasanj.entity_resolution.infrastructure.photo_index import NumpyPhotoIndex
+from villasanj.entity_resolution.infrastructure.repositories import PgCandidateStore, PgLabelStore
 from villasanj.ingestion.application.crawl import CrawlPlatform, SnapshotReplayFetcher
 from villasanj.ingestion.application.polite_fetcher import PoliteFetcher
 from villasanj.ingestion.application.ports import Fetcher, SourceAdapter
@@ -88,6 +99,7 @@ class Container:
     listings: PgListingRepository
     health: CheckHealth
     http_fetchers: list[HttpxFetcher] = field(default_factory=list)
+    _image_embedder: ImageEmbedder | None = None
 
     def catalog_ingest(self) -> IngestListingSnapshots:
         return IngestListingSnapshots(
@@ -101,6 +113,45 @@ class Container:
         return FingerprintPhotos(
             self.crawl.snapshots, self.blobs, ImagehashHasher(), PgPhotoRepository(self.engine)
         )
+
+    def image_embedder(self) -> ImageEmbedder:
+        """Local DINOv2 (ADR-0012). Loading the weights is deferred to the first embedding."""
+        if self._image_embedder is None:
+            self._image_embedder = DinoV2Embedder()
+        return self._image_embedder
+
+    def embed_photos(self) -> EmbedPhotos:
+        return EmbedPhotos(
+            self.crawl.snapshots,
+            self.blobs,
+            self.image_embedder(),
+            PgEmbeddingStore(self.engine, self.clock),
+        )
+
+    async def photo_index(self, platforms: list[str]) -> NumpyPhotoIndex:
+        model_id = self.image_embedder().model_id
+        photos = await PgPhotoRepository(self.engine).photos(platforms)
+        vectors = await PgEmbeddingStore(self.engine, self.clock).vectors(model_id)
+        return NumpyPhotoIndex(photos, vectors, model_id)
+
+    def candidates(self) -> PgCandidateStore:
+        return PgCandidateStore(self.engine)
+
+    def labels(self) -> PgLabelStore:
+        return PgLabelStore(self.engine, self.clock)
+
+    async def match_listings(self, platforms: list[str]) -> MatchListings:
+        index = await self.photo_index(platforms)
+        return MatchListings(self.listings, index, self.candidates(), self.clock)
+
+    def build_label_queue(self) -> BuildLabelQueue:
+        return BuildLabelQueue(self.candidates(), self.labels())
+
+    def labeling(self) -> LabelingSession:
+        return LabelingSession(self.labels(), self.listings, self.clock)
+
+    def evaluate_matcher(self) -> EvaluateMatcher:
+        return EvaluateMatcher(self.candidates(), self.labels())
 
     def adapter(self, platform: str) -> SourceAdapter:
         try:

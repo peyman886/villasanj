@@ -36,3 +36,13 @@ class ListingPhoto:
     sha256: str
     fingerprint: PerceptualFingerprint
     observed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PhotoEmbedding:
+    """An image's vector under one model. Keyed by image content, so identical photos on several
+    listings are embedded once and never recomputed."""
+
+    sha256: str
+    model_id: str
+    vector: tuple[float, ...]

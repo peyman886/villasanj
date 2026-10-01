@@ -7,12 +7,13 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from villasanj.catalog.infrastructure.tables import metadata as catalog_metadata
+from villasanj.entity_resolution.infrastructure.tables import metadata as er_metadata
 from villasanj.ingestion.infrastructure.tables import metadata as ingestion_metadata
 from villasanj.shared.infrastructure.db.tables import metadata as ops_metadata
 from villasanj.shared.infrastructure.settings import Settings
 
 config = context.config
-target_metadata = [ops_metadata, ingestion_metadata, catalog_metadata]
+target_metadata = [ops_metadata, ingestion_metadata, catalog_metadata, er_metadata]
 
 
 def _database_url() -> str:

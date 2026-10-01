@@ -5,7 +5,7 @@ WEB_PORT ?= $(or $(VILLASANJ_WEB_PORT),3300)
 JOB ?= llm-smoke
 
 .DEFAULT_GOAL := help
-.PHONY: help setup build up down logs ps health migrate test test-integration test-live lint fmt \
+.PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live lint fmt \
 	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-status reparse report match eval eval-hypotheses
 
 help: ## Show available targets
@@ -51,6 +51,9 @@ test: ## Unit, contract and architecture tests (no network, no Docker); domain c
 
 test-integration: ## Integration tests against a throwaway Postgres (needs Docker)
 	cd backend && uv run pytest -m integration -q
+
+test-ml: ## Opt-in tests with the real local image model (downloads pinned weights once)
+	cd backend && uv run pytest -m ml -q
 
 test-live: ## Opt-in live AvalAI smoke tests (real calls, capped at $0.05)
 	cd backend && uv run pytest -m live_llm -q -s

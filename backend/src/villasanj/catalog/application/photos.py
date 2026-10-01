@@ -35,6 +35,12 @@ class PhotoRepository(Protocol):
     async def save(self, photo: ListingPhoto) -> None: ...
 
 
+class PhotoReader(Protocol):
+    async def photos(self, platforms: Sequence[str]) -> list[ListingPhoto]:
+        """Fingerprinted photos of these platforms, ordered by listing and position."""
+        ...
+
+
 @dataclass(frozen=True, slots=True)
 class FingerprintReport:
     platform: str
