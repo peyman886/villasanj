@@ -144,3 +144,13 @@ explanation keep the default until their own bake-offs.
 Lesson for estimates: the dry-run's "worst case" assumes one attempt per request, so a truncated
 reasoning call plus its retry can exceed it. Tasks on thinking models need a measured
 `expected_output_tokens` before a batch is priced.
+
+## Amendment (explanations, 2026-10-02): `reasoning_effort = "low"` for `explanation`
+
+With the default effort, a retried explanation was truncated twice at the 800-token cap
+(796 output tokens each, $0.0034 per attempt) before an answer came back; the search request took
+~8 s. With `low`, three searches gave 0 reasoning tokens, 48–61 output tokens, ~$0.0005 per
+explanation, no truncation, and the same factual content (the verifier passed all three).
+Latency was 2.4–5.4 s, so M10 criterion 4 (p95 ≤ 4 s uncached) is **not** guaranteed by the
+setting: it depends on the provider's response time and is measured on the real query set in M10.
+Cached explanations are instant. Provisional, like the summary setting.

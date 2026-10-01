@@ -70,6 +70,100 @@
         "title": "CalendarNightOut",
         "type": "object"
       },
+      "ContributionOut": {
+        "properties": {
+          "component": {
+            "title": "Component",
+            "type": "string"
+          },
+          "normalized": {
+            "title": "Normalized",
+            "type": "number"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "component",
+          "normalized",
+          "weight",
+          "points"
+        ],
+        "title": "ContributionOut",
+        "type": "object"
+      },
+      "DatesOut": {
+        "properties": {
+          "caveats": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Caveats",
+            "type": "array"
+          },
+          "check_in": {
+            "title": "Check In",
+            "type": "string"
+          },
+          "check_out": {
+            "title": "Check Out",
+            "type": "string"
+          },
+          "flexible": {
+            "title": "Flexible",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_in",
+          "check_out",
+          "text",
+          "flexible",
+          "caveats"
+        ],
+        "title": "DatesOut",
+        "type": "object"
+      },
+      "ExplanationOut": {
+        "properties": {
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/SegmentOut"
+            },
+            "title": "Segments",
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "llm",
+              "template"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "text",
+          "segments"
+        ],
+        "title": "ExplanationOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -660,6 +754,104 @@
         "title": "ProvenanceOut",
         "type": "object"
       },
+      "ResultOut": {
+        "properties": {
+          "cautions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cautions",
+            "type": "array"
+          },
+          "confirmed_features": {
+            "title": "Confirmed Features",
+            "type": "integer"
+          },
+          "contributions": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionOut"
+            },
+            "title": "Contributions",
+            "type": "array"
+          },
+          "external_id": {
+            "title": "External Id",
+            "type": "string"
+          },
+          "listing_id": {
+            "title": "Listing Id",
+            "type": "string"
+          },
+          "photo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "platform_name": {
+            "title": "Platform Name",
+            "type": "string"
+          },
+          "price_per_person_night_toman": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Per Person Night Toman"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total_provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          }
+        },
+        "required": [
+          "listing_id",
+          "platform",
+          "external_id",
+          "platform_name",
+          "title",
+          "photo",
+          "total",
+          "total_provenance",
+          "price_per_person_night_toman",
+          "confirmed_features",
+          "score",
+          "contributions",
+          "cautions"
+        ],
+        "title": "ResultOut",
+        "type": "object"
+      },
       "ReviewOut": {
         "properties": {
           "host_replied": {
@@ -771,6 +963,158 @@
           "guests"
         ],
         "title": "ScenarioOut",
+        "type": "object"
+      },
+      "SearchIn": {
+        "properties": {
+          "query": {
+            "maxLength": 300,
+            "minLength": 2,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchIn",
+        "type": "object"
+      },
+      "SearchOut": {
+        "properties": {
+          "budget_readings": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Readings"
+          },
+          "dates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatesOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "excluded": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Excluded",
+            "type": "object"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExplanationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "intent": {
+            "additionalProperties": true,
+            "title": "Intent",
+            "type": "object"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "places": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Places",
+            "type": "array"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ResultOut"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "total_results": {
+            "title": "Total Results",
+            "type": "integer"
+          },
+          "unresolved_places": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unresolved Places",
+            "type": "array"
+          }
+        },
+        "required": [
+          "query",
+          "intent",
+          "dates",
+          "missing",
+          "places",
+          "unresolved_places",
+          "budget_readings",
+          "excluded",
+          "total_results",
+          "results",
+          "explanation"
+        ],
+        "title": "SearchOut",
+        "type": "object"
+      },
+      "SegmentOut": {
+        "properties": {
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProvenanceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "slot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slot"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "slot",
+          "provenance"
+        ],
+        "title": "SegmentOut",
         "type": "object"
       },
       "SourceOut": {
@@ -1274,6 +1618,48 @@
         "summary": "Get Scenarios",
         "tags": [
           "scenarios"
+        ]
+      }
+    },
+    "/search": {
+      "post": {
+        "description": "A Persian query to ranked listings with reasons, and why the first one fits.",
+        "operationId": "search_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "search"
         ]
       }
     }

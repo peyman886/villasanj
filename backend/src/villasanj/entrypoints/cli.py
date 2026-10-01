@@ -24,7 +24,7 @@ from villasanj.catalog.infrastructure.repositories import (
     PgPhotoStatsQuery,
     PgPlaceNameQuery,
 )
-from villasanj.discovery.application.explanation import ExplainChoice, build_slots
+from villasanj.discovery.application.explanation import ExplainChoice, explain_first
 from villasanj.discovery.application.hypotheses import render_markdown
 from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.domain.dates import (
@@ -39,7 +39,6 @@ from villasanj.discovery.domain.dates import (
 )
 from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.enrichment.application.features import MeasureFeatureClaims
-from villasanj.enrichment.domain.features import Feature
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
@@ -673,24 +672,13 @@ def discovery_search(
                 f"  {r.confirmed}/{len(intent.features)} {r.score:.3f} {r.candidate.id:<16} "
                 f"{price:<24} [{parts}] cautions={cautions} | {listing.title_norm[:40]}"
             )
-        if explain and ranking.results and result.dates is not None:
-            first = ranking.results[0]
-            second = ranking.results[1] if len(ranking.results) > 1 else None
-            listing = result.listings[first.candidate.id]
-            adapter = container.crawl.adapters.get(listing.id.platform)
-            slots = build_slots(
-                first,
-                second,
-                result.offers[first.candidate.id],
-                listing,
-                adapter.profile.display_name if adapter else listing.id.platform,
-                result.dates.window,
-                intent.guests,
-                [Feature(f) for f in intent.features],
-                container.clock.now(),
+        if explain:
+            names = {p: a.profile.display_name for p, a in container.crawl.adapters.items()}
+            why = await explain_first(
+                ExplainChoice(container.llm.client), result, names, container.clock.now(), ctx
             )
-            why = await ExplainChoice(container.llm.client).explain(query, slots, ctx)
-            typer.echo(f"why ({why.source}, retried={why.retried}): {why.rendered.text}")
+            if why is not None:
+                typer.echo(f"why ({why.source}, retried={why.retried}): {why.rendered.text}")
         spent = await container.ledger.spent_usd(ctx.job_id)
         typer.echo(f"job={ctx.job_id} spent=${spent:.6f}")
         return True

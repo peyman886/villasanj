@@ -81,6 +81,7 @@ class ViolationCode(StrEnum):
     NUMBER_NOT_IN_SOURCE = "number_not_in_source"  # structured output with a number nobody said
     INCOMPLETE_DATE = "incomplete_date"  # a date expression missing a part it needs
     TOO_FEW_FACTS = "too_few_facts"  # an explanation that does not rest on the facts given
+    STATE_AS_FACT = "state_as_fact"  # «در دسترس است»: an observation stated as a state (rule 6)
 
 
 @dataclass(frozen=True, slots=True)

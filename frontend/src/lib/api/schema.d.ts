@@ -178,6 +178,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search
+         * @description A Persian query to ranked listings with reasons, and why the first one fits.
+         */
+        post: operations["search_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -198,6 +218,42 @@ export interface components {
             night: string;
             price: components["schemas"]["MoneyOut"] | null;
             provenance: components["schemas"]["ProvenanceOut"];
+        };
+        /** ContributionOut */
+        ContributionOut: {
+            /** Component */
+            component: string;
+            /** Normalized */
+            normalized: number;
+            /** Points */
+            points: number;
+            /** Weight */
+            weight: number;
+        };
+        /** DatesOut */
+        DatesOut: {
+            /** Caveats */
+            caveats: string[];
+            /** Check In */
+            check_in: string;
+            /** Check Out */
+            check_out: string;
+            /** Flexible */
+            flexible: boolean;
+            /** Text */
+            text: string;
+        };
+        /** ExplanationOut */
+        ExplanationOut: {
+            /** Segments */
+            segments: components["schemas"]["SegmentOut"][];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "llm" | "template";
+            /** Text */
+            text: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -382,6 +438,33 @@ export interface components {
             snapshot_id: string | null;
             source: components["schemas"]["SourceOut"] | null;
         };
+        /** ResultOut */
+        ResultOut: {
+            /** Cautions */
+            cautions: string[];
+            /** Confirmed Features */
+            confirmed_features: number;
+            /** Contributions */
+            contributions: components["schemas"]["ContributionOut"][];
+            /** External Id */
+            external_id: string;
+            /** Listing Id */
+            listing_id: string;
+            /** Photo */
+            photo: string | null;
+            /** Platform */
+            platform: string;
+            /** Platform Name */
+            platform_name: string;
+            /** Price Per Person Night Toman */
+            price_per_person_night_toman: number | null;
+            /** Score */
+            score: number;
+            /** Title */
+            title: string;
+            total: components["schemas"]["MoneyOut"] | null;
+            total_provenance: components["schemas"]["ProvenanceOut"];
+        };
         /** ReviewOut */
         ReviewOut: {
             /** Host Replied */
@@ -416,6 +499,48 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
+        };
+        /** SearchIn */
+        SearchIn: {
+            /** Query */
+            query: string;
+        };
+        /** SearchOut */
+        SearchOut: {
+            /** Budget Readings */
+            budget_readings: {
+                [key: string]: number;
+            } | null;
+            dates: components["schemas"]["DatesOut"] | null;
+            /** Excluded */
+            excluded: {
+                [key: string]: number;
+            };
+            explanation: components["schemas"]["ExplanationOut"] | null;
+            /** Intent */
+            intent: {
+                [key: string]: unknown;
+            };
+            /** Missing */
+            missing: string[];
+            /** Places */
+            places: string[];
+            /** Query */
+            query: string;
+            /** Results */
+            results: components["schemas"]["ResultOut"][];
+            /** Total Results */
+            total_results: number;
+            /** Unresolved Places */
+            unresolved_places: string[];
+        };
+        /** SegmentOut */
+        SegmentOut: {
+            provenance: components["schemas"]["ProvenanceOut"] | null;
+            /** Slot */
+            slot: string | null;
+            /** Text */
+            text: string;
         };
         /** SourceOut */
         SourceOut: {
@@ -704,6 +829,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScenarioOut"][];
+                };
+            };
+        };
+    };
+    search_search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

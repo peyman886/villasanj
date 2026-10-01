@@ -122,6 +122,7 @@ async def test_a_verified_llm_text_is_rendered() -> None:
     result = await ExplainChoice(client).explain("ویلا با استخر", slots(), CTX)
     assert (result.source, result.retried) == (Source.LLM, False)
     assert "{" not in result.rendered.text
+    assert result.slotted == GOOD
     (request,) = client.requests
     assert request.task is LLMTask.EXPLANATION
     assert "F1: the stay = " in request.messages[-1].text
@@ -132,6 +133,7 @@ async def test_digits_or_too_few_facts_are_retried_then_replaced_by_the_template
     result = await ExplainChoice(client).explain("ویلا", slots(), CTX)
     assert (result.source, result.retried) == (Source.TEMPLATE, True)
     assert result.rendered.text == template_only(slots()).text
+    assert result.slotted == slots().template
     assert result.cost_usd == Decimal("0.004")
     feedback = client.requests[1].messages[-1].text
     assert "digit_outside_slot" in feedback
@@ -177,3 +179,9 @@ def test_the_availability_fact_says_how_old_the_observation_is() -> None:
         old = Offer(quote_stay(LISTING, nights, REQUEST, FINAL), NOW)
         built = build_slots(top, second, old, LISTING, "پلتفرم", REQUEST.stay, 4, [], NOW)
         assert any(f"آزاد بود ({said})" in f.text for f in built.facts.values())
+
+
+def test_availability_stated_as_a_state_is_rejected() -> None:
+    codes = [v.code for v in check("این ویلا با {F3} برای {F1} در دسترس است.", slots())]
+    assert codes == [ViolationCode.STATE_AS_FACT]
+    assert check("{F3} برای {F1}؛ {F4}.", slots()) == []

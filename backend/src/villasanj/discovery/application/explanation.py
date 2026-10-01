@@ -10,7 +10,8 @@ deterministic template is rendered instead, so a wrong number can never be shown
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -19,6 +20,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field
 
 from villasanj.catalog.domain.listing import Listing
+from villasanj.discovery.application.search import SearchResult
 from villasanj.discovery.domain.dates import describe_fa
 from villasanj.discovery.domain.ranking import Caution, Ranked
 from villasanj.enrichment.domain.features import Feature, FeatureEvidence
@@ -33,7 +35,7 @@ from villasanj.shared.application.llm.types import (
     TextPart,
 )
 from villasanj.shared.domain.fa_format import fa_decimal, fa_int, fa_toman
-from villasanj.shared.domain.persian_text import ZWNJ
+from villasanj.shared.domain.persian_text import ZWNJ, normalize_persian
 from villasanj.shared.domain.provenance import Provenance, ProvenanceMethod
 from villasanj.shared.domain.slots import (
     SLOT,
@@ -122,6 +124,7 @@ class Slots:
 
 @dataclass(frozen=True, slots=True)
 class Explanation:
+    slotted: str  # the verified text with its slots, so a UI can link each value to its source
     rendered: RenderedText
     slots: Slots
     source: Source
@@ -241,8 +244,19 @@ def _value(slots: Slots, slot: str) -> str:
     return slots.comparisons[slot].text
 
 
+# Availability is an observation with an age (product rule 6): prose may not state it as a state;
+# the availability fact says when it was observed.
+_STATE_AS_FACT = re.compile(
+    "(در دسترس (?:است|هست|می باشد)|آزاد (?:است|هست)|خالی (?:است|هست)|قابل رزرو (?:است|هست))"
+)
+
+
 def check(text: str, slots: Slots) -> list[Violation]:
     violations = verify_text(text, slots.facts, slots.comparisons)
+    prose = normalize_persian(SLOT.sub(" ", text))
+    violations.extend(
+        Violation(ViolationCode.STATE_AS_FACT, m.group(0)) for m in _STATE_AS_FACT.finditer(prose)
+    )
     used = set(SLOT.findall(text)) & set(slots.facts)
     if len(used) < min(MIN_SLOTS, len(slots.facts)):
         violations.append(Violation(ViolationCode.TOO_FEW_FACTS, f"uses {len(used)}"))
@@ -281,9 +295,40 @@ class ExplainChoice:
             violations = check(text, slots)
         if violations:
             rendered = render(slots.template, slots.facts, slots.comparisons)
-            return Explanation(rendered, slots, Source.TEMPLATE, retried, tuple(models), cost)
+            return Explanation(
+                slots.template, rendered, slots, Source.TEMPLATE, retried, tuple(models), cost
+            )
         rendered = render(text, slots.facts, slots.comparisons)
-        return Explanation(rendered, slots, Source.LLM, retried, tuple(models), cost)
+        return Explanation(text, rendered, slots, Source.LLM, retried, tuple(models), cost)
+
+
+async def explain_first(
+    explainer: ExplainChoice,
+    result: SearchResult,
+    platform_names: Mapping[str, str],
+    now: datetime,
+    ctx: JobContext,
+) -> Explanation | None:
+    """Why the first result of a search fits (``None`` when there is nothing to explain)."""
+    ranking, dates = result.ranking, result.dates
+    if ranking is None or not ranking.results or dates is None:
+        return None
+    first = ranking.results[0]
+    second = ranking.results[1] if len(ranking.results) > 1 else None
+    listing = result.listings[first.candidate.id]
+    intent = result.understanding.intent
+    slots = build_slots(
+        first,
+        second,
+        result.offers[first.candidate.id],
+        listing,
+        platform_names.get(listing.id.platform, listing.id.platform),
+        dates.window,
+        intent.guests,
+        [Feature(f) for f in intent.features],
+        now,
+    )
+    return await explainer.explain(result.understanding.query, slots, ctx)
 
 
 def template_only(slots: Slots) -> RenderedText:
