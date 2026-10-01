@@ -68,7 +68,7 @@ ban-relative-imports = "all"
 python_version = "3.12"
 strict = true
 mypy_path = "src"
-packages = ["villasanj", "tests"]
+files = ["src/villasanj", "tests", "migrations"]
 plugins = ["pydantic.mypy"]
 warn_unreachable = true
 
