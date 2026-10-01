@@ -76,6 +76,17 @@ with attribution and deep links.
 - `www.mizboon.com` serves an expired TLS certificate. We do not disable certificate checks, so it
   was not audited further.
 
+## Crawl-time observations (M2)
+
+| Host | robots.txt | Notes |
+|---|---|---|
+| `www.jabama.com` | no rules | Listings, calendars and prices are embedded in Next.js flight data; full pages need `Accept: text/html`. |
+| `cdn.jabama.com` | `User-Agent: *` (no rules) | Photos only as 1632×1224 originals. |
+| `gw.jabama.com` | not requested | API gateway seen during reconnaissance; not needed, so never crawled. |
+| `www.shab.ir` | as audited above | House pages embed listing data in `__NEXT_DATA__`. |
+| `api.shab.ir` | **404** (RFC 9309: no restrictions) | Calendar endpoint keyed by Jalali dates. |
+| `s3gw.shab.ir` | checked by the crawler on first photo request | Photos at 749 px. |
+
 ## Consequences for the plan
 
 Two of the four planned platforms (jajiga, otaghak) forbid crawling, and so does the largest

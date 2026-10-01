@@ -125,8 +125,15 @@ make ci                # lint + test + test-integration
 make dry-run JOB=llm-smoke  # price an LLM job with zero calls (stack must be up)
 make llm-smoke         # live smoke through the stack; spend persisted in ops.llm_call
 make llm-models        # refresh config/llm-models.json from /v1/models (free)
-make seed/crawl/reparse (M2), make match/eval/eval-hypotheses (M3): not implemented yet
+make crawl P=jabama [LIVE=1] [MAX=50]   # default replays snapshots; LIVE=1 needs CRAWL__CONTACT
+make crawl-status P=jabama              # frontier counts
+make reparse                            # rebuild catalog from snapshots (zero network)
+make match/eval/eval-hypotheses (M3): not implemented yet
 ```
+
+Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --kind listing`
+(one polite fetch + snapshot), `crawl run <platform> --live --kind photo` (photo hosts only),
+`catalog ingest`, `catalog coverage`, `catalog enqueue-photos`, `catalog fingerprint-photos`.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.
 On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0.1:5433).
@@ -147,6 +154,14 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
 - pre-commit runs from the repo root (`backend/.venv/bin/pre-commit`); it blocks commits on lint/format
   failures, so run `make fmt` before committing.
 - Research files are excluded from whitespace fixers so the owner's files stay untouched.
+- **Clock:** the Mac's local time is Tehran (+03:30); logs and DB timestamps are UTC. Compare like with
+  like before concluding that a background job is stuck.
+- **Platforms differ in units and shapes:** jabama money is rial, shab money is toman; shab's calendar
+  API returns two payload shapes and keys days by Jalali month; jabama's `disabled` nights do not say
+  whether they are booked or closed (stored as `unavailable`).
+- **jabama needs `Accept: text/html`** or it serves a page shell without listings (HttpxFetcher sets it).
+- **Never commit the probe/recon by-products**: raw responses live in `var/blobs` and `data/audit`
+  (git-ignored); fixtures are trimmed and scrubbed (no host or reviewer names).
 
 ## Tooling preferences (owner's global instructions)
 

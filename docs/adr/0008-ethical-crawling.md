@@ -58,3 +58,23 @@ requests. At 1 request per 3 s that is ≈ 6 h per platform, plus photos from CD
 - (−) The full crawl takes hours per platform; it is scheduled, resumable (Postgres frontier) and
   measured.
 - (−) If jabama forbids crawling, the OCP demo uses otaghak or shab (ROADMAP M2 Plan B).
+
+## Amendment (M2 implementation, 2026-10-01)
+
+1. **Accept header.** The fetcher sends standard content negotiation
+   (`Accept: text/html,…;q=0.9,*/*;q=0.8`). jabama serves a reduced page shell to `Accept: */*` (149 KB
+   without listings vs 729 KB with them). The user agent still identifies the bot. Nothing else about
+   the request imitates a browser, and cookies are never stored.
+2. **Reconnaissance rendering.** To discover where client-rendered data comes from, a page may be
+   rendered once in a browser with the bot user agent and **all third-party trackers blocked**
+   (analytics, ad, error-reporting and retargeting hosts answered locally with 204). The production
+   crawler only uses plain HTTP to the endpoints found this way, and only after robots.txt allows
+   them. The platforms' own ad-impression endpoints are never called.
+3. **Photos are fetched on demand, not in bulk.** jabama publishes only 1632×1224 originals (~330 KB)
+   and no smaller variant, so bulk download would mean ~7 GB and ~17 h of CDN load for ~3.5k listings.
+   Photos are fetched for the listings entity resolution actually needs: every shab listing (749 px
+   images, within the ≤ 800 px rule) and jabama listings that are blocking candidates for some shab
+   listing (decided in M3). Photo hosts are crawled by their own process (`--kind photo`) so each
+   host keeps its own pacing.
+4. **Hosts without robots.txt.** `api.shab.ir/robots.txt` answers 404, which RFC 9309 treats as "no
+   restrictions". The 404 response itself is stored as a snapshot.

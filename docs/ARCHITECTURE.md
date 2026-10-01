@@ -363,8 +363,8 @@ Key domain rules:
 
 | Port (layer) | Purpose | Adapters (planned) |
 |---|---|---|
-| `SourceAdapter` (ingestion.application) | `profile()`, `seed_requests(region)`, `follow_ups(snapshot)`, `parse(snapshot) → ParsedPage`. **No I/O.** Contract-tested on fixtures. | `jajiga`, `jabama`, `otaghak`, `shab` (+ `homsa` as future OCP demo). Registered via the `villasanj.sources` entry-point group. |
-| `Fetcher` (ingestion.application) | Fetch a `PageRequest` → `FetchResult`. | `HttpxFetcher` (default), `PlaywrightFetcher` (only for pages that need JS), wrapped by `PoliteFetcher` (robots + rate limit + backoff + block detection). `SnapshotReplayFetcher` for offline mode. |
+| `SourceAdapter` (ingestion.application) | `profile`, `seed_requests(region)`, `discover(page, region)`, `parse_listing(page) → ParsedListing`, `parse_calendar(page) → ParsedCalendar` (for platforms that serve calendars separately). **No I/O.** Contract-tested on trimmed fixtures. | `jabama`, `shab` (built in M2); `jajiga`/`otaghak`/`mihmansho` only with written permission (ADR-0011). Registered via the `villasanj.sources` entry-point group. |
+| `Fetcher` (ingestion.application) | Fetch one `PageRequest` → `FetchedPage`; never follows redirects itself. | `HttpxFetcher` (standard `Accept`, no cookies kept), wrapped by `PoliteFetcher` (host allow-list, RFC 9309 robots re-checked per redirect hop, per-host pacing with Crawl-delay + jitter, stop-on-block). `SnapshotReplayFetcher` for offline mode. |
 | `RobotsPolicy` | Is a URL allowed for our UA? Crawl-delay? | `ProtegoRobotsPolicy` (robots.txt cached as a snapshot). |
 | `SnapshotStore` / `BlobStore` | Immutable content-addressed bytes + metadata. | `LocalFsBlobStore` (Docker volume). `S3BlobStore` only if needed ([ADR-0002](adr/0002-technology-stack.md)). |
 | Repositories + `UnitOfWork` (each context's application) | Persistence of aggregates. | SQLAlchemy 2 (async, psycopg 3). In-memory fakes for unit tests. |
@@ -400,7 +400,16 @@ Dry-run is a **planning** feature, not a fake provider. Each LLM-using use case 
 calibrated per-model estimator and the pricing snapshot, prints the report, and exits without calling
 the provider (`make dry-run JOB=llm-smoke`).
 
-### 6.2 Extension recipes (the OCP test)
+### 6.2 Published language between Ingestion and Catalog (as built in M2)
+
+`ParsedListing` (title, description, type, city, **locality**, `GeoPoint` + obfuscation radius, rooms,
+area, base/extra capacity, rating, check-in/out, instant booking, opaque host ref, cancellation text,
+VAT flag, `ParsedRateCard`, photos, amenities, platform distance claims, calendar) and `ParsedCalendar`
+(for calendars served on their own page). Money is already `Money`: each adapter knows its platform's
+unit (jabama publishes rial, shab toman). Catalog normalizes Persian text, keeps provenance, and stores
+calendar observations append-only.
+
+### 6.3 Extension recipes (the OCP test)
 
 * **New platform (e.g. Homsa):** add `ingestion/infrastructure/sources/homsa/` implementing
   `SourceAdapter`; add fixtures + contract tests; add one entry point in `pyproject.toml`; add a
@@ -449,17 +458,17 @@ Main tables (columns abbreviated; every observed value carries `snapshot_id` + `
 
 | Schema.table | Key columns |
 |---|---|
-| `ingestion.crawl_run` | id, platform, mode, started_at, finished_at, status, config_hash |
-| `ingestion.frontier` | id, platform, url, kind, params jsonb, priority, status, attempts, next_attempt_at, last_error |
-| `ingestion.snapshot` | id, platform, url, kind, request_params jsonb, fetched_at, http_status, content_type, sha256, blob_key, bytes, fetcher |
-| `catalog.listing` | id, platform, external_id (unique pair), url, title, title_norm, description, description_norm, place_id, location geography(Point), location_precision_m, rooms, base_capacity, max_capacity, area_m2, host_id, rating_avg, rating_count, first_seen_at, last_seen_at, last_snapshot_id, extras jsonb |
-| `catalog.photo` | id, listing_id, position, source_url, sha256, blob_key, width, height, phash bigint, dhash bigint |
-| `catalog.photo_embedding` | photo_id, model_id, embedding vector (partial HNSW index per model with cast to fixed dim) |
-| `catalog.review` | id, listing_id, platform_review_id, rating, text, text_norm, stayed_on, published_on, snapshot_id (no reviewer names) |
-| `catalog.calendar_observation` | listing_id, night, status, nightly_rial, observed_at, snapshot_id |
-| `catalog.rate_observation` | listing_id, kind (base/weekend/extra_guest/cleaning/…), amount_rial, basis, observed_at, snapshot_id |
-| `catalog.quote_observation` | listing_id, check_in, check_out, guests, total_rial, breakdown jsonb, observed_at, snapshot_id |
-| `catalog.place` | id, name_fa, aliases text[], kind, geom, parent_id |
+| `ingestion.crawl_run` | id, platform, live, status, report jsonb, started_at, finished_at *(built M2)* |
+| `ingestion.frontier` | id, platform, request_key (unique), kind, method, url, body, headers, context, status, attempts, next_attempt_at, last_error, discovered_from, snapshot_id *(built M2)* |
+| `ingestion.snapshot` | id, platform, request_key, kind, method, url, request_headers, request_body, context, status, final_url, headers, blob_key, size, fetcher, fetched_at, run_id *(built M2)* |
+| `catalog.listing` | (platform, external_id) PK, url, title, title_norm, description, description_norm, property_type, city_fa, city_slug, locality_fa, lat, lon, **geog** (generated PostGIS geography), location_radius_m, bedrooms, bathrooms, area_m2, base/extra capacity, rating, check-in/out, min_nights, instant_booking, host_ref, cancellation text, vat_applies, rate card (6 rial columns), photos/amenities/distance_claims jsonb, snapshot_id, observed_at *(built M2)* |
+| `catalog.calendar_observation` | (platform, external_id, night, snapshot_id) PK, availability, nightly_rial, extra_guest_rial, min_nights, is_holiday, observed_at *(built M2; append-only)* |
+| `catalog.photo` | (platform, external_id, position) PK, url, snapshot_id, sha256, width, height, phash, dhash, observed_at *(built M2)* |
+| `catalog.parse_failure` | snapshot_id PK, platform, reason *(quarantine, built M2)* |
+| `catalog.place` | gazetteer (planned; M2 keeps it as versioned config) |
+| `catalog.photo_embedding` | photo_id, model_id, embedding vector (partial HNSW index per model) *(planned M5)* |
+| `catalog.review` | listing, platform_review_id, rating, text_norm, stayed_on (no reviewer names) *(planned M10)* |
+| `catalog.quote_observation` | listing, check_in, check_out, guests, total, breakdown *(only if a platform publishes direct quotes)* |
 | `er.candidate_pair` | id, listing_a < listing_b, blocking_keys text[], created_run_id |
 | `er.match_score` | pair_id, run_id, scorer, probability, match_weight, breakdown jsonb, features jsonb |
 | `er.match_decision` | id, pair_id, verdict, decided_by, actor, confidence, rationale, evidence jsonb, created_at, supersedes_id |
