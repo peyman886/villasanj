@@ -630,6 +630,53 @@ def enrichment_summarize(
         raise typer.Exit(code=1)
 
 
+@discovery_app.command("search")
+def discovery_search(
+    query: Annotated[str, typer.Argument(help="A Persian search query.")],
+    top: Annotated[int, typer.Option(min=1, help="How many results to print.")] = 10,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "0.02",
+) -> None:
+    """Query to ranked listings with reasons (one LLM call; M8 groundwork, listing level)."""
+
+    async def run(container: Container) -> bool:
+        ctx = await container.jobs.start("search", Decimal(budget_usd), {})
+        result = await container.search().run(query, ctx)
+        await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
+        intent = result.understanding.intent
+        typer.echo(f"intent: {intent.model_dump_json(exclude_none=True)}")
+        if result.dates is not None:
+            typer.echo(
+                f"dates: {describe_fa(result.dates.window)} flexible={result.dates.flexible}"
+            )
+        places = ",".join(p.slug for p in result.places) or "-"
+        typer.echo(f"places={places} unresolved={','.join(result.unresolved_places) or '-'}")
+        if result.missing:
+            typer.echo(f"ask the user for: {','.join(result.missing)}")
+        if result.ranking is None:
+            return True
+        ranking = result.ranking
+        excluded = " ".join(f"{k}={v}" for k, v in sorted(ranking.excluded.items())) or "-"
+        typer.echo(f"kept={len(ranking.results)} excluded[{excluded}]")
+        if ranking.budget_readings:
+            readings = " ".join(f"{k}={v}" for k, v in ranking.budget_readings.items())
+            typer.echo(f"budget basis is ambiguous: ask ({readings})")
+        for r in ranking.results[:top]:
+            listing = result.listings[r.candidate.id]
+            total = r.candidate.total
+            parts = " ".join(f"{c.component}={c.points:.2f}" for c in r.contributions)
+            cautions = ",".join(sorted(r.warnings)) or "-"
+            price = _toman(total) if total else "no price"
+            typer.echo(
+                f"  {r.confirmed}/{len(intent.features)} {r.score:.3f} {r.candidate.id:<16} "
+                f"{price:<24} [{parts}] cautions={cautions} | {listing.title_norm[:40]}"
+            )
+        spent = await container.ledger.spent_usd(ctx.job_id)
+        typer.echo(f"job={ctx.job_id} spent=${spent:.6f}")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
 @discovery_app.command("holidays")
 def discovery_holidays(
     days: Annotated[int, typer.Option(help="How many days ahead to list.")] = 120,

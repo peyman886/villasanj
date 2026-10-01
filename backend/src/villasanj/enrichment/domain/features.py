@@ -11,7 +11,7 @@ pool) and whether it names a shared facility («استخر مشاع» is the com
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -126,3 +126,28 @@ def against_amenities(claim: DescriptionClaim, amenities: Mapping[Feature, bool]
         return Agreement.AMENITIES_SILENT
     claims_has = claim.polarity is Polarity.HAS
     return Agreement.AGREES if stated == claims_has else Agreement.AMENITIES_DISAGREE
+
+
+class FeatureEvidence(StrEnum):
+    LISTED = "listed"  # the platform's amenity list says yes
+    DESCRIBED = "described"  # only the description says so
+    DENIED = "denied"  # the amenity list or the description says no
+    UNKNOWN = "unknown"  # nothing said, or the two sources contradict each other
+
+
+def feature_evidence(amenity: bool | None, claims: Sequence[DescriptionClaim]) -> FeatureEvidence:
+    """One feature's evidence from the listing's amenity list and its own description claims.
+
+    Shared facilities say nothing about the villa. When the amenity list and the description
+    contradict each other, the evidence is unknown: only an uncontested statement can exclude.
+    """
+    own = {c.polarity for c in claims if not c.shared}
+    if amenity is True:
+        return FeatureEvidence.UNKNOWN if Polarity.HAS_NOT in own else FeatureEvidence.LISTED
+    if amenity is False:
+        return FeatureEvidence.UNKNOWN if Polarity.HAS in own else FeatureEvidence.DENIED
+    if Polarity.HAS_NOT in own:
+        return FeatureEvidence.DENIED
+    if Polarity.HAS in own:
+        return FeatureEvidence.DESCRIBED
+    return FeatureEvidence.UNKNOWN

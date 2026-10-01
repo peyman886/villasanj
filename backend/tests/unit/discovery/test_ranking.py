@@ -7,11 +7,10 @@ from villasanj.discovery.domain.ranking import (
     Candidate,
     Caution,
     Exclusion,
-    FeatureEvidence,
     Requirements,
     rank,
 )
-from villasanj.enrichment.domain.features import Feature
+from villasanj.enrichment.domain.features import Feature, FeatureEvidence
 from villasanj.shared.domain.money import Money, MoneyRange
 
 
@@ -101,9 +100,8 @@ def test_unknowns_stay_in_with_a_caution_and_earn_nothing() -> None:
         Caution.FEATURE_UNCONFIRMED,
     }
     assert Caution.PRICE_UNKNOWN in by_id["no-price"].warnings
-    features = {r.candidate.id: r.contributions[2] for r in ranking.results}
-    assert features["listed"].normalized == features["described"].normalized == 1.0
-    assert features["unknowns"].normalized == 0.0
+    confirmed = {r.candidate.id: r.confirmed for r in ranking.results}
+    assert confirmed == {"listed": 1, "described": 1, "unknowns": 0, "no-price": 0}
     assert by_id["no-price"].contributions[0].normalized == 0.0  # no price: no price points
 
 
@@ -149,3 +147,22 @@ def test_without_a_group_size_the_price_is_per_night() -> None:
     (only,) = rank([candidate("x", max_capacity=None)], Requirements(nights=2)).results
     assert only.price_per_person_night_toman == 5_000_000
     assert only.warnings == frozenset()  # no group size asked: capacity does not matter
+
+
+def test_confirmed_requested_features_come_before_a_better_score() -> None:
+    wants = Requirements(nights=2, guests=4, features=(Feature.POOL,))
+    ranking = rank(
+        [
+            candidate("cheap-unconfirmed", toman(4_000_000), rating=5.0),
+            candidate(
+                "dear-with-pool",
+                toman(16_000_000),
+                rating=3.0,
+                features={Feature.POOL: FeatureEvidence.LISTED},
+            ),
+        ],
+        wants,
+    )
+    first, second = ranking.results
+    assert first.candidate.id == "dear-with-pool"
+    assert first.score < second.score  # the score alone would have put it last

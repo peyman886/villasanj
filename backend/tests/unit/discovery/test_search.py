@@ -1,0 +1,119 @@
+"""Search end to end with fakes: intent, dates, places, offers, features, ranking."""
+
+from collections.abc import Sequence
+from dataclasses import replace
+from datetime import date
+from decimal import Decimal
+
+from tests.fakes.er import ListingsFake
+from tests.fakes.llm import FixedClock
+from tests.unit.catalog.test_reports import listing
+from tests.unit.discovery.test_holiday_calendar import SOURCES, Flags
+from tests.unit.discovery.test_understanding import ScriptedClient
+from tests.unit.pricing.test_quote import night
+from villasanj.catalog.domain.gazetteer import Gazetteer, Place, PlaceKind
+from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
+from villasanj.discovery.application.dates import BuildHolidayCalendar
+from villasanj.discovery.application.intent import Budget, DateSpec, SearchIntent
+from villasanj.discovery.application.search import Missing, SearchListings
+from villasanj.discovery.application.understanding import UnderstandQuery
+from villasanj.discovery.domain.ranking import Caution, Exclusion
+from villasanj.enrichment.application.features import AmenityMap
+from villasanj.enrichment.domain.features import Feature
+from villasanj.ingestion.domain.parsed import ParsedAmenity
+from villasanj.pricing.application.offers import OfferBook
+from villasanj.shared.application.llm.types import JobContext
+from villasanj.shared.domain.stay import DateRange
+
+CTX = JobContext("job", Decimal(1))
+THU, FRI = date(2026, 10, 1), date(2026, 10, 2)
+GAZETTEER = Gazetteer(
+    [Place("ramsar", "رامسر", PlaceKind.CITY), Place("tonekabon", "تنکابن", PlaceKind.CITY)]
+)
+POOL = ParsedAmenity("pool", "استخر", True)
+NO_POOL = ParsedAmenity("pool", "استخر", False)
+
+
+class Calendars(ListingsFake):
+    """Every listing is free on Thursday and Friday nights, at the same price."""
+
+    async def calendars(
+        self, platform: str, stay: DateRange
+    ) -> dict[ListingId, list[CalendarObservation]]:
+        return {
+            x.id: [replace(night(d), listing_id=x.id) for d in (THU, FRI)]
+            for x in self.by_id.values()
+            if x.id.platform == platform
+        }
+
+
+LISTINGS: Sequence[Listing] = [
+    listing("pool", city_fa="رامسر", amenities=(POOL,)),
+    listing("no-pool", city_fa="رامسر", description="ویلا نزدیک دریا", amenities=(NO_POOL,)),
+    # The amenity list says no pool, the description «ویلا با استخر»: contradicted, kept.
+    listing("contradicted", city_fa="رامسر", amenities=(NO_POOL,)),
+    listing("elsewhere", city_fa="تنکابن", amenities=(POOL,)),
+]
+WEEKEND = SearchIntent(
+    dates=DateSpec(kind="weekend"),
+    guest_parts=[4],
+    budget=Budget(max_toman=5_000_000, basis="whole_stay"),
+    places=["رامسر"],
+    features=["pool"],
+)
+
+
+def search(intent: SearchIntent) -> SearchListings:
+    reader = Calendars(LISTINGS)
+    clock = FixedClock()
+    return SearchListings(
+        UnderstandQuery(ScriptedClient(intent)),
+        BuildHolidayCalendar(Flags([]), SOURCES),
+        reader,
+        OfferBook(reader, {}, clock),
+        AmenityMap({"p": {"pool": Feature.POOL}}),
+        GAZETTEER,
+        ["p"],
+        clock,
+    )
+
+
+async def test_a_full_search_filters_by_place_and_feature_and_ranks() -> None:
+    result = await search(WEEKEND).run(
+        "ویلای استخردار در رامسر برای ۴ نفر آخر هفته زیر ۵ میلیون", CTX
+    )
+    assert result.dates is not None
+    assert result.dates.window == DateRange(THU, date(2026, 10, 3))
+    assert result.missing == ()
+    assert [p.slug for p in result.places] == ["ramsar"]
+    assert result.ranking is not None
+    assert [r.candidate.id for r in result.ranking.results] == ["p:pool", "p:contradicted"]
+    pool, contradicted = result.ranking.results
+    # No fee policy: every offer is open ("at least"), so it may exceed the budget (rule 1).
+    assert pool.warnings == {Caution.MAY_EXCEED_BUDGET}
+    assert contradicted.warnings == {Caution.MAY_EXCEED_BUDGET, Caution.FEATURE_UNCONFIRMED}
+    # "elsewhere" (Tonekabon) is not a candidate at all; "no-pool" is excluded with its reason.
+    assert result.ranking.excluded == {Exclusion.FEATURE_DENIED: 1}
+    assert set(result.offers) == {"p:pool", "p:no-pool", "p:contradicted"}
+    assert result.listings["p:pool"].id == ListingId("p", "pool")
+
+
+async def test_what_the_query_leaves_open_is_asked_not_guessed() -> None:
+    no_dates = await search(SearchIntent(guest_parts=[4])).run("ویلا برای ۴ نفر", CTX)
+    assert (no_dates.ranking, no_dates.missing) == (None, (Missing.DATES,))
+    nowruz = await search(SearchIntent(dates=DateSpec(kind="nowruz"))).run("نوروز", CTX)
+    assert nowruz.ranking is None
+    assert nowruz.missing == (Missing.EXACT_STAY, Missing.GUESTS)
+    past = SearchIntent(
+        dates=DateSpec(kind="jalali_day", month=7, day=1, year=1405), guest_parts=[4]
+    )
+    result = await search(past).run("۱ مهر ۱۴۰۵ برای ۴ نفر", CTX)
+    assert result.missing == (Missing.UNRESOLVABLE_DATES,)
+
+
+async def test_an_unknown_place_is_reported_and_not_used_as_a_filter() -> None:
+    intent = WEEKEND.model_copy(update={"places": ["سلمان شهر"], "features": []})
+    result = await search(intent).run("آخر هفته ویلا در سلمان شهر برای ۴ نفر تا ۵ میلیون", CTX)
+    assert result.unresolved_places == ("سلمان شهر",)
+    assert result.ranking is not None
+    assert len(result.ranking.results) == 4

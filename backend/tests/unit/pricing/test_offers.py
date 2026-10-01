@@ -57,3 +57,10 @@ async def test_unavailable_listings_count_as_their_status() -> None:
     scenario = StayScenario("weekend", "آخر هفته", STAY, (GuestCount(4),))
     (row,) = await OfferBook(reader, {}, SteppingClock()).distribution(["example"], [scenario])
     assert row.by_status == {"unavailable": 1}
+
+
+async def test_offers_quote_every_listing_of_a_platform_in_one_batch() -> None:
+    reader = StaticReader(listing(), [night(STAY.check_in), night(FRI)])
+    offers = await OfferBook(reader, {"example": FINAL}, SteppingClock()).offers("example", ask())
+    assert list(offers) == [ID]
+    assert offers[ID].kind is OfferKind.EXACT

@@ -11,9 +11,11 @@ from villasanj.enrichment.domain.features import (
     Agreement,
     DescriptionClaim,
     Feature,
+    FeatureEvidence,
     Polarity,
     against_amenities,
     extract_claims,
+    feature_evidence,
 )
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.ingestion.domain.parsed import ParsedAmenity
@@ -134,3 +136,28 @@ def test_the_project_config_loads_and_a_broken_one_fails(tmp_path: Path) -> None
     broken.write_text('[p]\ncode = "not-a-feature"\n', encoding="utf-8")
     with pytest.raises(ConfigurationError):
         load_amenity_map(broken)
+
+
+@pytest.mark.parametrize(
+    ("amenity", "polarities", "evidence"),
+    [
+        (True, [], FeatureEvidence.LISTED),
+        (False, [], FeatureEvidence.DENIED),
+        (None, [HAS], FeatureEvidence.DESCRIBED),
+        (None, [HAS_NOT], FeatureEvidence.DENIED),
+        (None, [], FeatureEvidence.UNKNOWN),
+        (True, [HAS_NOT], FeatureEvidence.UNKNOWN),  # the two sources contradict each other
+        (False, [HAS], FeatureEvidence.UNKNOWN),
+        (True, [HAS], FeatureEvidence.LISTED),
+    ],
+)
+def test_feature_evidence(
+    amenity: bool | None, polarities: list[Polarity], evidence: FeatureEvidence
+) -> None:
+    claims = [claim(p) for p in polarities]
+    assert feature_evidence(amenity, claims) is evidence
+
+
+def test_a_shared_facility_is_no_evidence_about_the_villa() -> None:
+    assert feature_evidence(None, [claim(shared=True)]) is FeatureEvidence.UNKNOWN
+    assert feature_evidence(False, [claim(shared=True)]) is FeatureEvidence.DENIED

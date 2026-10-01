@@ -9,8 +9,10 @@ Uncertainty is kept visible, never hidden: an unknown capacity, an open price th
 budget, or a requested feature nobody confirmed keeps the candidate, with a warning, and the
 feature earns no points. Only stated facts exclude.
 
-Weights are provisional (M8's retrieval and ranking eval tunes them): price per person and night
-0.5, rating 0.3, requested features 0.2; without requested features, price 0.6 and rating 0.4.
+Order: first by how many requested features are confirmed (a user who asks for a pool sees the
+villas with a confirmed pool first; a cheap one without evidence never jumps ahead), then by the
+score. The score's weights are provisional (M8's ranking eval tunes them): price per person and
+night 0.6, rating 0.4.
 """
 
 from __future__ import annotations
@@ -19,20 +21,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from villasanj.enrichment.domain.features import Feature
+from villasanj.enrichment.domain.features import Feature, FeatureEvidence
 from villasanj.shared.domain.money import MoneyRange
 
 RATING_FLOOR = 1.0  # platform scales are 1..5
 RATING_SPAN = 4.0
-WEIGHTS = {"price": 0.5, "rating": 0.3, "features": 0.2}
-WEIGHTS_WITHOUT_FEATURES = {"price": 0.6, "rating": 0.4}
-
-
-class FeatureEvidence(StrEnum):
-    LISTED = "listed"  # the platform's amenity list says yes
-    DESCRIBED = "described"  # only the description says so
-    DENIED = "denied"  # the amenity list or the description says no
-    UNKNOWN = "unknown"
+WEIGHTS = {"price": 0.6, "rating": 0.4}
 
 
 class BudgetBasis(StrEnum):
@@ -93,6 +87,7 @@ class Contribution:
 @dataclass(frozen=True, slots=True)
 class Ranked:
     candidate: Candidate
+    confirmed: int  # requested features confirmed (listed or described): the first sort key
     score: float
     contributions: tuple[Contribution, ...]
     warnings: frozenset[Caution]
@@ -195,7 +190,6 @@ def _score(
 ) -> tuple[Ranked, ...]:
     prices = [p for c, _ in kept if (p := _per_person_night(c, wants)) is not None]
     cheapest, dearest = (min(prices), max(prices)) if prices else (0.0, 0.0)
-    weights = WEIGHTS if wants.features else WEIGHTS_WITHOUT_FEATURES
     ranked = []
     for candidate, warnings in kept:
         price = _per_person_night(candidate, wants)
@@ -205,16 +199,14 @@ def _score(
             if candidate.rating is None
             else min(1.0, max(0.0, (candidate.rating - RATING_FLOOR) / RATING_SPAN)),
         }
-        if wants.features:
-            confirmed = sum(
-                candidate.features.get(f) in (FeatureEvidence.LISTED, FeatureEvidence.DESCRIBED)
-                for f in wants.features
-            )
-            parts["features"] = confirmed / len(wants.features)
-        contributions = tuple(Contribution(name, parts[name], w) for name, w in weights.items())
+        confirmed = sum(
+            candidate.features.get(f) in (FeatureEvidence.LISTED, FeatureEvidence.DESCRIBED)
+            for f in wants.features
+        )
+        contributions = tuple(Contribution(name, parts[name], w) for name, w in WEIGHTS.items())
         score = sum(c.points for c in contributions)
-        ranked.append(Ranked(candidate, score, contributions, warnings, price))
-    ranked.sort(key=lambda r: (-r.score, r.candidate.id))
+        ranked.append(Ranked(candidate, confirmed, score, contributions, warnings, price))
+    ranked.sort(key=lambda r: (-r.confirmed, -r.score, r.candidate.id))
     return tuple(ranked)
 
 

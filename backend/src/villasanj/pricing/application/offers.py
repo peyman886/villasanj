@@ -50,6 +50,20 @@ class OfferBook:
         quote = quote_stay(listing, observations, request, self._fee_policy(listing_id.platform))
         return Offer(quote, self._clock.now(), self._max_age)
 
+    async def offers(self, platform: str, request: StayRequest) -> dict[ListingId, Offer]:
+        """Every listing's own offer on a platform, from one batch read of the calendars."""
+        now = self._clock.now()
+        policy = self._fee_policy(platform)
+        calendars = await self._listings.calendars(platform, request.stay)
+        return {
+            listing.id: Offer(
+                quote_stay(listing, calendars.get(listing.id, []), request, policy),
+                now,
+                self._max_age,
+            )
+            for listing in await self._listings.listings(platform)
+        }
+
     async def distribution(
         self, platforms: Sequence[str], scenarios: Sequence[StayScenario]
     ) -> list[OfferCounts]:

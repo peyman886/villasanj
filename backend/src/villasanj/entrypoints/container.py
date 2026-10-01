@@ -12,6 +12,7 @@ from villasanj.catalog.application.embeddings import EmbedPhotos, ImageEmbedder
 from villasanj.catalog.application.ingest import IngestListingSnapshots
 from villasanj.catalog.application.photos import EnqueueListingPhotos, FingerprintPhotos
 from villasanj.catalog.infrastructure.dinov2 import DinoV2Embedder
+from villasanj.catalog.infrastructure.gazetteer_file import load_gazetteer
 from villasanj.catalog.infrastructure.imaging import ImagehashHasher
 from villasanj.catalog.infrastructure.repositories import (
     PgCalendarFlagQuery,
@@ -22,8 +23,11 @@ from villasanj.catalog.infrastructure.repositories import (
 )
 from villasanj.discovery.application.dates import BuildHolidayCalendar
 from villasanj.discovery.application.hypotheses import BuildHypothesisReport
+from villasanj.discovery.application.search import SearchListings
+from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.infrastructure.holidays import load_holiday_sources
 from villasanj.enrichment.application.review_summary import SummarizeReviews
+from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
 from villasanj.entity_resolution.application.judge import JudgePairs
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
@@ -186,6 +190,18 @@ class Container:
 
     def hypothesis_report(self) -> BuildHypothesisReport:
         return BuildHypothesisReport(self.candidates(), self.listings, self.quotes())
+
+    def search(self) -> SearchListings:
+        return SearchListings(
+            UnderstandQuery(self.llm.client),
+            self.holiday_calendar(),
+            self.listings,
+            self.offers(),
+            load_amenity_map(self.settings.features_path),
+            load_gazetteer(self.settings.gazetteer_path),
+            sorted(self.crawl.adapters),
+            self.clock,
+        )
 
     def review_summaries(self) -> SummarizeReviews:
         return SummarizeReviews(self.llm.client, self.listings)
