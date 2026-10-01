@@ -1,6 +1,6 @@
 # ADR-0006 — Embeddings: image local, text via AvalAI behind an eval gate
 
-Status: Accepted (M0 approval, 2026-10-01) · Date: 2026-10-01
+Status: Accepted (M0 approval, 2026-10-01); image part superseded by [ADR-0012](0012-image-matching-evidence.md) · Date: 2026-10-01
 
 ## Context
 

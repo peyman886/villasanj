@@ -102,7 +102,7 @@ Acceptance criteria:
 
 Totals: 120 unit/architecture tests, 6 integration tests, 7 frontend tests, 1 live test (opt-in).
 
-## M2 — First vertical slice: jabama → shab ✅ (delivered 2026-10-01, awaiting review)
+## M2 — First vertical slice: jabama → shab ✅ (approved 2026-10-01)
 
 **Audit outcome (2026-10-01, [`docs/sources/README.md`](sources/README.md), ADR-0011):** jajiga,
 otaghak and mihmansho forbid crawling in their Terms → not crawled; permission requests drafted in
@@ -165,7 +165,7 @@ Tech debt carried forward:
 - 45 thumbnail requests from the crop experiment were not stored as snapshots, because it was a one-off script.
 - The parent city of `khazar-kenar` is a split vote (ramsar 7, tonekabon 1), and `chalkesh` has no parent (tie).
 
-## M3 — Hypothesis test (review with owner before continuing)
+## M3 — Hypothesis test (review with owner before continuing) — in progress
 
 Scope: ER baseline (blocking: place + rooms ±1 and pHash LSH; features: photo set-to-set pHash matches
 weighted by photo document frequency, structural diffs, place, price ratio); **labelling UI** (Next.js,
@@ -191,6 +191,38 @@ Acceptance criteria:
      restricted to observation pairs < 6 h apart.
 5. Owner review meeting: the feature priority for M4–M11 is confirmed or changed based on the results.
    The decision is recorded in this file.
+
+---
+
+### M3 progress (2026-10-01)
+
+Owner decisions for M3 (2026-10-01): keep RFC 9309 robots handling; AvalAI cost is not a constraint;
+photos may be processed locally or through AvalAI, whichever is technically better (decided in
+ADR-0012, by measurement); avoid downloading photos needlessly.
+
+Built and tested:
+- **Pricing engine v1** (`pricing/domain`, 100% branch coverage enforced by `make test`): nightly
+  sum, extra guests, min nights, unavailable/unknown nights, rate-card fallback as a range, open
+  upper bound for unknown fees (`config/fees.toml`: neither platform publishes fees), direct-quote
+  precedence. `villasanj pricing quote`.
+- **Image embeddings:** local DINOv2-small, pinned revision, stored once per image content
+  (ADR-0012, chosen by a label-free benchmark against pHash, DINOv2-base and two AvalAI models).
+- **ER baseline:** blocking union (location + rooms, pHash, embedding neighbours, same-platform
+  shared photos, wide net), photo evidence weighted by document frequency, transparent rule score,
+  dataset hash per run (`make match`).
+- **Gold set tooling:** stratified queue (score bands × photo/geo groups, same-platform hard
+  negatives, wide net; weights by stratum), labelling UI at `/label` (keyboard, no scores shown),
+  `docs/er-labeling-protocol.md`, weighted P/R with Wilson CIs and blocking recall (`make eval`).
+- **Hypothesis report** H1–H3 (`make eval-hypotheses`).
+
+Photo policy in practice: 5 coverage photos per listing are fetched politely (~14.7k jabama,
+~3k shab; jabama ~15 h at 1 request / ~3.6 s), because photo-based blocking needs photos of every
+listing (83% of jabama listings are within 1 km of a shab listing with ±1 bedrooms, so a location
+prefilter would save little). The labelling UI shows every photo straight from the platforms' CDNs
+(no copy on our server).
+
+Waiting for: the photo crawl → `make match` → `villasanj er queue --name gold-v1` → **owner labels
+≥ 300 pairs** → `make eval` → `make eval-hypotheses` → owner review (criterion 5).
 
 ---
 
