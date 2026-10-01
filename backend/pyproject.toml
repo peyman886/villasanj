@@ -1,0 +1,127 @@
+[project]
+name = "villasanj"
+version = "0.1.0"
+description = "Villasanj: one villa, the whole truth. Cross-platform villa entity resolution and search."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.14",
+    "fastapi>=0.115",
+    "httpx>=0.28",
+    "openai>=2.0",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "structlog>=24.4",
+    "typer>=0.15",
+    "uvicorn[standard]>=0.32",
+]
+
+[project.scripts]
+villasanj = "villasanj.entrypoints.cli:app"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.120",
+    "import-linter>=2.1",
+    "jdatetime>=5.0",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "testcontainers>=4.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/villasanj"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "UP", "SIM", "RUF", "N", "C4", "PT", "S", "ASYNC",
+    "PLR2004", "PIE", "RET", "TID", "ERA",
+]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # Persian/Arabic characters are intentional
+    "N818",  # domain errors read as domain language (InvalidMoney, BudgetExceeded)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "S105", "S106"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["villasanj", "tests"]
+plugins = ["pydantic.mypy"]
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["jdatetime.*", "testcontainers.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra --strict-markers -m 'not live_llm and not integration'"
+markers = [
+    "live_llm: calls the real AvalAI API (opt-in, costs money; run with `make test-live`)",
+    "integration: needs Docker (testcontainers); run with `make test-integration`",
+]
+
+[tool.coverage.run]
+source = ["villasanj"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+# ---------------------------------------------------------------- import-linter
+[tool.importlinter]
+root_package = "villasanj"
+
+[[tool.importlinter.contracts]]
+name = "Context dependency DAG"
+type = "layers"
+layers = [
+    "villasanj.entrypoints",
+    "villasanj.discovery",
+    "villasanj.enrichment",
+    "villasanj.entity_resolution | villasanj.pricing",
+    "villasanj.catalog",
+    "villasanj.ingestion",
+    "villasanj.shared",
+]
+
+[[tool.importlinter.contracts]]
+name = "Layers inside every context (domain <- application <- infrastructure)"
+type = "layers"
+layers = ["infrastructure", "application", "domain"]
+containers = [
+    "villasanj.shared",
+    "villasanj.ingestion",
+    "villasanj.catalog",
+    "villasanj.entity_resolution",
+    "villasanj.pricing",
+    "villasanj.enrichment",
+    "villasanj.discovery",
+]
