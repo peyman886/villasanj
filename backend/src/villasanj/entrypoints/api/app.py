@@ -9,6 +9,8 @@ from fastapi import FastAPI, Request, Response, status
 from pydantic import BaseModel
 
 from villasanj.entrypoints.api.labeling import router as labeling_router
+from villasanj.entrypoints.api.listings import router as listings_router
+from villasanj.entrypoints.api.listings import scenarios_router
 from villasanj.entrypoints.container import Container, build_container
 
 
@@ -39,6 +41,8 @@ def create_app(container_factory: Callable[[], Container] = build_container) -> 
 
     app = FastAPI(title="Villasanj API", version="0.1.0", lifespan=lifespan)
     app.include_router(labeling_router)
+    app.include_router(listings_router)
+    app.include_router(scenarios_router)
 
     @app.get("/health/live")
     async def live() -> LiveOut:

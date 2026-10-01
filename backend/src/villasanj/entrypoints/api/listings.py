@@ -1,0 +1,332 @@
+"""Listing-level read API (ROADMAP M7, built ahead of entity resolution).
+
+Every number and claim leaves with its provenance (ADR-0007): the DTOs make the field required,
+so a response without it cannot be built. Villa-level endpoints (several listings of one villa)
+come with M5's canonical villas; prices stay per listing either way (product rule 3).
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from pydantic import BaseModel
+
+from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
+from villasanj.catalog.domain.review import ListingReview
+from villasanj.entrypoints.container import Container
+from villasanj.pricing.domain.offer import Offer
+from villasanj.pricing.domain.quote import NightCharge, StayRequest
+from villasanj.shared.application.errors import ConfigurationError
+from villasanj.shared.domain.errors import DomainError
+from villasanj.shared.domain.money import MoneyRange
+from villasanj.shared.domain.provenance import Provenance
+from villasanj.shared.domain.stay import DateRange, GuestCount
+from villasanj.shared.infrastructure.scenarios import load_scenarios
+
+MAX_CALENDAR_DAYS = 120
+
+router = APIRouter(prefix="/listings", tags=["listings"])
+scenarios_router = APIRouter(tags=["scenarios"])
+
+
+class SourceOut(BaseModel):
+    platform: str
+    url: str
+
+
+class ProvenanceOut(BaseModel):
+    method: Literal["observed", "derived", "llm_extracted", "human"]
+    observed_at: datetime
+    oldest_input_at: datetime  # the age of a value is the age of its oldest input
+    source: SourceOut | None
+    snapshot_id: str | None
+    inputs: int  # values this one was derived from
+
+    @classmethod
+    def of(cls, provenance: Provenance) -> ProvenanceOut:
+        source = provenance.source
+        return cls(
+            method=provenance.method.value,
+            observed_at=provenance.observed_at,
+            oldest_input_at=provenance.oldest_observation,
+            source=SourceOut(platform=source.platform, url=source.url) if source else None,
+            snapshot_id=provenance.snapshot_id,
+            inputs=len(provenance.derived_from),
+        )
+
+
+class MoneyOut(BaseModel):
+    """Rial is exact; toman is for display. ``high`` null means "at least ``low``"."""
+
+    low_rial: int
+    high_rial: int | None
+    low_toman: int
+    high_toman: int | None
+
+    @classmethod
+    def of(cls, amount: MoneyRange) -> MoneyOut:
+        high = amount.high
+        return cls(
+            low_rial=amount.low.amount_rial,
+            high_rial=high.amount_rial if high else None,
+            low_toman=int(amount.low.toman),
+            high_toman=int(high.toman) if high else None,
+        )
+
+
+class LocationOut(BaseModel):
+    lat: float
+    lon: float
+    radius_m: int | None  # the published point may be up to this far from the villa
+
+
+class ListingOut(BaseModel):
+    id: str
+    platform: str
+    platform_name: str
+    url: str
+    title: str
+    description: str | None
+    property_type: str | None
+    city: str | None
+    locality: str | None
+    location: LocationOut | None
+    bedrooms: int | None
+    bathrooms: int | None
+    area_m2: int | None
+    base_capacity: int | None
+    max_capacity: int | None
+    rating: float | None
+    rating_count: int | None
+    photos: list[str]
+    provenance: ProvenanceOut
+
+
+class NightOut(BaseModel):
+    night: date
+    price: MoneyOut
+    price_provenance: ProvenanceOut
+    extra_guests: int
+    extra_guest_price: MoneyOut
+    extra_guest_provenance: ProvenanceOut
+
+
+class OfferOut(BaseModel):
+    listing_id: str
+    check_in: date
+    check_out: date
+    guests: int
+    status: str
+    kind: Literal["exact", "range", "open"] | None
+    total: MoneyOut | None
+    caveats: list[str]
+    age_hours: float
+    stale: bool
+    provenance: ProvenanceOut
+    nights: list[NightOut]
+
+
+class CalendarNightOut(BaseModel):
+    night: date
+    availability: str
+    price: MoneyOut | None
+    extra_guest_price: MoneyOut | None
+    min_nights: int | None
+    is_holiday: bool | None
+    provenance: ProvenanceOut
+
+
+class ReviewOut(BaseModel):
+    id: str
+    rating: float | None
+    text: str | None
+    stayed_on: date | None
+    stayed_precision: Literal["day", "month"] | None
+    host_replied: bool
+    provenance: ProvenanceOut
+
+
+class ScenarioOut(BaseModel):
+    slug: str
+    name: str
+    check_in: date
+    check_out: date
+    guests: list[int]
+
+
+def _container(request: Request) -> Container:
+    container: Container = request.app.state.container
+    return container
+
+
+async def _listing(container: Container, platform: str, external_id: str) -> Listing:
+    found = await container.listings.get(ListingId(platform, external_id))
+    if found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "listing not found")
+    return found
+
+
+def _listing_out(container: Container, listing: Listing) -> ListingOut:
+    adapter = container.crawl.adapters.get(listing.id.platform)
+    location = listing.location
+    return ListingOut(
+        id=str(listing.id),
+        platform=listing.id.platform,
+        platform_name=adapter.profile.display_name if adapter else listing.id.platform,
+        url=listing.url,
+        title=listing.title_norm,
+        description=listing.description_norm,
+        property_type=listing.property_type,
+        city=listing.city_fa,
+        locality=listing.locality_fa,
+        location=LocationOut(
+            lat=location.point.lat, lon=location.point.lon, radius_m=location.radius_m
+        )
+        if location
+        else None,
+        bedrooms=listing.bedrooms,
+        bathrooms=listing.bathrooms,
+        area_m2=listing.area_m2,
+        base_capacity=listing.base_capacity,
+        max_capacity=listing.max_capacity,
+        rating=listing.rating_avg,
+        rating_count=listing.rating_count,
+        photos=list(listing.photos),
+        provenance=ProvenanceOut.of(listing.provenance),
+    )
+
+
+def _night_out(charge: NightCharge) -> NightOut:
+    return NightOut(
+        night=charge.night,
+        price=MoneyOut.of(charge.price),
+        price_provenance=ProvenanceOut.of(charge.price_provenance),
+        extra_guests=charge.extra_guests,
+        extra_guest_price=MoneyOut.of(charge.extra_guest_price),
+        extra_guest_provenance=ProvenanceOut.of(charge.extra_guest_provenance),
+    )
+
+
+def _offer_out(offer: Offer) -> OfferOut:
+    quote = offer.quote
+    return OfferOut(
+        listing_id=str(quote.listing_id),
+        check_in=quote.request.stay.check_in,
+        check_out=quote.request.stay.check_out,
+        guests=quote.request.guests.value,
+        status=quote.status.value,
+        kind=quote.kind.value if quote.kind else None,
+        total=MoneyOut.of(quote.total) if quote.total else None,
+        caveats=sorted(c.value for c in quote.caveats),
+        age_hours=round(offer.age / timedelta(hours=1), 2),
+        stale=offer.stale,
+        provenance=ProvenanceOut.of(quote.provenance),
+        nights=[_night_out(n) for n in quote.nights],
+    )
+
+
+def _calendar_out(listing: Listing, observation: CalendarObservation) -> CalendarNightOut:
+    price, extra = observation.nightly_price, observation.extra_guest_price
+    return CalendarNightOut(
+        night=observation.night,
+        availability=observation.availability.value,
+        price=MoneyOut.of(MoneyRange.exact(price)) if price else None,
+        extra_guest_price=MoneyOut.of(MoneyRange.exact(extra)) if extra else None,
+        min_nights=observation.min_nights,
+        is_holiday=observation.is_holiday,
+        provenance=ProvenanceOut.of(
+            Provenance(
+                listing.provenance.method,
+                observation.observed_at,
+                listing.provenance.source,
+                observation.snapshot_id,
+            )
+        ),
+    )
+
+
+def _review_out(review: ListingReview) -> ReviewOut:
+    return ReviewOut(
+        id=review.review_id,
+        rating=review.rating,
+        text=review.text,
+        stayed_on=review.stayed_on,
+        stayed_precision=review.stayed_precision.value if review.stayed_precision else None,
+        host_replied=review.host_replied,
+        provenance=ProvenanceOut.of(review.provenance),
+    )
+
+
+@router.get("/{platform}/{external_id}")
+async def get_listing(platform: str, external_id: str, request: Request) -> ListingOut:
+    container = _container(request)
+    return _listing_out(container, await _listing(container, platform, external_id))
+
+
+@router.get("/{platform}/{external_id}/offer")
+async def get_offer(
+    platform: str,
+    external_id: str,
+    request: Request,
+    check_in: date,
+    check_out: date,
+    guests: Annotated[int, Query(ge=1, le=50)],
+) -> OfferOut:
+    """The listing's own all-in offer for this stay and group (never merged with others)."""
+    try:
+        stay_request = StayRequest(DateRange(check_in, check_out), GuestCount(guests))
+    except DomainError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
+    offer = await _container(request).offers().offer(ListingId(platform, external_id), stay_request)
+    if offer is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "listing not found")
+    return _offer_out(offer)
+
+
+@router.get("/{platform}/{external_id}/calendar")
+async def get_calendar(
+    platform: str, external_id: str, request: Request, start: date, end: date
+) -> list[CalendarNightOut]:
+    """The newest observation of each night in [start, end) — an observation, not a state."""
+    if not start < end or (end - start).days > MAX_CALENDAR_DAYS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"need start < end and at most {MAX_CALENDAR_DAYS} days",
+        )
+    container = _container(request)
+    listing = await _listing(container, platform, external_id)
+    newest: dict[date, CalendarObservation] = {}
+    for observation in await container.listings.calendar(listing.id, DateRange(start, end)):
+        current = newest.get(observation.night)
+        if current is None or observation.observed_at > current.observed_at:
+            newest[observation.night] = observation
+    return [_calendar_out(listing, newest[night]) for night in sorted(newest)]
+
+
+@router.get("/{platform}/{external_id}/reviews")
+async def get_reviews(platform: str, external_id: str, request: Request) -> list[ReviewOut]:
+    """The reviews the listing page showed (most recent stays first); names are not stored."""
+    container = _container(request)
+    listing = await _listing(container, platform, external_id)
+    return [_review_out(r) for r in await container.listings.reviews(listing.id)]
+
+
+@scenarios_router.get("/scenarios")
+async def get_scenarios(request: Request) -> list[ScenarioOut]:
+    """The stay scenarios the catalog is captured for (config/scenarios.toml)."""
+    try:
+        scenarios = load_scenarios(_container(request).settings.scenarios_path)
+    except ConfigurationError as error:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(error)) from None
+    return [
+        ScenarioOut(
+            slug=s.slug,
+            name=s.name_fa,
+            check_in=s.stay.check_in,
+            check_out=s.stay.check_out,
+            guests=[g.value for g in s.guests],
+        )
+        for s in scenarios
+    ]

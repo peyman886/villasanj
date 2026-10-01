@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -27,6 +28,7 @@ from villasanj.discovery.application.hypotheses import render_markdown
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.labeling import QueueExists
 from villasanj.entity_resolution.domain.evaluation import Interval
+from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container, build_container
 from villasanj.ingestion.application.capture import CAPTURE_KINDS, ScenarioCapture
 from villasanj.ingestion.application.errors import CrawlError, SourceBlocked
@@ -54,13 +56,28 @@ crawl_app = typer.Typer(no_args_is_help=True, help="Polite crawling (ADR-0008, A
 catalog_app = typer.Typer(no_args_is_help=True, help="Build the catalog from stored snapshots.")
 pricing_app = typer.Typer(no_args_is_help=True, help="All-in quotes from stored observations.")
 er_app = typer.Typer(no_args_is_help=True, help="Entity resolution: candidates, gold set, eval.")
+api_app = typer.Typer(no_args_is_help=True, help="HTTP API tooling.")
 app.add_typer(llm_app, name="llm")
 app.add_typer(crawl_app, name="crawl")
 app.add_typer(catalog_app, name="catalog")
 app.add_typer(pricing_app, name="pricing")
 app.add_typer(er_app, name="er")
+app.add_typer(api_app, name="api")
 
 DEFAULT_SMOKE_BUDGET_USD = "0.05"
+
+
+@api_app.command("openapi")
+def api_openapi(
+    out: Annotated[Path, typer.Option(help="Where to write the OpenAPI JSON.")] = Path(
+        "../frontend/src/lib/api/openapi.json"
+    ),
+) -> None:
+    """Write the API's OpenAPI schema (the frontend's types are generated from it)."""
+    schema = create_app(build_container).openapi()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n", "utf-8")
+    typer.echo(f"wrote {out} ({len(schema['paths'])} paths)")
 
 
 @app.command()

@@ -5,7 +5,7 @@ WEB_PORT ?= $(or $(VILLASANJ_WEB_PORT),3300)
 JOB ?= llm-smoke
 
 .DEFAULT_GOAL := help
-.PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live lint fmt \
+.PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live openapi openapi-check lint fmt \
 	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-scenarios crawl-status crawl-metrics reparse report match eval eval-hypotheses
 
 help: ## Show available targets
@@ -58,6 +58,15 @@ test-ml: ## Opt-in tests with the real local image model (downloads pinned weigh
 test-live: ## Opt-in live AvalAI smoke tests (real calls, capped at $0.05)
 	cd backend && uv run pytest -m live_llm -q -s
 
+openapi: ## Regenerate the OpenAPI schema and the frontend's TypeScript types from it
+	cd backend && uv run villasanj api openapi
+	cd frontend && npm run -s api:types
+
+openapi-check: ## Fail if the committed OpenAPI schema or TS types are out of date
+	@tmp=$$(mktemp -d) && cd backend && uv run villasanj api openapi --out $$tmp/openapi.json >/dev/null \
+		&& diff -q $$tmp/openapi.json ../frontend/src/lib/api/openapi.json \
+		|| { echo "OpenAPI schema is stale: run make openapi"; exit 1; }
+
 lint: ## ruff, mypy --strict, import-linter, tsc, eslint, prettier
 	cd backend && uv run ruff check src tests migrations \
 		&& uv run ruff format --check src tests migrations \
@@ -73,7 +82,7 @@ fmt: ## Format all code
 	cd backend && uv run ruff format src tests migrations && uv run ruff check --fix-only src tests migrations
 	cd frontend && npm run format
 
-ci: lint test test-integration ## Everything CI runs (local)
+ci: lint openapi-check test test-integration ## Everything CI runs (local)
 
 # ---------------------------------------------------------------- LLM operations
 
