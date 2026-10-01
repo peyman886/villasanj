@@ -20,10 +20,10 @@ hard cap $30). Estimates come from [ADR-0005](adr/0005-llm-model-selection-and-c
 | M | Name | LLM cap | Checkpoint with owner |
 |---|---|---|---|
 | 0 | Understanding & design | $0.05 | ✅ approved 2026-10-01 |
-| 1 | Skeleton & LLM platform | $0.20 | ✅ delivered, awaiting review |
-| 2 | First vertical slice (jabama → shab) | $0.50 | ✅ audit signed off 2026-10-01; report |
-| 3 | Hypothesis test (ER baseline + pricing core + H1–H3) | $0.50 | **mandatory re-prioritisation review** |
-| 4 | Coverage: permission-gated adapters, wider region, scheduled scenario crawls | $0.50 | report |
+| 1 | Skeleton & LLM platform | $0.20 | ✅ delivered |
+| 2 | First vertical slice (jabama → shab) | $0.50 | ✅ approved 2026-10-01 |
+| 3 | Hypothesis test (ER baseline + pricing core + H1–H3) | $0.50 | **open**: waits for the photo crawl and the owner's labels; then the mandatory re-prioritisation review |
+| 4 | Coverage: permission-gated adapters, wider region, scheduled scenario crawls | $0.50 | **partly started in parallel** with M3 (only parts independent of M3 results) |
 | 5 | Full ER | $8.00 | report + precision sign-off |
 | 6 | Pricing complete & offers | $0.50 | report |
 | 7 | API & canonical villa page | $0.50 | report + UX review |
@@ -226,7 +226,7 @@ Waiting for: the photo crawl → `make match` → `villasanj er queue --name gol
 
 ---
 
-## M4 — Coverage: permission-gated adapters and wider region
+## M4 — Coverage: permission-gated adapters and wider region — partly in progress (parallel to M3)
 
 Scope (changed by ADR-0011): adapters for any platform that grants written permission (jajiga,
 otaghak, mihmansho), each recorded in ADR-0011 before the first request; widening the region on jabama
@@ -241,6 +241,24 @@ Acceptance criteria:
    timestamp spread ≤ 6 h (reported).
 4. Photo pipeline: ≥ 99% of referenced photos downloaded or reason logged; pHash for all downloaded
    photos; storage footprint reported.
+
+### M4 progress, in parallel with the open M3 (2026-10-01)
+
+The owner asked to continue with work that does not depend on M3's final outputs while the photo
+crawl runs. M3 stays **open**: gold-v1, the labels, threshold calibration, precision/recall, the H1–H3
+results and the re-prioritisation review are not done and nothing provisional is recorded as final.
+
+| M4 part | Status | Why |
+|---|---|---|
+| Adapters for jajiga / otaghak / mihmansho | ⛔ blocked | No written permission yet (ADR-0011). |
+| Wider region | ⏸ waits for M3 | Only "if M3 shows too few cross-platform pairs" (H1). |
+| Same-window scenario capture (criterion 3) | ✅ built, **not run** | `make crawl-scenarios` plans the capture (currently jabama 2.9 h, shab 0.6 h, in parallel; LIVE=1 runs it). Running it now would change the catalog under the M3 gold set, so it runs after M3 or for the M11 final crawl. |
+| Crawl metrics | ✅ built | `make crawl-metrics`: traffic per host with measured pacing (every host: min interval ≥ 3.05 s, median ~3.7 s). |
+| Photo pipeline report (criterion 4) | ✅ built; final numbers after the crawl | `catalog photo-report`: selected / downloaded / failed with reasons / coverage / hashed / embedded / storage. "≥ 99% of referenced photos" is read as ≥ 99% of the photos the policy selects (5 per listing, ADR-0012). The full 66k would be ~50 h of polite crawling for little ER gain. |
+| Regional coverage per platform (criterion 2) | ✅ built | `catalog inventory`. A second discovery pass was run before gold-v1 exists, so no label is affected: jabama search pages again, and shab sitemaps again (0 new houses). |
+
+Not started on purpose: M5–M11. M3's review can reorder them, so building them now risks waste.
+
 
 ## M5 — Full entity resolution
 

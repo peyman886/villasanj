@@ -30,12 +30,13 @@ Context files (local):
   queue, labelling UI at `/label`, evaluation and the H1–H3 report. Waiting for: the coverage
   photo crawl (5 per listing), then `make match`, `er queue --name gold-v1`, the **owner's labels**
   (≥ 300 pairs, `docs/er-labeling-protocol.md`), then `make eval` and `make eval-hypotheses`.
-- **Photo crawl paused cleanly on 2026-10-01 ~13:55 UTC (owner closed the laptop).** Checkpoint is the
-  Postgres frontier: jabama 2,467 photos done / 12,200 pending, shab 2,706 done / 298 pending; all 5,174
-  photo snapshots verified against their blobs; abandoned claims released; interrupted runs marked
-  `interrupted`. Resume (continues from the frontier, nothing is refetched):
-  `make up`, then in two shells `cd backend && uv run villasanj crawl run jabama --live --kind photo
-  --max-requests 15000` and `… crawl run shab --live --kind photo --max-requests 3000`.
+- Photo crawl resumed 2026-10-01 16:23 UTC from the frontier checkpoint (nothing refetched). It
+  continues in the background; if it is interrupted, rerun the same `crawl run <platform> --live
+  --kind photo` command; abandoned claims are recovered after 10 minutes.
+- **M4 partly started in parallel** (owner's instruction): only parts independent of M3's final
+  outputs. Done: scenario capture tool (built, not run while M3 is open), crawl metrics, photo
+  report, inventory, a second discovery pass. Blocked: new adapters (no permission). Waiting for
+  M3: wider region. M5–M11 not started (M3's review may reorder them). See ROADMAP M4.
 
 ## Working agreement (from the owner)
 
@@ -146,6 +147,8 @@ make match                              # fingerprint + embed new photos, then b
 make eval [QUEUE=gold-v1]               # precision/recall with Wilson CIs against the owner's labels
 make eval-hypotheses [THRESHOLD=..]     # reports/hypotheses-<date>.md (H1-H3)
 make test-ml                            # opt-in test with the real image model (pinned weights)
+make crawl-scenarios [LIVE=1]           # same-window re-capture of all calendars (plan only by default)
+make crawl-metrics                      # traffic per host with measured pacing, queue, runs
 make seed                               # nothing to seed until M11
 ```
 
@@ -154,7 +157,8 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `crawl run … --after-block` (only after the owner decides to resume a blocked platform),
 `catalog ingest`, `catalog coverage`, `catalog places`, `catalog enqueue-photos`,
 `catalog fingerprint-photos`, `catalog embed-photos`, `pricing quote <platform> <id>`,
-`er match`, `er queue --name <q>`, `er evaluate`, `er hypotheses`.
+`er match`, `er queue --name <q>`, `er evaluate`, `er hypotheses`, `crawl capture [--live]`,
+`crawl requeue <platform> --kind <k>`, `crawl metrics`, `catalog photo-report`, `catalog inventory`.
 Labelling UI: `http://localhost:3300/label` (stack) or `npm run dev` with `API_URL` set.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.

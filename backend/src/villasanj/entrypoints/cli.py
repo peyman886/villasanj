@@ -282,6 +282,26 @@ def crawl_metrics(
     asyncio.run(_with_container(run))
 
 
+@crawl_app.command("requeue")
+def crawl_requeue(
+    platform: Annotated[str, typer.Argument(help="Platform slug.")],
+    kinds: Annotated[list[PageKind], typer.Option("--kind", help="Page kinds (repeatable).")],
+) -> None:
+    """Queue finished pages of these kinds again, e.g. search pages to find new listings.
+
+    Discovery de-duplicates by request, so pages already fetched are not fetched again unless
+    their own kind was re-queued. Then run `crawl run <platform> --live --kind ...`.
+    """
+
+    async def run(container: Container) -> bool:
+        container.adapter(platform)  # unknown platforms fail here
+        count = await container.crawl.frontier.requeue(platform, kinds, container.clock.now())
+        typer.echo(f"{platform}: re-queued {count} pages ({', '.join(k.value for k in kinds)})")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
 @crawl_app.command("status")
 def crawl_status(platform: Annotated[str, typer.Argument(help="Platform slug.")]) -> None:
     """Frontier counts per status."""
