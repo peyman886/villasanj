@@ -23,10 +23,13 @@ Context files (local):
 
 - M0 (design) approved 2026-10-01.
 - M1 (skeleton & LLM platform) delivered 2026-10-01.
-- **M2 (first vertical slice: jabama → shab) delivered 2026-10-01, awaiting owner review.** Results
-  table in `docs/ROADMAP.md`. Catalog holds 2,951 jabama + 601 shab listings, 278k calendar
-  observations, 199 fingerprinted shab photos; gazetteer v1 in `config/gazetteer.toml`.
-- Next: M3 (ER baseline, labelling UI, gold set, pricing engine v1, hypothesis report).
+- M2 (first vertical slice: jabama → shab) delivered and approved 2026-10-01. Catalog: 2,951 jabama
+  + 601 shab listings, 278k calendar observations; gazetteer v1 in `config/gazetteer.toml`.
+- **M3 in progress (started 2026-10-01).** Built: pricing engine v1, image embeddings (local
+  DINOv2-small, ADR-0012), ER baseline (blocking → evidence → rule score), stratified gold-set
+  queue, labelling UI at `/label`, evaluation and the H1–H3 report. Waiting for: the coverage
+  photo crawl (5 per listing), then `make match`, `er queue --name gold-v1`, the **owner's labels**
+  (≥ 300 pairs, `docs/er-labeling-protocol.md`), then `make eval` and `make eval-hypotheses`.
 
 ## Working agreement (from the owner)
 
@@ -71,8 +74,8 @@ Context files (local):
 ### Extension recipes (OCP)
 - **New platform:** `ingestion/infrastructure/sources/<slug>/` implementing `SourceAdapter` (pure: no
   I/O), plus trimmed fixtures + contract tests, one entry point in `backend/pyproject.toml`
-  (`villasanj.sources`), and (from M3, when pricing exists) a sourced `FeePolicy` row. Nothing else
-  changes.
+  (`villasanj.sources`), and a `config/fees.toml` policy (sourced, or `fees_known = false`).
+  Nothing else changes.
 - **New LLM provider:** a `RawModelProvider` adapter + a branch in `build_provider` + `LLM__PROVIDER`.
   Model names go in `config/llm.toml`.
 - **New embedding / search engine:** an adapter for `ImageEmbedder` / `TextEmbedder` / `SearchIndex`
@@ -133,14 +136,20 @@ make crawl P=jabama [LIVE=1] [MAX=50]   # default replays snapshots; LIVE=1 need
 make crawl-status P=jabama              # frontier counts
 make reparse                            # rebuild catalog + photo hashes from snapshots (zero network)
 make report                             # scenario coverage + gazetteer resolution (zero network)
-make match/eval/eval-hypotheses (M3): not implemented yet; make seed: nothing to seed until M11
+make match                              # fingerprint + embed new photos, then blocking/evidence/scores
+make eval [QUEUE=gold-v1]               # precision/recall with Wilson CIs against the owner's labels
+make eval-hypotheses [THRESHOLD=..]     # reports/hypotheses-<date>.md (H1-H3)
+make test-ml                            # opt-in test with the real image model (pinned weights)
+make seed                               # nothing to seed until M11
 ```
 
 Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --kind listing`
 (one polite fetch + snapshot), `crawl run <platform> --live --kind photo` (photo hosts only),
 `crawl run … --after-block` (only after the owner decides to resume a blocked platform),
 `catalog ingest`, `catalog coverage`, `catalog places`, `catalog enqueue-photos`,
-`catalog fingerprint-photos`.
+`catalog fingerprint-photos`, `catalog embed-photos`, `pricing quote <platform> <id>`,
+`er match`, `er queue --name <q>`, `er evaluate`, `er hypotheses`.
+Labelling UI: `http://localhost:3300/label` (stack) or `npm run dev` with `API_URL` set.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.
 On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0.1:5433).
@@ -174,6 +183,16 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
 - **`s3gw.shab.ir/robots.txt` answers 403** (an S3 `AccessDenied`, no such object). RFC 9309 says
   4xx = no restrictions, and the owner was told. A 403/429 streak on *content* stops the run, and
   the platform stays blocked until `--after-block`.
+- **ML packages** (torch, transformers) are the `ml` dependency group: installed by `uv sync` for
+  development and batch jobs, never in the API image (`--no-default-groups`). The image model is
+  pinned by Hugging Face revision in `catalog/infrastructure/dinov2.py`.
+- **AvalAI image embeddings** need model-specific input shapes: `gemini-embedding-2` takes a data
+  URL string; `tongyi-embedding-vision-flash` takes `{"contents":[{"image": …}]}` and allows only
+  75 requests/min on tier 3. A wrong shape for gemini is silently embedded as text (1 token).
+- **Next.js dev:** open `http://localhost:<port>`, not `127.0.0.1` (dev resources are blocked
+  cross-origin and the page never hydrates). `agentRules: false` keeps `next dev` from writing
+  its own CLAUDE.md/AGENTS.md under `frontend/`.
+- **Commit only after reading the `make test` result**; pre-commit runs lint, not tests.
 - **Gazetteer edits:** `config/gazetteer.toml` is curated, precision first. Add only real place
   names seen in data; never alias roads/streets or guess typo merges. `make report` shows the
   resolution rate and the top unresolved texts.
@@ -191,7 +210,8 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
 
 - `docs/ARCHITECTURE.md`: contexts, layers, diagrams, domain model, schema, ports, assumptions.
 - `docs/ROADMAP.md`: milestones M0–M11 with acceptance criteria and LLM caps.
-- `docs/adr/`: decisions 0001–0011.
+- `docs/adr/`: decisions 0001–0012.
+- `docs/er-labeling-protocol.md`: how the owner labels gold-set pairs (Persian).
 - `docs/sources/README.md`: robots/ToS audit, crawl-time observations, inventory, photo experiment.
 - `docs/research-review.md`: critique of the research report.
 - `docs/reference/avalai-models-2026-10-01.csv`: model/pricing snapshot used for cost estimates.

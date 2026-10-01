@@ -108,6 +108,10 @@ class FrontierRepository(Protocol):
         """Return an item to the queue untouched (e.g. the run stopped because we were blocked)."""
         ...
 
+    async def release_stale(self, platform: str, claimed_before: datetime) -> int:
+        """Return items left in progress by a crashed run (claimed before the cut-off)."""
+        ...
+
     async def counts(self, platform: str) -> dict[FrontierStatus, int]: ...
 
 
@@ -122,6 +126,7 @@ class CrawlReport:
     gave_up: int = 0
     discovered: int = 0
     discover_errors: int = 0
+    recovered: int = 0  # items a crashed earlier run had left in progress
     stop_reason: str = "frontier-empty"
 
 

@@ -31,6 +31,8 @@ from villasanj.shared.application.clock import Clock
 log = structlog.get_logger(__name__)
 
 MAX_FETCH_ATTEMPTS = 5
+# A claim older than this was abandoned by a crashed run (one polite fetch takes seconds).
+STALE_CLAIM = timedelta(minutes=10)
 OFFLINE_MISS = "offline-no-snapshot"
 BASE_RETRY_DELAY = timedelta(minutes=2)
 MAX_RETRY_DELAY = timedelta(hours=1)
@@ -80,7 +82,10 @@ class CrawlPlatform:
                     "ask the owner before crawling it again"
                 )
         run_id = await self._runs.start(self.platform, live)
-        report = CrawlReport(run_id=run_id, platform=self.platform, live=live)
+        recovered = await self._frontier.release_stale(
+            self.platform, self._clock.now() - STALE_CLAIM
+        )
+        report = CrawlReport(run_id=run_id, platform=self.platform, live=live, recovered=recovered)
         if not kinds or PageKind.SEARCH in kinds or PageKind.SITEMAP in kinds:
             new = await self._frontier.enqueue(self._adapter.seed_requests(region), None)
             report = replace(report, discovered=new)
@@ -184,6 +189,7 @@ def _report_fields(report: CrawlReport) -> dict[str, object]:
         "skipped": report.skipped,
         "retried": report.retried,
         "gave_up": report.gave_up,
+        "recovered": report.recovered,
         "discovered": report.discovered,
         "discover_errors": report.discover_errors,
         "stop_reason": report.stop_reason,

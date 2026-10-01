@@ -44,6 +44,20 @@ async def test_enqueue_handles_more_rows_than_one_statement_can_bind(engine: Asy
     assert await frontier.enqueue(many, None) == 0
 
 
+async def test_only_stale_claims_are_released(engine: AsyncEngine) -> None:
+    clock = SteppingClock()
+    frontier = PgFrontierRepository(engine, clock)
+    item = unique("stale")
+    await frontier.enqueue([item], None)
+    claimed = await frontier.claim(item.platform, clock.now())  # the claim time is "now"
+    assert claimed is not None
+    assert await frontier.release_stale(item.platform, clock.now() - timedelta(minutes=10)) == 0
+    clock.advance(11 * 60)
+    assert await frontier.release_stale(item.platform, clock.now() - timedelta(minutes=10)) >= 1
+    again = await frontier.claim(item.platform, clock.now())
+    assert again is not None
+
+
 async def test_concurrent_claims_never_hand_out_the_same_item(engine: AsyncEngine) -> None:
     frontier = PgFrontierRepository(engine, FixedClock())
     platform = f"concurrency-{id(engine)}"

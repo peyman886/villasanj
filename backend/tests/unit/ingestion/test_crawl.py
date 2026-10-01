@@ -6,6 +6,7 @@ import pytest
 
 from tests.fakes.ingestion import (
     BASE,
+    PLATFORM,
     POLICY,
     PROFILE,
     REGION,
@@ -27,6 +28,7 @@ from villasanj.ingestion.application.crawl import (
 from villasanj.ingestion.application.errors import SourceBlocked, TransientFetchError
 from villasanj.ingestion.application.polite_fetcher import PoliteFetcher
 from villasanj.ingestion.application.ports import Fetcher, FrontierStatus
+from villasanj.ingestion.domain.pages import PageKind
 from villasanj.ingestion.infrastructure.http import ProtegoRobotsParser
 
 
@@ -118,6 +120,20 @@ async def test_a_blocked_platform_stays_blocked_until_the_owner_decides(world: W
     await crawl.run(REGION, max_requests=10, live=False)  # replay is unaffected
     resumed = await crawl.run(REGION, max_requests=10, live=True, after_block=True)
     assert resumed.stop_reason == "frontier-empty"
+
+
+async def test_items_left_in_progress_by_a_crashed_run_are_recovered(world: World) -> None:
+    world.network.on(f"{BASE}/seed", page(request("/seed")))
+    await world.frontier.enqueue([request("/seed", PageKind.SEARCH)], None)
+    abandoned = await world.frontier.claim(PLATFORM, world.clock.now())  # the crash happened here
+    assert abandoned is not None
+    world.clock.advance(5 * 60)  # 5 minutes later: maybe still running, leave it alone
+    early = await world.crawl().run(REGION, max_requests=10, live=True)
+    assert early.recovered == 0
+    world.clock.advance(10 * 60)
+    report = await world.crawl().run(REGION, max_requests=10, live=True)
+    assert report.recovered == 1
+    assert world.frontier.status_of(f"{BASE}/seed") is FrontierStatus.DONE
 
 
 async def test_transient_errors_back_off_then_give_up(world: World) -> None:

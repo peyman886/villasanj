@@ -231,6 +231,20 @@ class PgFrontierRepository:
     async def release(self, item: FrontierItem) -> None:
         await self._set(item, FrontierStatus.PENDING)
 
+    async def release_stale(self, platform: str, claimed_before: datetime) -> int:
+        statement = (
+            update(frontier)
+            .where(
+                frontier.c.platform == platform,
+                frontier.c.status == FrontierStatus.IN_PROGRESS.value,
+                frontier.c.updated_at < claimed_before,
+            )
+            .values(status=FrontierStatus.PENDING.value, updated_at=self._clock.now())
+            .returning(frontier.c.id)
+        )
+        async with self._engine.begin() as conn:
+            return len((await conn.execute(statement)).all())
+
     async def counts(self, platform: str) -> dict[FrontierStatus, int]:
         query = (
             select(frontier.c.status, func.count())

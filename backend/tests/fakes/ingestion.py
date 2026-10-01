@@ -166,6 +166,7 @@ class _Row:
     status: FrontierStatus
     not_before: datetime
     reason: str | None = None
+    claimed_at: datetime | None = None
 
 
 class InMemoryFrontierRepository:
@@ -192,6 +193,7 @@ class InMemoryFrontierRepository:
                 continue
             if row.status is FrontierStatus.PENDING and row.not_before <= now:
                 row.status = FrontierStatus.IN_PROGRESS
+                row.claimed_at = now
                 return row.item
         return None
 
@@ -213,6 +215,19 @@ class InMemoryFrontierRepository:
 
     async def release(self, item: FrontierItem) -> None:
         self.rows[item.request.key].status = FrontierStatus.PENDING
+
+    async def release_stale(self, platform: str, claimed_before: datetime) -> int:
+        stale = [
+            row
+            for row in self.rows.values()
+            if row.item.request.platform == platform
+            and row.status is FrontierStatus.IN_PROGRESS
+            and row.claimed_at is not None
+            and row.claimed_at < claimed_before
+        ]
+        for row in stale:
+            row.status = FrontierStatus.PENDING
+        return len(stale)
 
     async def counts(self, platform: str) -> dict[FrontierStatus, int]:
         result: dict[FrontierStatus, int] = {}
