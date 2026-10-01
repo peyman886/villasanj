@@ -29,3 +29,43 @@ def fa_toman(amount: MoneyRange) -> str:
     if amount.is_exact:
         return f"{low} تومان"
     return f"{low} تا {fa_int(int(amount.high.toman))} تومان"
+
+
+MINUTE_STEP = 5  # free-flow estimates are not minute-precise: ranges widen to whole 5 minutes
+METRE_STEP = 50
+KM_STEP = 100
+METRES_PER_KM = 1000
+
+
+def _hours_minutes(total_minutes: int) -> str:
+    hours, minutes = divmod(total_minutes, 60)
+    if hours and minutes:
+        return f"{fa_int(hours)} ساعت و {fa_int(minutes)} دقیقه"
+    if hours:
+        return f"{fa_int(hours)} ساعت"
+    return f"{fa_int(minutes)} دقیقه"
+
+
+def fa_minutes_range(low_s: float, high_s: float) -> str:
+    """«۴ ساعت و ۱۵ تا ۴ ساعت و ۲۵ دقیقه»: widened outwards to whole 5-minute steps."""
+    low = int(low_s / 60 // MINUTE_STEP * MINUTE_STEP)
+    high = _ceil(high_s / 60)
+    if low == high:
+        return f"حدود {_hours_minutes(low)}"
+    return f"{_hours_minutes(low)} تا {_hours_minutes(high)}"
+
+
+def _ceil(minutes: float) -> int:
+    steps = -(-minutes // MINUTE_STEP)
+    return int(steps * MINUTE_STEP)
+
+
+def fa_metres_range(low_m: float, high_m: float) -> str:
+    """«۶۰۰ تا ۱٬۴۰۰ متر» or «۱٫۲ تا ۲ کیلومتر», widened outwards to round values."""
+    if high_m < METRES_PER_KM:
+        low = int(low_m // METRE_STEP * METRE_STEP)
+        high = int(-(-high_m // METRE_STEP) * METRE_STEP)
+        return f"{fa_int(low)} تا {fa_int(high)} متر"
+    low_km = (low_m // KM_STEP) * KM_STEP / METRES_PER_KM
+    high_km = -(-high_m // KM_STEP) * KM_STEP / METRES_PER_KM
+    return f"{fa_decimal(low_km)} تا {fa_decimal(high_km)} کیلومتر"

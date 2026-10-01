@@ -118,6 +118,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/listings/{platform}/{external_id}/geo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Geo
+         * @description Distance to the coast and free-flow drive time, each a range over the blur circle.
+         */
+        get: operations["get_geo_listings__platform___external_id__geo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/listings/{platform}/{external_id}/offer": {
         parameters: {
             query?: never;
@@ -252,6 +272,28 @@ export interface components {
              * @enum {string}
              */
             source: "llm" | "template";
+            /** Text */
+            text: string;
+        };
+        /** GeoOut */
+        GeoOut: {
+            coast_m: components["schemas"]["GeoRangeOut"] | null;
+            drive_s: components["schemas"]["GeoRangeOut"] | null;
+            /** Origin */
+            origin: string | null;
+        };
+        /**
+         * GeoRangeOut
+         * @description A measured quantity over the listing's blur circle (ADR-0013).
+         */
+        GeoRangeOut: {
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            provenance: components["schemas"]["ProvenanceOut"];
+            /** Radius Assumed */
+            radius_assumed: boolean;
             /** Text */
             text: string;
         };
@@ -424,6 +466,8 @@ export interface components {
              * @enum {string}
              */
             method: "observed" | "derived" | "llm_extracted" | "human";
+            /** Note */
+            note?: string | null;
             /**
              * Observed At
              * Format: date-time
@@ -448,6 +492,7 @@ export interface components {
             contributions: components["schemas"]["ContributionOut"][];
             /** External Id */
             external_id: string;
+            geo: components["schemas"]["GeoOut"] | null;
             /** Listing Id */
             listing_id: string;
             /** Photo */
@@ -732,6 +777,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CalendarNightOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_geo_listings__platform___external_id__geo_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: string;
+                external_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoOut"];
                 };
             };
             /** @description Validation Error */

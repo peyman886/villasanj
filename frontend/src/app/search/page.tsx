@@ -293,6 +293,25 @@ function ResultCard({ result, rank, now }: { result: SearchResultOut; rank: numb
             </span>
           ) : null}
         </p>
+        {result.geo && (result.geo.drive_s || result.geo.coast_m) ? (
+          <p className="text-xs text-stone-600 tabular-nums">
+            {[result.geo.drive_s, result.geo.coast_m].map((range, index) =>
+              range ? (
+                <span key={index} className="me-3 inline-block">
+                  <Sourced
+                    id={`geo-${index}-${id}`}
+                    label={index === 0 ? "زمان رانندگی" : "فاصله تا ساحل"}
+                    value={range.text}
+                    provenance={range.provenance}
+                    now={now}
+                  >
+                    {range.text}
+                  </Sourced>
+                </span>
+              ) : null,
+            )}
+          </p>
+        ) : null}
         {result.cautions.length > 0 ? (
           <ul className="flex flex-wrap gap-1.5 text-xs">
             {result.cautions.map((c) => (

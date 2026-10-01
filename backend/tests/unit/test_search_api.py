@@ -10,8 +10,9 @@ from fastapi.testclient import TestClient
 
 from tests.fakes.llm import FixedClock
 from tests.unit.discovery.test_explanation import ScriptedClient as ExplanationClient
-from tests.unit.discovery.test_search import WEEKEND, search
+from tests.unit.discovery.test_search import ORIGIN, WEEKEND, search
 from villasanj.discovery.application.intent import SearchIntent
+from villasanj.discovery.application.routing import Origin
 from villasanj.discovery.application.search import SearchListings
 from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container
@@ -45,6 +46,9 @@ class Stub:
     def search(self) -> SearchListings:
         return self._search
 
+    def routing_origin(self) -> Origin:
+        return ORIGIN
+
     async def aclose(self) -> None:
         return None
 
@@ -74,6 +78,8 @@ def test_search_returns_ranked_results_with_provenance(client: TestClient) -> No
     assert first["total_provenance"]["method"] == "derived"
     assert [c["component"] for c in first["contributions"]] == ["price", "rating"]
     assert first["platform_name"] == "پلتفرم"
+    assert first["geo"]["coast_m"]["text"] == "۰ تا ۷۰۰ متر تا ساحل در خط مستقیم"
+    assert first["geo"]["drive_s"]["text"].endswith("از تهران، بدون ترافیک")
     assert client.stub.jobs.finished == [JobStatus.SUCCEEDED]  # type: ignore[attr-defined]
 
 

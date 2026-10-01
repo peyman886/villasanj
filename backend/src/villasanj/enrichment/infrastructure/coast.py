@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Integer,
     MetaData,
     PrimaryKeyConstraint,
+    Row,
     Table,
     Text,
     delete,
@@ -148,15 +150,25 @@ class PgCoastDistanceStore:
         query = select(coast_distance).where(coast_distance.c.platform == platform)
         async with self._engine.connect() as conn:
             rows = (await conn.execute(query)).all()
-        return {
-            ListingId(r.platform, r.external_id): CoastDistance(
-                ListingId(r.platform, r.external_id),
-                r.dataset,
-                r.center_m,
-                r.low_m,
-                r.high_m,
-                Blur(r.radius_m, r.radius_assumed),
-                r.computed_at,
-            )
-            for r in rows
-        }
+        return {ListingId(r.platform, r.external_id): _coast(r) for r in rows}
+
+    async def get(self, listing_id: ListingId) -> CoastDistance | None:
+        query = select(coast_distance).where(
+            (coast_distance.c.platform == listing_id.platform)
+            & (coast_distance.c.external_id == listing_id.external_id)
+        )
+        async with self._engine.connect() as conn:
+            row = (await conn.execute(query)).one_or_none()
+        return _coast(row) if row is not None else None
+
+
+def _coast(r: Row[Any]) -> CoastDistance:
+    return CoastDistance(
+        ListingId(r.platform, r.external_id),
+        r.dataset,
+        r.center_m,
+        r.low_m,
+        r.high_m,
+        Blur(r.radius_m, r.radius_assumed),
+        r.computed_at,
+    )

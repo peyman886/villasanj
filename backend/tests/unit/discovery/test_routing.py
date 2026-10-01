@@ -42,6 +42,9 @@ class Store:
     async def of_platform(self, platform: str, origin: str) -> dict[ListingId, DriveTime]:
         return {r.listing_id: r for r in self.rows}
 
+    async def get(self, listing_id: ListingId, origin: str) -> DriveTime | None:
+        return next((r for r in self.rows if r.listing_id == listing_id), None)
+
 
 async def test_the_range_covers_the_circle_and_unroutable_listings_get_no_time() -> None:
     listings = ListingsFake(

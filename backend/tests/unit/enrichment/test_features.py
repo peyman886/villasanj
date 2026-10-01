@@ -16,6 +16,7 @@ from villasanj.enrichment.domain.features import (
     against_amenities,
     extract_claims,
     feature_evidence,
+    near_sea_evidence,
 )
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.ingestion.domain.parsed import ParsedAmenity
@@ -161,3 +162,18 @@ def test_feature_evidence(
 def test_a_shared_facility_is_no_evidence_about_the_villa() -> None:
     assert feature_evidence(None, [claim(shared=True)]) is FeatureEvidence.UNKNOWN
     assert feature_evidence(False, [claim(shared=True)]) is FeatureEvidence.DENIED
+
+
+@pytest.mark.parametrize(
+    ("low", "high", "evidence"),
+    [
+        (0.0, 800.0, FeatureEvidence.MEASURED),
+        (1200.0, 2000.0, FeatureEvidence.DENIED),
+        (600.0, 1400.0, FeatureEvidence.UNKNOWN),  # the blur circle straddles the threshold
+        (None, None, FeatureEvidence.UNKNOWN),
+    ],
+)
+def test_near_sea_from_the_map(
+    low: float | None, high: float | None, evidence: FeatureEvidence
+) -> None:
+    assert near_sea_evidence(low, high) is evidence

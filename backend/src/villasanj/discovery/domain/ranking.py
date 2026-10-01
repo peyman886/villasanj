@@ -44,6 +44,7 @@ class Candidate:
     bedrooms: int | None
     rating: float | None  # Bayesian-shrunk, on the 1..5 scale
     features: Mapping[Feature, FeatureEvidence] = field(default_factory=dict)
+    drive_minutes: tuple[float, float] | None = None  # free-flow, over the blur circle
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +55,7 @@ class Requirements:
     budget_toman: int | None = None
     budget_basis: BudgetBasis = BudgetBasis.UNKNOWN
     features: tuple[Feature, ...] = ()
+    max_drive_minutes: float | None = None
 
 
 class Exclusion(StrEnum):
@@ -62,6 +64,7 @@ class Exclusion(StrEnum):
     FEW_BEDROOMS = "few_bedrooms"
     OVER_BUDGET = "over_budget"
     FEATURE_DENIED = "feature_denied"
+    TOO_FAR = "too_far"  # even the quickest possible route is over the drive limit
 
 
 class Caution(StrEnum):
@@ -71,6 +74,8 @@ class Caution(StrEnum):
     MAY_EXCEED_BUDGET = "may_exceed_budget"  # an open or ranged price straddles the budget
     FEATURE_UNCONFIRMED = "feature_unconfirmed"
     FEATURE_ONLY_DESCRIBED = "feature_only_described"
+    DRIVE_UNKNOWN = "drive_unknown"
+    MAY_EXCEED_DRIVE = "may_exceed_drive"  # the blurred location's range straddles the limit
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +172,13 @@ def _check(
             return Exclusion.OVER_BUDGET, frozenset()
         if high is None or high.toman > budget:
             warnings.add(Caution.MAY_EXCEED_BUDGET)
+    if wants.max_drive_minutes is not None:
+        if candidate.drive_minutes is None:
+            warnings.add(Caution.DRIVE_UNKNOWN)
+        elif candidate.drive_minutes[0] > wants.max_drive_minutes:
+            return Exclusion.TOO_FAR, frozenset()
+        elif candidate.drive_minutes[1] > wants.max_drive_minutes:
+            warnings.add(Caution.MAY_EXCEED_DRIVE)
     for feature in wants.features:
         evidence = candidate.features.get(feature, FeatureEvidence.UNKNOWN)
         if evidence is FeatureEvidence.DENIED:
@@ -200,7 +212,8 @@ def _score(
             else min(1.0, max(0.0, (candidate.rating - RATING_FLOOR) / RATING_SPAN)),
         }
         confirmed = sum(
-            candidate.features.get(f) in (FeatureEvidence.LISTED, FeatureEvidence.DESCRIBED)
+            candidate.features.get(f)
+            in (FeatureEvidence.LISTED, FeatureEvidence.MEASURED, FeatureEvidence.DESCRIBED)
             for f in wants.features
         )
         contributions = tuple(Contribution(name, parts[name], w) for name, w in WEIGHTS.items())

@@ -25,6 +25,8 @@ export const CAUTION_TEXT: Record<string, string> = {
   price_unknown: "قیمت معلوم نیست",
   feature_unconfirmed: "یکی از امکانات خواسته‌شده تأیید نشد",
   feature_only_described: "یکی از امکانات خواسته‌شده فقط در توضیحات آمده",
+  drive_unknown: "زمان رانندگی معلوم نیست",
+  may_exceed_drive: "بسته به جای دقیق ویلا، ممکن است از سقف زمان رانندگی بیشتر شود",
 };
 
 export const EXCLUSION_TEXT: Record<string, string> = {
@@ -33,6 +35,7 @@ export const EXCLUSION_TEXT: Record<string, string> = {
   few_bedrooms: "اتاق خواب کمتر از خواسته",
   over_budget: "بالاتر از بودجه",
   feature_denied: "امکان خواسته‌شده را ندارد",
+  too_far: "بیشتر از سقف زمان رانندگی",
 };
 
 export const MISSING_TEXT: Record<string, string> = {

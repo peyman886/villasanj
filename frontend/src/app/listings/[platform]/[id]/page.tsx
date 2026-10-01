@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { apiClient, type CalendarNight, type Listing, type Review } from "@/lib/api/client";
+import {
+  apiClient,
+  type CalendarNight,
+  type Geo,
+  type Listing,
+  type Review,
+} from "@/lib/api/client";
 import { addDays, iranToday } from "@/lib/listing";
 
 import {
@@ -24,6 +30,7 @@ type PageData = {
   calendar: CalendarNight[];
   calendarStart: string;
   reviews: Review[];
+  geo: Geo | null;
 };
 
 async function load(platform: string, externalId: string, now: Date): Promise<PageData | null> {
@@ -35,13 +42,14 @@ async function load(platform: string, externalId: string, now: Date): Promise<Pa
   });
   if (!listing.data) return null;
   const start = iranToday(now);
-  const [scenarios, calendar, reviews] = await Promise.all([
+  const [scenarios, calendar, reviews, geo] = await Promise.all([
     api.GET("/scenarios", NO_STORE),
     api.GET("/listings/{platform}/{external_id}/calendar", {
       params: { path, query: { start, end: addDays(start, CALENDAR_DAYS) } },
       ...NO_STORE,
     }),
     api.GET("/listings/{platform}/{external_id}/reviews", { params: { path }, ...NO_STORE }),
+    api.GET("/listings/{platform}/{external_id}/geo", { params: { path }, ...NO_STORE }),
   ]);
   const offers = await Promise.all(
     (scenarios.data ?? []).map(async (scenario) => ({
@@ -66,6 +74,7 @@ async function load(platform: string, externalId: string, now: Date): Promise<Pa
     calendar: calendar.data ?? [],
     calendarStart: start,
     reviews: reviews.data ?? [],
+    geo: geo.data ?? null,
   };
 }
 
@@ -79,7 +88,7 @@ export default async function ListingPage(props: {
   const { listing } = data;
   return (
     <main className="mx-auto max-w-5xl px-4 pt-6 pb-16 sm:px-6">
-      <Header listing={listing} now={now} />
+      <Header listing={listing} geo={data.geo} now={now} />
       <Photos listing={listing} />
       <OffersSection listing={listing} scenarios={data.scenarios} now={now} />
       <CalendarSection

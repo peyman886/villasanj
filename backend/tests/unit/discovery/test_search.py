@@ -6,23 +6,29 @@ from datetime import date
 from decimal import Decimal
 
 from tests.fakes.er import ListingsFake
-from tests.fakes.llm import FixedClock
+from tests.fakes.llm import NOW, FixedClock
 from tests.unit.catalog.test_reports import listing
 from tests.unit.discovery.test_holiday_calendar import SOURCES, Flags
+from tests.unit.discovery.test_routing import Store as DriveStore
 from tests.unit.discovery.test_understanding import ScriptedClient
+from tests.unit.enrichment.test_coast import Store as CoastStore
 from tests.unit.pricing.test_quote import night
 from villasanj.catalog.domain.gazetteer import Gazetteer, Place, PlaceKind
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.discovery.application.dates import BuildHolidayCalendar
-from villasanj.discovery.application.intent import Budget, DateSpec, SearchIntent
+from villasanj.discovery.application.intent import Budget, DateSpec, DriveLimit, SearchIntent
+from villasanj.discovery.application.routing import DriveTime, Leg, Origin
 from villasanj.discovery.application.search import Missing, SearchListings
 from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.domain.ranking import Caution, Exclusion
+from villasanj.enrichment.application.coast import CoastDistance
 from villasanj.enrichment.application.features import AmenityMap
-from villasanj.enrichment.domain.features import Feature
+from villasanj.enrichment.domain.features import Feature, FeatureEvidence
+from villasanj.enrichment.domain.geo import Blur
 from villasanj.ingestion.domain.parsed import ParsedAmenity
 from villasanj.pricing.application.offers import OfferBook
 from villasanj.shared.application.llm.types import JobContext
+from villasanj.shared.domain.geo import GeoPoint
 from villasanj.shared.domain.stay import DateRange
 
 CTX = JobContext("job", Decimal(1))
@@ -63,9 +69,44 @@ WEEKEND = SearchIntent(
 )
 
 
+ORIGIN = Origin("tehran", "تهران", GeoPoint(35.7, 51.34), "test")
+
+
+def coast_and_drives() -> tuple[CoastStore, DriveStore]:
+    coast, drives = CoastStore(), DriveStore()
+    near = ListingId("p", "pool")
+    coast.rows = [CoastDistance(near, "osm", 300.0, 0.0, 700.0, Blur(400, False), NOW)]
+    drives.rows = [
+        DriveTime(
+            near,
+            "tehran",
+            "osm",
+            Leg(13_800.0, 200_000.0),
+            13_500.0,
+            14_100.0,
+            9,
+            Blur(400, False),
+            NOW,
+        ),
+        DriveTime(
+            ListingId("p", "no-pool"),
+            "tehran",
+            "osm",
+            None,
+            18_000.0,
+            18_600.0,
+            8,
+            Blur(400, False),
+            NOW,
+        ),
+    ]
+    return coast, drives
+
+
 def search(intent: SearchIntent) -> SearchListings:
     reader = Calendars(LISTINGS)
     clock = FixedClock()
+    coast, drives = coast_and_drives()
     return SearchListings(
         UnderstandQuery(ScriptedClient(intent)),
         BuildHolidayCalendar(Flags([]), SOURCES),
@@ -75,6 +116,9 @@ def search(intent: SearchIntent) -> SearchListings:
         GAZETTEER,
         ["p"],
         clock,
+        coast,
+        drives,
+        ORIGIN,
     )
 
 
@@ -117,3 +161,20 @@ async def test_an_unknown_place_is_reported_and_not_used_as_a_filter() -> None:
     assert result.unresolved_places == ("سلمان شهر",)
     assert result.ranking is not None
     assert len(result.ranking.results) == 4
+
+
+async def test_the_map_answers_near_sea_and_the_drive_limit() -> None:
+    intent = SearchIntent(
+        dates=DateSpec(kind="weekend"),
+        guest_parts=[4],
+        features=["near_sea"],
+        max_drive=DriveLimit(value=4, unit="hours"),
+    )
+    result = await search(intent).run("ویلا نزدیک دریا برای ۴ نفر آخر هفته، حداکثر ۴ ساعت", CTX)
+    assert result.ranking is not None
+    first = result.ranking.results[0]
+    assert first.candidate.id == "p:pool"
+    assert first.candidate.features[Feature.NEAR_SEA] is FeatureEvidence.MEASURED
+    assert first.candidate.drive_minutes == (225.0, 235.0)
+    assert result.ranking.excluded == {Exclusion.TOO_FAR: 1}  # 300 minutes at best
+    assert result.geo["p:pool"].origin_fa == "تهران"

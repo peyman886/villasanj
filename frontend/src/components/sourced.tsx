@@ -35,6 +35,7 @@ export function Sourced({
   const rows: [string, ReactNode][] = [];
   if (value) rows.push(["مقدار", value]);
   rows.push(["نوع", METHOD_TEXT[provenance.method]]);
+  if (provenance.note) rows.push(["روش", provenance.note]);
   rows.push([
     "زمان مشاهده",
     `${faDateTime(provenance.observed_at)} (${faAge(provenance.observed_at, now)})`,

@@ -2,7 +2,15 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Sourced } from "@/components/sourced";
-import type { CalendarNight, Listing, Offer, Review, Scenario } from "@/lib/api/client";
+import type {
+  CalendarNight,
+  Geo,
+  GeoRange,
+  Listing,
+  Offer,
+  Review,
+  Scenario,
+} from "@/lib/api/client";
 import { cn } from "@/lib/cn";
 import { faPropertyType } from "@/lib/labeling";
 import {
@@ -36,7 +44,7 @@ function SectionTitle({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
-export function Header({ listing, now }: { listing: Listing; now: Date }) {
+export function Header({ listing, geo, now }: { listing: Listing; geo: Geo | null; now: Date }) {
   const facts: [string, number | null, string][] = [
     ["اتاق خواب", listing.bedrooms, ""],
     ["سرویس بهداشتی", listing.bathrooms, ""],
@@ -103,6 +111,7 @@ export function Header({ listing, now }: { listing: Listing; now: Date }) {
           </dd>
         </div>
       </dl>
+      <GeoFacts geo={geo} now={now} />
       <p className="mt-4 max-w-prose text-sm text-pretty text-stone-600">
         این صفحه‌ی یک آگهی است و قیمت و تقویمش فقط مال همین آگهی است. صفحه‌ی ویلا که همه‌ی آگهی‌های
         یک ویلا را کنار هم می‌گذارد، بعد از تطبیق آگهی‌ها ساخته می‌شود.{" "}
@@ -116,6 +125,42 @@ export function Header({ listing, now }: { listing: Listing; now: Date }) {
         </a>
       </p>
     </header>
+  );
+}
+
+/** Distance to the coast and free-flow drive time, from OpenStreetMap (ADR-0013). */
+export function GeoFacts({ geo, now }: { geo: Geo | null; now: Date }) {
+  if (!geo || (!geo.coast_m && !geo.drive_s)) return null;
+  const facts: [string, string, GeoRange | null][] = [
+    ["coast", "فاصله تا ساحل", geo.coast_m],
+    ["drive", "زمان رانندگی", geo.drive_s],
+  ];
+  return (
+    <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+      {facts.map(([key, label, range]) =>
+        range ? (
+          <div key={key} className="rounded-lg border border-stone-200 bg-white p-3">
+            <dt className="text-xs text-stone-500">{label}</dt>
+            <dd className="mt-1 text-sm font-medium tabular-nums">
+              <Sourced
+                id={`geo-${key}`}
+                label={label}
+                value={range.text}
+                provenance={range.provenance}
+                now={now}
+              >
+                {range.text}
+              </Sourced>
+              {range.radius_assumed ? (
+                <span className="mt-1 block text-xs font-normal text-stone-500">
+                  پلتفرم دقت نقطه را اعلام نکرده؛ تا ۵۰۰ متر خطا فرض شده.
+                </span>
+              ) : null}
+            </dd>
+          </div>
+        ) : null,
+      )}
+    </dl>
   );
 }
 

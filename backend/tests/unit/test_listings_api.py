@@ -13,15 +13,21 @@ from pydantic import BaseModel, ValidationError
 from tests.fakes.ingestion import SteppingClock
 from tests.fakes.llm import NOW
 from tests.unit.catalog.test_listing import parsed
+from tests.unit.discovery.test_routing import Store as DriveStore
+from tests.unit.enrichment.test_coast import Store as CoastStore
 from tests.unit.pricing.test_quote import SNAPSHOT as CALENDAR_SNAPSHOT
 from tests.unit.pricing.test_quote import night
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.catalog.domain.review import ListingReview
+from villasanj.discovery.application.routing import Origin
+from villasanj.enrichment.application.coast import CoastDistance
+from villasanj.enrichment.domain.geo import Blur
 from villasanj.entrypoints.api import listings as api
 from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container
 from villasanj.ingestion.domain.parsed import DatePrecision, ParsedReview
 from villasanj.pricing.application.offers import OfferBook
+from villasanj.shared.domain.geo import GeoPoint
 from villasanj.shared.domain.stay import DateRange
 
 CONFIG = Path(__file__).resolve().parents[3] / "config"
@@ -65,6 +71,19 @@ class Stub:
 
     def offers(self) -> OfferBook:
         return OfferBook(self.listings, {}, SteppingClock(NOW + timedelta(hours=2)))
+
+    def routing_origin(self) -> Origin:
+        return Origin("tehran", "میدان آزادی تهران", GeoPoint(35.7, 51.34), "test")
+
+    def coast_store(self) -> CoastStore:
+        store = CoastStore()
+        store.rows = [
+            CoastDistance(LISTING.id, "osm-1", 900.0, 500.0, 1300.0, Blur(400, False), NOW)
+        ]
+        return store
+
+    def drive_store(self) -> DriveStore:
+        return DriveStore()  # not routed
 
     async def aclose(self) -> None:
         return None
@@ -158,3 +177,16 @@ def test_sourced_dtos_cannot_be_built_without_provenance(model: type[BaseModel])
     assert all(model.model_fields[name].is_required() for name in provenance_fields)
     with pytest.raises(ValidationError, match="provenance"):
         model()
+
+
+def test_geo_comes_with_ranges_text_and_provenance(client: TestClient) -> None:
+    response = client.get(f"/listings/{LISTING.id.platform}/{LISTING.id.external_id}/geo")
+    assert response.status_code == 200
+    body = response.json()
+    coast = body["coast_m"]
+    assert (coast["low"], coast["high"]) == (500.0, 1300.0)
+    assert coast["text"] == "۰٫۵ تا ۱٫۳ کیلومتر تا ساحل در خط مستقیم"
+    assert coast["provenance"]["method"] == "derived"
+    assert "OpenStreetMap (osm-1)" in coast["provenance"]["note"]
+    assert body["drive_s"] is None  # not routed: no time, never a guess
+    assert body["origin"] == "میدان آزادی تهران"

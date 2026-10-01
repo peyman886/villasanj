@@ -58,6 +58,8 @@ class DriveTimeStore(Protocol):
 
     async def of_platform(self, platform: str, origin: str) -> dict[ListingId, DriveTime]: ...
 
+    async def get(self, listing_id: ListingId, origin: str) -> DriveTime | None: ...
+
 
 @dataclass(frozen=True, slots=True)
 class RoutingReport:

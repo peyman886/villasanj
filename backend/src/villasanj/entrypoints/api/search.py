@@ -14,10 +14,11 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from villasanj.discovery.application.explanation import ExplainChoice, Explanation, explain_first
+from villasanj.discovery.application.routing import Origin
 from villasanj.discovery.application.search import SearchResult
 from villasanj.discovery.domain.dates import describe_fa
 from villasanj.discovery.domain.ranking import Ranked
-from villasanj.entrypoints.api.listings import MoneyOut, ProvenanceOut
+from villasanj.entrypoints.api.listings import GeoOut, MoneyOut, ProvenanceOut, geo_out
 from villasanj.entrypoints.container import Container
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.domain.slots import SLOT
@@ -61,6 +62,7 @@ class ResultOut(BaseModel):
     score: float
     contributions: list[ContributionOut]
     cautions: list[str]
+    geo: GeoOut | None
 
 
 class SegmentOut(BaseModel):
@@ -89,7 +91,9 @@ class SearchOut(BaseModel):
     explanation: ExplanationOut | None
 
 
-def _result_out(container: Container, ranked: Ranked, result: SearchResult) -> ResultOut:
+def _result_out(
+    container: Container, ranked: Ranked, result: SearchResult, origin: Origin | None
+) -> ResultOut:
     key = ranked.candidate.id
     listing, offer = result.listings[key], result.offers[key]
     adapter = container.crawl.adapters.get(listing.id.platform)
@@ -116,7 +120,15 @@ def _result_out(container: Container, ranked: Ranked, result: SearchResult) -> R
             for c in ranked.contributions
         ],
         cautions=sorted(ranked.warnings),
+        geo=_geo(result, key, origin),
     )
+
+
+def _geo(result: SearchResult, key: str, origin: Origin | None) -> GeoOut | None:
+    geo = result.geo.get(key)
+    if geo is None or origin is None:
+        return None
+    return geo_out(result.listings[key], geo.coast, geo.drive, origin)
 
 
 def _segments(explanation: Explanation) -> list[SegmentOut]:
@@ -158,6 +170,7 @@ async def search(body: SearchIn, request: Request) -> SearchOut:
         await container.jobs.finish(ctx.job_id, status)
     ranking = result.ranking
     dates = result.dates
+    origin = container.routing_origin() if result.geo else None
     return SearchOut(
         query=body.query,
         intent=result.understanding.intent.model_dump(exclude_none=True),
@@ -178,7 +191,7 @@ async def search(body: SearchIn, request: Request) -> SearchOut:
         else None,
         excluded=dict(ranking.excluded) if ranking else {},
         total_results=len(ranking.results) if ranking else 0,
-        results=[_result_out(container, r, result) for r in ranking.results[:MAX_RESULTS]]
+        results=[_result_out(container, r, result, origin) for r in ranking.results[:MAX_RESULTS]]
         if ranking
         else [],
         explanation=ExplanationOut(

@@ -42,6 +42,8 @@ class CoastDistanceStore(Protocol):
 
     async def of_platform(self, platform: str) -> dict[ListingId, CoastDistance]: ...
 
+    async def get(self, listing_id: ListingId) -> CoastDistance | None: ...
+
 
 @dataclass(frozen=True, slots=True)
 class CoastReport:

@@ -23,7 +23,7 @@ from villasanj.catalog.infrastructure.repositories import (
 )
 from villasanj.discovery.application.dates import BuildHolidayCalendar
 from villasanj.discovery.application.hypotheses import BuildHypothesisReport
-from villasanj.discovery.application.routing import ComputeDriveTimes
+from villasanj.discovery.application.routing import ComputeDriveTimes, Origin
 from villasanj.discovery.application.search import SearchListings
 from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.infrastructure.holidays import load_holiday_sources
@@ -209,7 +209,19 @@ class Container:
             load_gazetteer(self.settings.gazetteer_path),
             sorted(self.crawl.adapters),
             self.clock,
+            PgCoastDistanceStore(self.engine),
+            PgDriveTimeStore(self.engine),
+            load_origin(self.settings.routing_origin_path),
         )
+
+    def routing_origin(self) -> Origin:
+        return load_origin(self.settings.routing_origin_path)
+
+    def coast_store(self) -> PgCoastDistanceStore:
+        return PgCoastDistanceStore(self.engine)
+
+    def drive_store(self) -> PgDriveTimeStore:
+        return PgDriveTimeStore(self.engine)
 
     def coastline(self) -> PgCoastline:
         return PgCoastline(self.engine, self.settings.geo.dataset)

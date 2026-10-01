@@ -130,6 +130,7 @@ def against_amenities(claim: DescriptionClaim, amenities: Mapping[Feature, bool]
 
 class FeatureEvidence(StrEnum):
     LISTED = "listed"  # the platform's amenity list says yes
+    MEASURED = "measured"  # measured on the map (near_sea: the coastline, ADR-0013)
     DESCRIBED = "described"  # only the description says so
     DENIED = "denied"  # the amenity list or the description says no
     UNKNOWN = "unknown"  # nothing said, or the two sources contradict each other
@@ -150,4 +151,18 @@ def feature_evidence(amenity: bool | None, claims: Sequence[DescriptionClaim]) -
         return FeatureEvidence.DENIED
     if Polarity.HAS in own:
         return FeatureEvidence.DESCRIBED
+    return FeatureEvidence.UNKNOWN
+
+
+NEAR_SEA_M = 1000.0  # "near the sea": within 1 km of the coastline in a straight line (A17)
+
+
+def near_sea_evidence(coast_low_m: float | None, coast_high_m: float | None) -> FeatureEvidence:
+    """The map's answer to "near the sea?" for a blurred location (``None``: not measured)."""
+    if coast_low_m is None or coast_high_m is None:
+        return FeatureEvidence.UNKNOWN
+    if coast_high_m <= NEAR_SEA_M:
+        return FeatureEvidence.MEASURED  # every possible position is within the distance
+    if coast_low_m > NEAR_SEA_M:
+        return FeatureEvidence.DENIED  # no possible position is
     return FeatureEvidence.UNKNOWN

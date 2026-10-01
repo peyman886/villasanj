@@ -59,6 +59,8 @@ async def test_coast_distances_and_drive_times_are_replaced_per_platform(
     await coast.replace(platform, [row])
     await coast.replace(platform, [row])  # replacing twice keeps one row
     assert await coast.of_platform(platform) == {listing: row}
+    assert await coast.get(listing) == row
+    assert await coast.get(ListingId(platform, "missing")) is None
     drives = PgDriveTimeStore(engine)
     routed = DriveTime(
         listing,
@@ -78,3 +80,5 @@ async def test_coast_distances_and_drive_times_are_replaced_per_platform(
     stored = await drives.of_platform(platform, "tehran")
     assert stored == {listing: routed, unroutable.listing_id: unroutable}
     assert await drives.of_platform(platform, "elsewhere") == {}
+    assert await drives.get(listing, "tehran") == routed
+    assert await drives.get(listing, "elsewhere") is None

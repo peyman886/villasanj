@@ -164,6 +164,81 @@
         "title": "ExplanationOut",
         "type": "object"
       },
+      "GeoOut": {
+        "properties": {
+          "coast_m": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeoRangeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drive_s": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeoRangeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          }
+        },
+        "required": [
+          "coast_m",
+          "drive_s",
+          "origin"
+        ],
+        "title": "GeoOut",
+        "type": "object"
+      },
+      "GeoRangeOut": {
+        "description": "A measured quantity over the listing's blur circle (ADR-0013).",
+        "properties": {
+          "high": {
+            "title": "High",
+            "type": "number"
+          },
+          "low": {
+            "title": "Low",
+            "type": "number"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "radius_assumed": {
+            "title": "Radius Assumed",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "low",
+          "high",
+          "text",
+          "radius_assumed",
+          "provenance"
+        ],
+        "title": "GeoRangeOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -711,6 +786,17 @@
             "title": "Method",
             "type": "string"
           },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
           "observed_at": {
             "format": "date-time",
             "title": "Observed At",
@@ -777,6 +863,16 @@
           "external_id": {
             "title": "External Id",
             "type": "string"
+          },
+          "geo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "listing_id": {
             "title": "Listing Id",
@@ -847,7 +943,8 @@
           "confirmed_features",
           "score",
           "contributions",
-          "cautions"
+          "cautions",
+          "geo"
         ],
         "title": "ResultOut",
         "type": "object"
@@ -1451,6 +1548,58 @@
           }
         },
         "summary": "Get Calendar",
+        "tags": [
+          "listings"
+        ]
+      }
+    },
+    "/listings/{platform}/{external_id}/geo": {
+      "get": {
+        "description": "Distance to the coast and free-flow drive time, each a range over the blur circle.",
+        "operationId": "get_geo_listings__platform___external_id__geo_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "title": "Platform",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "external_id",
+            "required": true,
+            "schema": {
+              "title": "External Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Geo",
         "tags": [
           "listings"
         ]

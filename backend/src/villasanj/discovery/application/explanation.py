@@ -20,7 +20,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field
 
 from villasanj.catalog.domain.listing import Listing
-from villasanj.discovery.application.search import SearchResult
+from villasanj.discovery.application.search import Geo, SearchResult
 from villasanj.discovery.domain.dates import describe_fa
 from villasanj.discovery.domain.ranking import Caution, Ranked
 from villasanj.enrichment.domain.features import Feature, FeatureEvidence
@@ -34,7 +34,13 @@ from villasanj.shared.application.llm.types import (
     Role,
     TextPart,
 )
-from villasanj.shared.domain.fa_format import fa_decimal, fa_int, fa_toman
+from villasanj.shared.domain.fa_format import (
+    fa_decimal,
+    fa_int,
+    fa_metres_range,
+    fa_minutes_range,
+    fa_toman,
+)
 from villasanj.shared.domain.persian_text import ZWNJ, normalize_persian
 from villasanj.shared.domain.provenance import Provenance, ProvenanceMethod
 from villasanj.shared.domain.slots import (
@@ -87,6 +93,7 @@ FEATURE_FA: dict[Feature, str] = {
 }
 EVIDENCE_FA: dict[FeatureEvidence, str] = {
     FeatureEvidence.LISTED: "در فهرست امکانات آگهی آمده است",
+    FeatureEvidence.MEASURED: "روی نقشه تأیید شد",
     FeatureEvidence.DESCRIBED: "فقط در توضیحات آگهی آمده و در فهرست امکانات نیست",
     FeatureEvidence.UNKNOWN: "تأیید نشد",
     FeatureEvidence.DENIED: "در آگهی رد شده است",
@@ -143,6 +150,7 @@ def build_slots(
     guests: int | None,
     features: Sequence[Feature],
     now: datetime,
+    geo: Geo | None = None,
 ) -> Slots:
     facts: dict[str, Fact] = {}
     comparisons: dict[str, Comparison] = {}
@@ -186,6 +194,22 @@ def build_slots(
             meanings["C1"] = f"per person and night, {relation} than the second result"
             compared = f"، {{C1}} از گزینه{ZWNJ}ی دوم"
         parts.append(f"یعنی {{{per}}}{compared}")
+    drive = geo.drive if geo else None
+    if geo and drive and drive.low_s is not None and drive.high_s is not None:
+        slot = fact(
+            "the free-flow drive time from the origin",
+            f"{fa_minutes_range(drive.low_s, drive.high_s)} رانندگی از {geo.origin_fa}، "
+            "بدون ترافیک",
+            _derived(now, listing.provenance),
+        )
+        parts.append(f"{{{slot}}}")
+    if geo and geo.coast is not None:
+        slot = fact(
+            "the straight-line distance to the coast",
+            f"{fa_metres_range(geo.coast.low_m, geo.coast.high_m)} تا ساحل در خط مستقیم",
+            _derived(now, listing.provenance),
+        )
+        parts.append(f"{{{slot}}}")
     if listing.rating_avg is not None and listing.rating_count:
         rating = fact(
             "the guests' rating on the platform",
@@ -327,6 +351,7 @@ async def explain_first(
         intent.guests,
         [Feature(f) for f in intent.features],
         now,
+        result.geo.get(first.candidate.id),
     )
     return await explainer.explain(result.understanding.query, slots, ctx)
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import tomllib
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import httpx
 from sqlalchemy import (
@@ -15,6 +16,7 @@ from sqlalchemy import (
     Integer,
     MetaData,
     PrimaryKeyConstraint,
+    Row,
     Table,
     Text,
     delete,
@@ -143,17 +145,28 @@ class PgDriveTimeStore:
         )
         async with self._engine.connect() as conn:
             rows = (await conn.execute(query)).all()
-        return {
-            ListingId(r.platform, r.external_id): DriveTime(
-                ListingId(r.platform, r.external_id),
-                r.origin,
-                r.dataset,
-                Leg(r.center_s, r.center_m) if r.center_s is not None else None,
-                r.low_s,
-                r.high_s,
-                r.routed_points,
-                Blur(r.radius_m, r.radius_assumed),
-                r.computed_at,
-            )
-            for r in rows
-        }
+        return {ListingId(r.platform, r.external_id): _drive(r) for r in rows}
+
+    async def get(self, listing_id: ListingId, origin: str) -> DriveTime | None:
+        query = select(drive_time).where(
+            (drive_time.c.platform == listing_id.platform)
+            & (drive_time.c.external_id == listing_id.external_id)
+            & (drive_time.c.origin == origin)
+        )
+        async with self._engine.connect() as conn:
+            row = (await conn.execute(query)).one_or_none()
+        return _drive(row) if row is not None else None
+
+
+def _drive(r: Row[Any]) -> DriveTime:
+    return DriveTime(
+        ListingId(r.platform, r.external_id),
+        r.origin,
+        r.dataset,
+        Leg(r.center_s, r.center_m) if r.center_s is not None else None,
+        r.low_s,
+        r.high_s,
+        r.routed_points,
+        Blur(r.radius_m, r.radius_assumed),
+        r.computed_at,
+    )

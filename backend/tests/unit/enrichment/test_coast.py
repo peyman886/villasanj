@@ -26,6 +26,9 @@ class Store:
     async def of_platform(self, platform: str) -> dict[ListingId, CoastDistance]:
         return {r.listing_id: r for r in self.rows}
 
+    async def get(self, listing_id: ListingId) -> CoastDistance | None:
+        return next((r for r in self.rows if r.listing_id == listing_id), None)
+
 
 async def test_distances_get_their_circle_range_and_an_unknown_radius_is_flagged() -> None:
     listings = ListingsFake(

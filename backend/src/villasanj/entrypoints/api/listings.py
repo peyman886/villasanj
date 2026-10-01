@@ -15,13 +15,17 @@ from pydantic import BaseModel
 
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.catalog.domain.review import ListingReview
+from villasanj.discovery.application.routing import DriveTime, Origin
+from villasanj.enrichment.application.coast import CoastDistance
 from villasanj.entrypoints.container import Container
 from villasanj.pricing.domain.offer import Offer
 from villasanj.pricing.domain.quote import NightCharge, StayRequest
 from villasanj.shared.application.errors import ConfigurationError
 from villasanj.shared.domain.errors import DomainError
+from villasanj.shared.domain.fa_format import fa_metres_range, fa_minutes_range
 from villasanj.shared.domain.money import MoneyRange
-from villasanj.shared.domain.provenance import Provenance
+from villasanj.shared.domain.persian_text import ZWNJ
+from villasanj.shared.domain.provenance import Provenance, ProvenanceMethod
 from villasanj.shared.domain.stay import DateRange, GuestCount
 from villasanj.shared.infrastructure.scenarios import load_scenarios
 
@@ -43,9 +47,10 @@ class ProvenanceOut(BaseModel):
     source: SourceOut | None
     snapshot_id: str | None
     inputs: int  # values this one was derived from
+    note: str | None = None  # how a derived value was made (Persian, shown on the source card)
 
     @classmethod
-    def of(cls, provenance: Provenance) -> ProvenanceOut:
+    def of(cls, provenance: Provenance, note: str | None = None) -> ProvenanceOut:
         source = provenance.source
         return cls(
             method=provenance.method.value,
@@ -54,6 +59,7 @@ class ProvenanceOut(BaseModel):
             source=SourceOut(platform=source.platform, url=source.url) if source else None,
             snapshot_id=provenance.snapshot_id,
             inputs=len(provenance.derived_from),
+            note=note,
         )
 
 
@@ -146,6 +152,55 @@ class ReviewOut(BaseModel):
     stayed_precision: Literal["day", "month"] | None
     host_replied: bool
     provenance: ProvenanceOut
+
+
+class GeoRangeOut(BaseModel):
+    """A measured quantity over the listing's blur circle (ADR-0013)."""
+
+    low: float
+    high: float
+    text: str  # Persian, widened outwards to round values
+    radius_assumed: bool  # the platform publishes no blur radius: 500 m was assumed
+    provenance: ProvenanceOut
+
+
+class GeoOut(BaseModel):
+    coast_m: GeoRangeOut | None  # straight-line distance to the coastline
+    drive_s: GeoRangeOut | None  # free-flow drive time from ``origin``
+    origin: str | None
+
+
+def geo_out(
+    listing: Listing, coast: CoastDistance | None, drive: DriveTime | None, origin: Origin
+) -> GeoOut:
+    def provenance(computed: datetime, what: str, dataset: str) -> ProvenanceOut:
+        derived = Provenance(ProvenanceMethod.DERIVED, computed, derived_from=(listing.provenance,))
+        return ProvenanceOut.of(
+            derived,
+            f"{what}، از نقشه{ZWNJ}ی OpenStreetMap ({dataset}) و نقطه{ZWNJ}ی منتشرشده{ZWNJ}ی آگهی",
+        )
+
+    return GeoOut(
+        coast_m=GeoRangeOut(
+            low=coast.low_m,
+            high=coast.high_m,
+            text=f"{fa_metres_range(coast.low_m, coast.high_m)} تا ساحل در خط مستقیم",
+            radius_assumed=coast.blur.assumed,
+            provenance=provenance(coast.computed_at, "فاصله تا خط ساحل", coast.dataset),
+        )
+        if coast
+        else None,
+        drive_s=GeoRangeOut(
+            low=drive.low_s,
+            high=drive.high_s,
+            text=f"{fa_minutes_range(drive.low_s, drive.high_s)} از {origin.name_fa}، بدون ترافیک",
+            radius_assumed=drive.blur.assumed,
+            provenance=provenance(drive.computed_at, "مسیر بدون ترافیک (OSRM)", drive.dataset),
+        )
+        if drive and drive.low_s is not None and drive.high_s is not None
+        else None,
+        origin=origin.name_fa,
+    )
 
 
 class ScenarioOut(BaseModel):
@@ -311,6 +366,17 @@ async def get_reviews(platform: str, external_id: str, request: Request) -> list
     container = _container(request)
     listing = await _listing(container, platform, external_id)
     return [_review_out(r) for r in await container.listings.reviews(listing.id)]
+
+
+@router.get("/{platform}/{external_id}/geo")
+async def get_geo(platform: str, external_id: str, request: Request) -> GeoOut:
+    """Distance to the coast and free-flow drive time, each a range over the blur circle."""
+    container = _container(request)
+    listing = await _listing(container, platform, external_id)
+    origin = container.routing_origin()
+    coast = await container.coast_store().get(listing.id)
+    drive = await container.drive_store().get(listing.id, origin.slug)
+    return geo_out(listing, coast, drive, origin)
 
 
 @scenarios_router.get("/scenarios")

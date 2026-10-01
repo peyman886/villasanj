@@ -19,6 +19,7 @@ from villasanj.catalog.domain.listing import Listing
 from villasanj.catalog.domain.review import RatingPrior
 from villasanj.discovery.application.dates import BuildHolidayCalendar
 from villasanj.discovery.application.intent import SearchIntent
+from villasanj.discovery.application.routing import DriveTime, DriveTimeStore, Origin
 from villasanj.discovery.application.understanding import Understanding, UnderstandQuery
 from villasanj.discovery.domain.dates import ResolvedDates, resolve
 from villasanj.discovery.domain.ranking import (
@@ -28,8 +29,15 @@ from villasanj.discovery.domain.ranking import (
     Requirements,
     rank,
 )
+from villasanj.enrichment.application.coast import CoastDistance, CoastDistanceStore
 from villasanj.enrichment.application.features import AmenityMap
-from villasanj.enrichment.domain.features import Feature, extract_claims, feature_evidence
+from villasanj.enrichment.domain.features import (
+    Feature,
+    FeatureEvidence,
+    extract_claims,
+    feature_evidence,
+    near_sea_evidence,
+)
 from villasanj.pricing.application.offers import OfferBook
 from villasanj.pricing.domain.offer import Offer
 from villasanj.pricing.domain.quote import QuoteStatus, StayRequest
@@ -59,6 +67,22 @@ class SearchResult:
     ranking: Ranking | None
     offers: Mapping[str, Offer] = field(default_factory=dict)  # by candidate id
     listings: Mapping[str, Listing] = field(default_factory=dict)
+    geo: Mapping[str, Geo] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class Geo:
+    """What the map says about a candidate (ADR-0013); ``None``: not measured."""
+
+    coast: CoastDistance | None
+    drive: DriveTime | None
+    origin_fa: str | None = None  # where the drive times start, e.g. «میدان آزادی تهران»
+
+    @property
+    def drive_minutes(self) -> tuple[float, float] | None:
+        if self.drive is None or self.drive.low_s is None or self.drive.high_s is None:
+            return None
+        return self.drive.low_s / 60, self.drive.high_s / 60
 
 
 class SearchListings:
@@ -72,6 +96,9 @@ class SearchListings:
         gazetteer: Gazetteer,
         platforms: Sequence[str],
         clock: Clock,
+        coast: CoastDistanceStore | None = None,
+        drives: DriveTimeStore | None = None,
+        origin: Origin | None = None,
     ) -> None:
         self._understand = understand
         self._holidays = holidays
@@ -81,6 +108,9 @@ class SearchListings:
         self._gazetteer = gazetteer
         self._platforms = tuple(platforms)
         self._clock = clock
+        self._coast = coast
+        self._drives = drives
+        self._origin = origin
 
     async def run(self, query: str, ctx: JobContext) -> SearchResult:
         understanding = await self._understand.run(query, ctx)
@@ -95,11 +125,18 @@ class SearchListings:
         candidates: list[Candidate] = []
         offers: dict[str, Offer] = {}
         listings: dict[str, Listing] = {}
+        geos: dict[str, Geo] = {}
         for platform in self._platforms:
             every = await self._listings.listings(platform)
             prior = RatingPrior.from_listings(every)  # the platform-wide mean, before filtering
             platform_listings = [x for x in every if self._in(x, places)]
             platform_offers = await self._offers.offers(platform, request)
+            coast = await self._coast.of_platform(platform) if self._coast else {}
+            drives = (
+                await self._drives.of_platform(platform, self._origin.slug)
+                if self._drives and self._origin
+                else {}
+            )
             for listing in platform_listings:
                 offer = platform_offers.get(listing.id)
                 if offer is None:
@@ -107,10 +144,24 @@ class SearchListings:
                 key = str(listing.id)
                 offers[key] = offer
                 listings[key] = listing
-                candidates.append(self._candidate(key, listing, offer, prior, intent))
+                geo = Geo(
+                    coast.get(listing.id),
+                    drives.get(listing.id),
+                    self._origin.name_fa if self._origin else None,
+                )
+                geos[key] = geo
+                candidates.append(self._candidate(key, listing, offer, prior, intent, geo))
         ranking = rank(candidates, _requirements(intent, dates))
         return SearchResult(
-            understanding, dates, tuple(missing), places, unresolved, ranking, offers, listings
+            understanding,
+            dates,
+            tuple(missing),
+            places,
+            unresolved,
+            ranking,
+            offers,
+            listings,
+            geos,
         )
 
     def _places(self, intent: SearchIntent) -> tuple[tuple[Place, ...], tuple[str, ...]]:
@@ -156,6 +207,7 @@ class SearchListings:
         offer: Offer,
         prior: RatingPrior | None,
         intent: SearchIntent,
+        geo: Geo,
     ) -> Candidate:
         stated = self._amenities.features_of(listing)
         claims = extract_claims(listing.description_norm or "")
@@ -165,6 +217,10 @@ class SearchListings:
             )
             for feature in (Feature(f) for f in intent.features)
         }
+        if Feature.NEAR_SEA in features and geo.coast is not None:
+            measured = near_sea_evidence(geo.coast.low_m, geo.coast.high_m)
+            if measured is not FeatureEvidence.UNKNOWN:  # the map decides when it can
+                features[Feature.NEAR_SEA] = measured
         rating = (
             prior.shrink(listing.rating_avg, listing.rating_count)
             if prior is not None
@@ -178,6 +234,7 @@ class SearchListings:
             bedrooms=listing.bedrooms,
             rating=rating,
             features=features,
+            drive_minutes=geo.drive_minutes,
         )
 
 
@@ -190,4 +247,5 @@ def _requirements(intent: SearchIntent, dates: ResolvedDates) -> Requirements:
         budget_toman=budget.max_toman if budget else None,
         budget_basis=BudgetBasis(budget.basis) if budget else BudgetBasis.UNKNOWN,
         features=tuple(Feature(f) for f in intent.features),
+        max_drive_minutes=intent.max_drive.minutes if intent.max_drive else None,
     )

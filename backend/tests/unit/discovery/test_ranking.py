@@ -166,3 +166,31 @@ def test_confirmed_requested_features_come_before_a_better_score() -> None:
     first, second = ranking.results
     assert first.candidate.id == "dear-with-pool"
     assert first.score < second.score  # the score alone would have put it last
+
+
+def test_drive_limits_exclude_by_the_best_case_and_flag_a_straddle() -> None:
+    wants = Requirements(nights=2, guests=4, max_drive_minutes=240)
+    ranking = rank(
+        [
+            candidate("near", drive_minutes=(200.0, 230.0)),
+            candidate("straddle", drive_minutes=(235.0, 250.0)),
+            candidate("far", drive_minutes=(245.0, 260.0)),
+            candidate("unrouted"),
+        ],
+        wants,
+    )
+    by_id = {r.candidate.id: r.warnings for r in ranking.results}
+    assert by_id == {
+        "near": frozenset(),
+        "straddle": {Caution.MAY_EXCEED_DRIVE},
+        "unrouted": {Caution.DRIVE_UNKNOWN},
+    }
+    assert ranking.excluded == {Exclusion.TOO_FAR: 1}
+
+
+def test_a_measured_feature_counts_as_confirmed() -> None:
+    wants = Requirements(nights=2, guests=4, features=(Feature.NEAR_SEA,))
+    (only,) = rank(
+        [candidate("x", features={Feature.NEAR_SEA: FeatureEvidence.MEASURED})], wants
+    ).results
+    assert (only.confirmed, only.warnings) == (1, frozenset())

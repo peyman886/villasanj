@@ -185,3 +185,26 @@ def test_availability_stated_as_a_state_is_rejected() -> None:
     codes = [v.code for v in check("این ویلا با {F3} برای {F1} در دسترس است.", slots())]
     assert codes == [ViolationCode.STATE_AS_FACT]
     assert check("{F3} برای {F1}؛ {F4}.", slots()) == []
+
+
+def test_drive_time_and_coast_distance_become_facts() -> None:
+    from villasanj.discovery.application.routing import DriveTime, Leg
+    from villasanj.discovery.application.search import Geo
+    from villasanj.enrichment.application.coast import CoastDistance
+    from villasanj.enrichment.domain.geo import Blur
+
+    top, second = ranked_pair()
+    geo = Geo(
+        CoastDistance(LISTING.id, "osm", 1000.0, 600.0, 1400.0, Blur(400, False), NOW),
+        DriveTime(
+            LISTING.id, "o", "osm", Leg(15600.0, 1.0), 15500.0, 15800.0, 9, Blur(400, False), NOW
+        ),
+        "میدان آزادی تهران",
+    )
+    built = build_slots(top, second, OFFER, LISTING, "پلتفرم", REQUEST.stay, 4, [], NOW, geo)
+    texts = [f.text for f in built.facts.values()]
+    assert (
+        "۴ ساعت و ۱۵ دقیقه تا ۴ ساعت و ۲۵ دقیقه رانندگی از میدان آزادی تهران، بدون ترافیک" in texts
+    )
+    assert "۰٫۶ تا ۱٫۴ کیلومتر تا ساحل در خط مستقیم" in texts
+    assert check(built.template, built) == []
