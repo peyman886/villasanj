@@ -72,6 +72,7 @@ def test_search_returns_ranked_results_with_provenance(client: TestClient) -> No
     assert body["dates"]["text"] == "پنجشنبه ۹ مهر تا شنبه ۱۱ مهر"
     assert body["places"] == ["رامسر"]
     assert body["excluded"] == {"feature_denied": 1}
+    assert body["drive_coverage"] == {"3": 0, "4": 1, "5": 1, "6": 1}
     assert [r["listing_id"] for r in body["results"]] == ["p:pool", "p:contradicted"]
     first = body["results"][0]
     assert first["total"]["high_toman"] is None  # no fee policy: an open "at least" offer

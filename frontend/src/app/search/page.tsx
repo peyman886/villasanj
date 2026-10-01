@@ -13,6 +13,7 @@ import {
   MISSING_TEXT,
   budgetChoices,
   displaySegments,
+  driveCoverageText,
   exclusionSummary,
   intentChips,
   type SearchOut,
@@ -26,23 +27,32 @@ const FOCUS =
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-async function runSearch(query: string): Promise<SearchOut | "error"> {
+async function runSearch(query: string, drop: string[]): Promise<SearchOut | "error"> {
   try {
-    const { data } = await apiClient().POST("/search", { body: { query }, cache: "no-store" });
+    const { data } = await apiClient().POST("/search", {
+      body: { query, drop },
+      cache: "no-store",
+    });
     return data ?? "error";
   } catch {
     return "error";
   }
 }
 
-function searchHref(query: string): string {
-  return `/search?${new URLSearchParams({ q: query })}`;
+function searchHref(query: string, drop: string[] = []): string {
+  const params = new URLSearchParams({ q: query });
+  for (const key of drop) params.append("drop", key);
+  return `/search?${params}`;
 }
 
 export default async function SearchPage(props: { searchParams: Promise<SearchParams> }) {
   const params = await props.searchParams;
   const query = typeof params.q === "string" ? params.q.trim() : "";
-  const result = query.length >= 2 ? await runSearch(query) : null;
+  const drop = (Array.isArray(params.drop) ? params.drop : params.drop ? [params.drop] : []).slice(
+    0,
+    12,
+  );
+  const result = query.length >= 2 ? await runSearch(query, drop) : null;
   const now = new Date();
   return (
     <main className="mx-auto max-w-4xl px-4 pt-6 pb-16 sm:px-6">
@@ -80,7 +90,7 @@ export default async function SearchPage(props: { searchParams: Promise<SearchPa
           جستجو انجام نشد. API در دسترس است؟
         </p>
       ) : null}
-      {result && result !== "error" ? <Results result={result} now={now} /> : null}
+      {result && result !== "error" ? <Results result={result} drop={drop} now={now} /> : null}
     </main>
   );
 }
@@ -105,7 +115,7 @@ function Examples() {
   );
 }
 
-function Results({ result, now }: { result: SearchOut; now: Date }) {
+function Results({ result, drop, now }: { result: SearchOut; drop: string[]; now: Date }) {
   const chips = intentChips(result);
   const choices = budgetChoices(result);
   const excluded = exclusionSummary(result.excluded);
@@ -115,13 +125,33 @@ function Results({ result, now }: { result: SearchOut; now: Date }) {
         <ul className="flex flex-wrap gap-2">
           {chips.map((chip) => (
             <li
-              key={chip}
-              className="rounded-full border border-stone-300 bg-white px-3 py-1 text-sm"
+              key={chip.key}
+              className="inline-flex items-center gap-1 rounded-full border border-stone-300 bg-white py-1 ps-3 pe-1 text-sm"
             >
-              {chip}
+              {chip.text}
+              <Link
+                href={searchHref(result.query, [...drop, chip.key])}
+                aria-label={`حذف «${chip.text}» و جستجوی دوباره`}
+                className={cn(
+                  "inline-flex size-6 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800",
+                  FOCUS,
+                )}
+              >
+                <span aria-hidden="true">×</span>
+              </Link>
             </li>
           ))}
         </ul>
+        {drop.length > 0 ? (
+          <p className="mt-2 text-sm">
+            <Link
+              href={searchHref(result.query)}
+              className={cn("text-emerald-800 underline underline-offset-4", FOCUS)}
+            >
+              بازگرداندن همه‌ی شرط‌ها
+            </Link>
+          </p>
+        ) : null}
         {(result.dates?.caveats ?? []).map((c) => (
           <p key={c} className="mt-2 text-sm text-stone-600">
             {DATE_CAVEAT_TEXT[c] ?? c}
@@ -150,7 +180,7 @@ function Results({ result, now }: { result: SearchOut; now: Date }) {
                 {choices.map((c) => (
                   <li key={c.label}>
                     <Link
-                      href={searchHref(c.query)}
+                      href={searchHref(c.query, drop)}
                       className={cn(
                         "inline-block rounded-md border border-emerald-700 px-3 py-1 text-emerald-900 hover:bg-emerald-50",
                         FOCUS,
@@ -208,6 +238,9 @@ function Results({ result, now }: { result: SearchOut; now: Date }) {
             برای هر نفر و امتیاز مهمان‌ها. نتیجه‌ها هنوز در سطح آگهی است: یک ویلا ممکن است در دو
             پلتفرم دو بار بیاید.
           </p>
+          {driveCoverageText(result) ? (
+            <p className="mt-1 text-xs text-stone-500 tabular-nums">{driveCoverageText(result)}</p>
+          ) : null}
           <ol className="mt-4 space-y-3">
             {result.results.map((r, index) => (
               <ResultCard key={r.listing_id} result={r} rank={index + 1} now={now} />

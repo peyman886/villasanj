@@ -1064,6 +1064,14 @@
       },
       "SearchIn": {
         "properties": {
+          "drop": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Drop",
+            "type": "array"
+          },
           "query": {
             "maxLength": 300,
             "minLength": 2,
@@ -1102,6 +1110,13 @@
                 "type": "null"
               }
             ]
+          },
+          "drive_coverage": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Drive Coverage",
+            "type": "object"
           },
           "excluded": {
             "additionalProperties": {
@@ -1172,6 +1187,7 @@
           "budget_readings",
           "excluded",
           "total_results",
+          "drive_coverage",
           "results",
           "explanation"
         ],

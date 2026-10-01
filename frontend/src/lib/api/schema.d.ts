@@ -547,6 +547,8 @@ export interface components {
         };
         /** SearchIn */
         SearchIn: {
+            /** Drop */
+            drop?: string[];
             /** Query */
             query: string;
         };
@@ -557,6 +559,10 @@ export interface components {
                 [key: string]: number;
             } | null;
             dates: components["schemas"]["DatesOut"] | null;
+            /** Drive Coverage */
+            drive_coverage: {
+                [key: string]: number;
+            };
             /** Excluded */
             excluded: {
                 [key: string]: number;

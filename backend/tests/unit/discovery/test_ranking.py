@@ -8,6 +8,7 @@ from villasanj.discovery.domain.ranking import (
     Caution,
     Exclusion,
     Requirements,
+    drive_coverage,
     rank,
 )
 from villasanj.enrichment.domain.features import Feature, FeatureEvidence
@@ -194,3 +195,14 @@ def test_a_measured_feature_counts_as_confirmed() -> None:
         [candidate("x", features={Feature.NEAR_SEA: FeatureEvidence.MEASURED})], wants
     ).results
     assert (only.confirmed, only.warnings) == (1, frozenset())
+
+
+def test_drive_coverage_counts_results_per_limit_with_every_other_filter() -> None:
+    candidates = [
+        candidate("3h", drive_minutes=(170.0, 175.0)),
+        candidate("4h", drive_minutes=(230.0, 236.0)),
+        candidate("4h-small", drive_minutes=(230.0, 236.0), max_capacity=2),  # fails the group
+        candidate("unrouted"),
+    ]
+    coverage = drive_coverage(candidates, Requirements(nights=2, guests=4), hours=(3, 4))
+    assert coverage == {3: 1, 4: 2}

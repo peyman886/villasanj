@@ -10,7 +10,7 @@ a question, never guessed.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
 from villasanj.catalog.application.reading import ListingReader
@@ -18,7 +18,7 @@ from villasanj.catalog.domain.gazetteer import Gazetteer, Place
 from villasanj.catalog.domain.listing import Listing
 from villasanj.catalog.domain.review import RatingPrior
 from villasanj.discovery.application.dates import BuildHolidayCalendar
-from villasanj.discovery.application.intent import SearchIntent
+from villasanj.discovery.application.intent import SearchIntent, without
 from villasanj.discovery.application.routing import DriveTime, DriveTimeStore, Origin
 from villasanj.discovery.application.understanding import Understanding, UnderstandQuery
 from villasanj.discovery.domain.dates import ResolvedDates, resolve
@@ -27,6 +27,7 @@ from villasanj.discovery.domain.ranking import (
     Candidate,
     Ranking,
     Requirements,
+    drive_coverage,
     rank,
 )
 from villasanj.enrichment.application.coast import CoastDistance, CoastDistanceStore
@@ -68,6 +69,7 @@ class SearchResult:
     offers: Mapping[str, Offer] = field(default_factory=dict)  # by candidate id
     listings: Mapping[str, Listing] = field(default_factory=dict)
     geo: Mapping[str, Geo] = field(default_factory=dict)
+    drive_coverage: Mapping[int, int] = field(default_factory=dict)  # hours -> results
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,8 +114,11 @@ class SearchListings:
         self._drives = drives
         self._origin = origin
 
-    async def run(self, query: str, ctx: JobContext) -> SearchResult:
+    async def run(self, query: str, ctx: JobContext, drop: Sequence[str] = ()) -> SearchResult:
+        """``drop``: constraints the user removed from the understood query (editable chips)."""
         understanding = await self._understand.run(query, ctx)
+        if drop:
+            understanding = replace(understanding, intent=without(understanding.intent, drop))
         intent = understanding.intent
         places, unresolved = self._places(intent)
         dates, missing = await self._dates(intent)
@@ -151,7 +156,11 @@ class SearchListings:
                 )
                 geos[key] = geo
                 candidates.append(self._candidate(key, listing, offer, prior, intent, geo))
-        ranking = rank(candidates, _requirements(intent, dates))
+        wants = _requirements(intent, dates)
+        ranking = rank(candidates, wants)
+        coverage = (
+            drive_coverage(candidates, wants) if any(c.drive_minutes for c in candidates) else {}
+        )
         return SearchResult(
             understanding,
             dates,
@@ -162,6 +171,7 @@ class SearchListings:
             offers,
             listings,
             geos,
+            coverage,
         )
 
     def _places(self, intent: SearchIntent) -> tuple[tuple[Place, ...], tuple[str, ...]]:

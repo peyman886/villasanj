@@ -73,32 +73,47 @@ type Intent = {
   features?: string[];
 };
 
-/** The query as understood, one chip per constraint (the numbers are the user's own). */
-export function intentChips(result: SearchOut): string[] {
+export type Chip = { key: string; text: string };
+
+/**
+ * The query as understood, one chip per constraint (the numbers are the user's own). The key
+ * names what removing the chip drops ("budget", "place:رامسر", ...); removing the dates makes the
+ * page ask for them again.
+ */
+export function intentChips(result: SearchOut): Chip[] {
   const intent = result.intent as Intent;
-  const chips: string[] = [];
-  if (result.dates) chips.push(result.dates.text);
+  const chips: Chip[] = [];
+  if (result.dates) chips.push({ key: "dates", text: result.dates.text });
   const parts = intent.guest_parts ?? [];
   if (parts.length > 0) {
     const total = parts.reduce((sum, n) => sum + n, 0);
-    chips.push(`${faNumber(total)} نفر`);
+    chips.push({ key: "guests", text: `${faNumber(total)} نفر` });
   } else if (intent.party === "couple") {
-    chips.push("دو نفر (زوج)");
+    chips.push({ key: "guests", text: "دو نفر (زوج)" });
   } else if (intent.party === "solo") {
-    chips.push("یک نفر");
+    chips.push({ key: "guests", text: "یک نفر" });
   }
-  if (intent.nights && !result.dates) chips.push(`${faNumber(intent.nights)} شب`);
-  if (intent.bedrooms_min) chips.push(`دست‌کم ${faNumber(intent.bedrooms_min)} خواب`);
+  if (intent.nights && !result.dates) {
+    chips.push({ key: "nights", text: `${faNumber(intent.nights)} شب` });
+  }
+  if (intent.bedrooms_min) {
+    chips.push({ key: "bedrooms", text: `دست‌کم ${faNumber(intent.bedrooms_min)} خواب` });
+  }
   if (intent.budget) {
     const basis = BASIS_TEXT[intent.budget.basis] ?? "";
-    chips.push(`تا ${faNumber(intent.budget.max_toman)} تومان (${basis})`);
+    chips.push({ key: "budget", text: `تا ${faNumber(intent.budget.max_toman)} تومان (${basis})` });
   }
   if (intent.max_drive) {
     const unit = intent.max_drive.unit === "hours" ? "ساعت" : "دقیقه";
-    chips.push(`حداکثر ${faNumber(intent.max_drive.value)} ${unit} رانندگی`);
+    chips.push({
+      key: "drive",
+      text: `حداکثر ${faNumber(intent.max_drive.value)} ${unit} رانندگی`,
+    });
   }
-  chips.push(...result.places);
-  for (const feature of intent.features ?? []) chips.push(FEATURE_TEXT[feature] ?? feature);
+  for (const place of result.places) chips.push({ key: `place:${place}`, text: place });
+  for (const feature of intent.features ?? []) {
+    chips.push({ key: `feature:${feature}`, text: FEATURE_TEXT[feature] ?? feature });
+  }
   return chips;
 }
 
@@ -120,6 +135,16 @@ export function budgetChoices(result: SearchOut): BudgetChoice[] {
       query: `${result.query} برای کل اقامت`,
     },
   ];
+}
+
+/** «با سقف ۴ ساعت: ۱۲۰ آگهی · ۵ ساعت: ۴۰۰ آگهی»: results per free-flow drive limit. */
+export function driveCoverageText(result: SearchOut): string | null {
+  const entries = Object.entries(result.drive_coverage).sort(([a], [b]) => Number(a) - Number(b));
+  if (entries.length === 0) return null;
+  const parts = entries.map(
+    ([hours, count]) => `${faNumber(Number(hours))} ساعت: ${faNumber(count)} آگهی`,
+  );
+  return `با سقف رانندگی از تهران (بدون ترافیک) — ${parts.join(" · ")}`;
 }
 
 export function exclusionSummary(excluded: Record<string, number>): string[] {

@@ -31,6 +31,9 @@ router = APIRouter(tags=["search"])
 
 class SearchIn(BaseModel):
     query: str = Field(min_length=2, max_length=300)
+    # Constraints the user removed: "dates", "nights", "guests", "bedrooms", "budget", "drive",
+    # "place:<name>", "feature:<code>" (editable chips). Removing never adds a number.
+    drop: list[str] = Field(default_factory=list, max_length=12)
 
 
 class DatesOut(BaseModel):
@@ -87,6 +90,7 @@ class SearchOut(BaseModel):
     budget_readings: dict[str, int] | None
     excluded: dict[str, int]
     total_results: int
+    drive_coverage: dict[str, int]  # free-flow hours from the origin -> results with that limit
     results: list[ResultOut]
     explanation: ExplanationOut | None
 
@@ -160,7 +164,7 @@ async def search(body: SearchIn, request: Request) -> SearchOut:
     ctx = await container.jobs.start("search", SEARCH_BUDGET_USD, {})
     status = JobStatus.FAILED
     try:
-        result = await container.search().run(body.query, ctx)
+        result = await container.search().run(body.query, ctx, body.drop)
         names = {p: a.profile.display_name for p, a in container.crawl.adapters.items()}
         why = await explain_first(
             ExplainChoice(container.llm.client), result, names, container.clock.now(), ctx
@@ -191,6 +195,7 @@ async def search(body: SearchIn, request: Request) -> SearchOut:
         else None,
         excluded=dict(ranking.excluded) if ranking else {},
         total_results=len(ranking.results) if ranking else 0,
+        drive_coverage={str(hours): count for hours, count in result.drive_coverage.items()},
         results=[_result_out(container, r, result, origin) for r in ranking.results[:MAX_RESULTS]]
         if ranking
         else [],

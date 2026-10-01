@@ -9,6 +9,7 @@ from villasanj.discovery.application.intent import (
     SearchIntent,
     drop_violations,
     verify_intent,
+    without,
 )
 from villasanj.discovery.domain.dates import (
     FRIDAY,
@@ -109,3 +110,20 @@ def test_an_incomplete_date_is_a_violation() -> None:
 def test_the_schema_rejects_unknown_fields() -> None:
     with pytest.raises(ValueError, match="extra"):
         SearchIntent.model_validate({"guests": 4})
+
+
+def test_dropping_constraints_never_adds_a_number() -> None:
+    intent = SearchIntent(
+        dates=DateSpec(kind="weekend"),
+        guest_parts=[4, 2],
+        budget=Budget(max_toman=5_000_000),
+        places=["رامسر", "تنکابن"],
+        features=["pool", "jacuzzi"],
+    )
+    edited = without(intent, ["budget", "guests", "place:رامسر", "feature:pool", "unknown"])
+    assert edited == SearchIntent(
+        dates=DateSpec(kind="weekend"), places=["تنکابن"], features=["jacuzzi"]
+    )
+    query = "آخر هفته برای ۴ بزرگسال و ۲ بچه زیر ۵ میلیون، رامسر یا تنکابن، استخر و جکوزی"
+    assert verify_intent(edited, query) == []
+    assert without(intent, []) == intent

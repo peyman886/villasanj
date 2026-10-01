@@ -18,7 +18,7 @@ night 0.6, rating 0.4.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
 from villasanj.enrichment.domain.features import Feature, FeatureEvidence
@@ -228,3 +228,26 @@ def _closeness(price: float, cheapest: float, dearest: float) -> float:
     if dearest == cheapest:
         return 1.0
     return (dearest - price) / (dearest - cheapest)
+
+
+DRIVE_COVERAGE_HOURS = (3, 4, 5, 6)
+
+
+def drive_coverage(
+    candidates: Sequence[Candidate],
+    wants: Requirements,
+    hours: Sequence[int] = DRIVE_COVERAGE_HOURS,
+) -> dict[int, int]:
+    """How many results the same search has with each drive limit (M8 criterion 3's note).
+
+    Every other filter is applied as asked; a candidate without a drive time is not counted.
+    """
+    coverage = {}
+    for limit in hours:
+        limited = replace(wants, max_drive_minutes=float(limit * 60))
+        budget = _budget_total(limited, limited.budget_basis)
+        coverage[limit] = sum(
+            c.drive_minutes is not None and _check(c, limited, budget)[0] is None
+            for c in candidates
+        )
+    return coverage

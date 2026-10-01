@@ -178,3 +178,18 @@ async def test_the_map_answers_near_sea_and_the_drive_limit() -> None:
     assert first.candidate.drive_minutes == (225.0, 235.0)
     assert result.ranking.excluded == {Exclusion.TOO_FAR: 1}  # 300 minutes at best
     assert result.geo["p:pool"].origin_fa == "تهران"
+    assert result.drive_coverage == {
+        3: 0,
+        4: 1,
+        5: 2,
+        6: 2,
+    }  # p:pool 225 min; p:no-pool 300 at best
+
+
+async def test_removed_chips_widen_the_search() -> None:
+    query = "ویلای استخردار در رامسر برای ۴ نفر آخر هفته زیر ۵ میلیون"
+    result = await search(WEEKEND).run(query, CTX, drop=["place:رامسر", "feature:pool"])
+    assert result.understanding.intent.places == []
+    assert result.understanding.intent.features == []
+    assert result.ranking is not None
+    assert len(result.ranking.results) == 4

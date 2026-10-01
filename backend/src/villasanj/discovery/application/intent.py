@@ -13,6 +13,7 @@ dropped and the user asked (M8 ambiguity flow). The field set is provisional unt
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from decimal import Decimal
 from typing import Literal, assert_never
 
@@ -186,3 +187,31 @@ def drop_violations(intent: SearchIntent, query: str) -> tuple[SearchIntent, tup
         else:
             update[field] = None
     return intent.model_copy(update=update), tuple(problems)
+
+
+# What a user can remove from an understood query (editable chips, M8). Removing never adds a
+# number, so an edited intent is still one whose every number the query said.
+DROP_FIELDS: dict[str, dict[str, object]] = {
+    "dates": {"dates": None},
+    "nights": {"nights": None},
+    "guests": {"guest_parts": [], "party": None},
+    "bedrooms": {"bedrooms_min": None},
+    "budget": {"budget": None},
+    "drive": {"max_drive": None},
+}
+
+
+def without(intent: SearchIntent, drops: Sequence[str]) -> SearchIntent:
+    """The intent without the dropped constraints: "budget", "place:<name>", "feature:<code>"."""
+    update: dict[str, object] = {}
+    places, features = list(intent.places), list(intent.features)
+    for drop in drops:
+        kind, _, value = drop.partition(":")
+        if drop in DROP_FIELDS:
+            update.update(DROP_FIELDS[drop])
+        elif kind == "place":
+            places = [p for p in places if p != value]
+        elif kind == "feature":
+            features = [f for f in features if f != value]
+    update["places"], update["features"] = places, features
+    return intent.model_copy(update=update)

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   budgetChoices,
   displaySegments,
+  driveCoverageText,
   exclusionSummary,
   intentChips,
   type SearchOut,
@@ -19,6 +20,7 @@ function result(overrides: Partial<SearchOut> = {}): SearchOut {
     budget_readings: null,
     excluded: {},
     total_results: 0,
+    drive_coverage: {},
     results: [],
     explanation: null,
     ...overrides,
@@ -44,14 +46,23 @@ describe("search texts", () => {
         places: ["رامسر"],
       }),
     );
-    expect(chips).toEqual([
+    expect(chips.map((c) => c.text)).toEqual([
       "پنجشنبه ۱۶ مهر تا شنبه ۱۸ مهر",
       "۶ نفر",
       "تا ۵٬۰۰۰٬۰۰۰ تومان (شبی یا کل اقامت؟)",
       "رامسر",
       "استخر",
     ]);
-    expect(intentChips(result({ intent: { party: "couple" } }))).toEqual(["دو نفر (زوج)"]);
+    expect(chips.map((c) => c.key)).toEqual([
+      "dates",
+      "guests",
+      "budget",
+      "place:رامسر",
+      "feature:pool",
+    ]);
+    expect(intentChips(result({ intent: { party: "couple" } }))).toEqual([
+      { key: "guests", text: "دو نفر (زوج)" },
+    ]);
   });
 
   it("offers the budget readings only when they change the results", () => {
@@ -62,6 +73,13 @@ describe("search texts", () => {
       ["کل اقامت", 4],
     ]);
     expect(choices[0]?.query).toBe("ویلا زیر ۵ میلیون شبی");
+  });
+
+  it("says how many results each drive limit would give", () => {
+    expect(driveCoverageText(result())).toBeNull();
+    expect(driveCoverageText(result({ drive_coverage: { "5": 40, "4": 12 } }))).toBe(
+      "با سقف رانندگی از تهران (بدون ترافیک) — ۴ ساعت: ۱۲ آگهی · ۵ ساعت: ۴۰ آگهی",
+    );
   });
 
   it("summarises exclusions, largest first", () => {

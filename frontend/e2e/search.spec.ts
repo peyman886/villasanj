@@ -41,4 +41,20 @@ test.describe("search page", () => {
     await expect(page).toHaveURL(new RegExp(`${href}$`));
     await expect(page.locator("h1")).toBeVisible();
   });
+
+  test("removing a chip searches again without it, and everything can be restored", async ({
+    page,
+  }) => {
+    const before = await page.getByRole("heading", { name: /آگهی مناسب/ }).textContent();
+    await page.getByRole("link", { name: "حذف «استخر» و جستجوی دوباره" }).click();
+    // A new search can wait on an uncached explanation: allow for it.
+    await expect(page).toHaveURL(/drop=feature%3Apool/, { timeout: 30_000 });
+    await expect(page.getByRole("link", { name: "حذف «استخر» و جستجوی دوباره" })).toHaveCount(0);
+    const after = await page.getByRole("heading", { name: /آگهی مناسب/ }).textContent();
+    expect(after).not.toBe(before); // no pool required: more listings
+    await page.getByRole("link", { name: "بازگرداندن همه‌ی شرط‌ها" }).click();
+    await expect(page.getByRole("link", { name: "حذف «استخر» و جستجوی دوباره" })).toBeVisible({
+      timeout: 30_000,
+    });
+  });
 });
