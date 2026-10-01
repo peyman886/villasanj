@@ -84,7 +84,8 @@ class DryRunEstimator:
                 route.model, request.messages, request.output_schema.model_json_schema()
             )
             pricing = self._catalog.get(route.model).pricing
-            acc.expected += pricing.cost(TokenUsage(input_tokens, route.expected_output_tokens))
+            expected_output = min(route.expected_output_tokens, call.max_output_tokens)
+            acc.expected += pricing.cost(TokenUsage(input_tokens, expected_output))
             acc.worst += pricing.cost(TokenUsage(input_tokens, call.max_output_tokens))
         return DryRunReport(
             tuple(

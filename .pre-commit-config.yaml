@@ -1,0 +1,51 @@
+# Installed by `make setup`. Run everything manually: `backend/.venv/bin/pre-commit run --all-files`
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=600"]
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+        exclude: ^(docs/reference/|research-)
+      - id: trailing-whitespace
+        exclude: ^(docs/reference/|research-)
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: no-env-secrets
+        name: no .env secret values in files
+        entry: python3 scripts/check_secrets.py
+        language: system
+      - id: backend-ruff
+        name: backend ruff (lint + format)
+        entry: bash -c 'cd backend && uv run ruff check src tests migrations && uv run ruff format --check src tests migrations'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+      - id: backend-mypy
+        name: backend mypy --strict
+        entry: bash -c 'cd backend && uv run mypy'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+      - id: backend-import-linter
+        name: backend import-linter
+        entry: bash -c 'cd backend && uv run lint-imports'
+        language: system
+        files: ^backend/src/
+        pass_filenames: false
+      - id: frontend-checks
+        name: frontend tsc + eslint + prettier
+        entry: bash -c 'cd frontend && npm run typecheck && npm run lint && npm run format:check'
+        language: system
+        files: ^frontend/
+        pass_filenames: false

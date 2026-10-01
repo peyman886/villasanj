@@ -7,6 +7,7 @@ from tests.fakes.llm import (
     FALLBACK,
     PRIMARY,
     VALID,
+    InMemoryLLMCache,
     build_chain,
     catalog,
     job,
@@ -42,6 +43,22 @@ async def test_dry_run_prices_without_calling_and_counts_cache_hits() -> None:
     after = await estimator.estimate([request(), request(text="another pair")])
     assert (after.calls, after.cache_hits) == (2, 1)
     assert after.expected_usd < before.expected_usd
+
+
+async def test_expected_cost_never_exceeds_worst_case() -> None:
+    small = request()
+    capped = LLMRequest(
+        task=small.task,
+        prompt_id=small.prompt_id,
+        prompt_version=small.prompt_version,
+        messages=small.messages,
+        output_schema=small.output_schema,
+        max_output_tokens=50,  # below the route's expected_output_tokens (200)
+    )
+    report = await DryRunEstimator(
+        routing(), catalog(), HeuristicTokenEstimator(catalog()), InMemoryLLMCache(), "fake"
+    ).estimate([capped])
+    assert report.expected_usd == report.worst_case_usd
 
 
 def test_cache_key_depends_on_everything_that_changes_output() -> None:
