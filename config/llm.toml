@@ -1,0 +1,88 @@
+# LLM routing per task (ADR-0004, ADR-0005). No model name may appear in code: change models here.
+# Prices and capabilities come from config/llm-models.json (refresh: `make llm-models`).
+# The project-wide hard cap is LLM__BUDGET__PROJECT_USD in the environment (default 30).
+
+[budget]
+default_job_usd = 2.0
+
+[retry]
+max_transport_attempts = 4
+max_validation_retries = 2
+base_delay_seconds = 1.0
+max_delay_seconds = 20.0
+request_timeout_seconds = 60.0
+
+# Estimator calibration (dry-run and worst-case budget checks). Re-calibrated from ledger actuals.
+[estimation.default]
+chars_per_token = 3.0   # conservative for Persian: over-estimates tokens, so budgets err safe
+image_tokens = 1100
+
+[estimation.models."gemini-3.1-flash-lite"]
+chars_per_token = 4.3   # measured 2026-10-01 on one mixed fa/en sample
+image_tokens = 1090     # measured: flat per image regardless of size or detail
+
+[estimation.models."gemini-3.8-flash"]
+chars_per_token = 4.3
+image_tokens = 1090
+
+[estimation.models."gpt-5.4-mini"]
+chars_per_token = 3.0
+image_tokens = 800      # ~1024px image at high detail; 32px image measured at 34-60 tokens
+
+# ------------------------------------------------------------------ tasks
+
+[tasks.claim_extraction]
+model = "gemini-3.1-flash-lite"
+fallbacks = ["gpt-5.4-mini"]
+max_output_tokens = 1200
+expected_output_tokens = 500
+temperature = 0.0
+concurrency = 8
+
+[tasks.text_normalization]
+model = "gemini-3.1-flash-lite"
+fallbacks = ["gpt-5.4-mini"]
+max_output_tokens = 2000
+expected_output_tokens = 1500
+temperature = 0.0
+concurrency = 8
+
+[tasks.query_understanding]
+model = "gemini-3.1-flash-lite"
+fallbacks = ["gpt-5.4-mini"]
+max_output_tokens = 800
+expected_output_tokens = 250
+temperature = 0.0
+concurrency = 4
+
+[tasks.vision_tagging]
+model = "gemini-3.1-flash-lite"
+fallbacks = ["gpt-5.4-mini"]
+max_output_tokens = 600
+expected_output_tokens = 200
+temperature = 0.0
+concurrency = 8
+
+[tasks.er_judge]
+model = "gemini-3.8-flash"   # provisional until the M5 bake-off
+fallbacks = ["gpt-5.4-mini"]
+max_output_tokens = 1500
+expected_output_tokens = 600
+temperature = 0.0
+concurrency = 4
+
+[tasks.review_summary]
+model = "gemini-3.8-flash"
+fallbacks = ["gpt-5.4-mini"]
+max_output_tokens = 1500
+expected_output_tokens = 500
+temperature = 0.2
+concurrency = 4
+
+[tasks.explanation]
+model = "gemini-3.8-flash"
+fallbacks = ["gpt-5.4-mini"]
+max_output_tokens = 800
+expected_output_tokens = 350
+temperature = 0.2
+concurrency = 4
