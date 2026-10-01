@@ -27,6 +27,11 @@ class ListingsFake:
     async def calendar(self, listing_id: ListingId, stay: DateRange) -> list[CalendarObservation]:
         return []
 
+    async def calendars(
+        self, platform: str, stay: DateRange
+    ) -> dict[ListingId, list[CalendarObservation]]:
+        return {}
+
 
 class PhotoIndexFake:
     """Scripted photo comparisons: hash and embedding pairs, per-pair similarities."""

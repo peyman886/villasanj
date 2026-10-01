@@ -267,6 +267,30 @@ class PgListingRepository:
             rows = (await conn.execute(query)).all()
         return [_listing_from_row(row) for row in rows]
 
+    async def calendars(
+        self, platform: str, stay: DateRange
+    ) -> dict[ListingId, list[CalendarObservation]]:
+        query = (
+            select(calendar_observation)
+            .where(
+                calendar_observation.c.platform == platform,
+                calendar_observation.c.night >= stay.check_in,
+                calendar_observation.c.night < stay.check_out,
+            )
+            .order_by(
+                calendar_observation.c.external_id,
+                calendar_observation.c.night,
+                calendar_observation.c.observed_at,
+            )
+        )
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        grouped: dict[ListingId, list[CalendarObservation]] = {}
+        for row in rows:
+            observation = _calendar_from_row(row)
+            grouped.setdefault(observation.listing_id, []).append(observation)
+        return grouped
+
     async def calendar(self, listing_id: ListingId, stay: DateRange) -> list[CalendarObservation]:
         query = (
             select(calendar_observation)

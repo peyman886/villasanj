@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -36,6 +37,7 @@ from villasanj.ingestion.infrastructure.repositories import (
     PgFrontierRepository,
     PgSnapshotRepository,
 )
+from villasanj.pricing.application.offers import OfferBook
 from villasanj.pricing.application.quotes import QuoteStays
 from villasanj.pricing.infrastructure.fees_file import load_fee_policies
 from villasanj.shared.application.clock import Clock
@@ -158,6 +160,14 @@ class Container:
 
     def quotes(self) -> QuoteStays:
         return QuoteStays(self.listings, load_fee_policies(self.settings.fees_path))
+
+    def offers(self) -> OfferBook:
+        return OfferBook(
+            self.listings,
+            load_fee_policies(self.settings.fees_path),
+            self.clock,
+            timedelta(hours=self.settings.pricing.offer_max_age_hours),
+        )
 
     def hypothesis_report(self) -> BuildHypothesisReport:
         return BuildHypothesisReport(self.candidates(), self.listings, self.quotes())

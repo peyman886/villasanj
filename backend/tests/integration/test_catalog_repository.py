@@ -126,3 +126,6 @@ async def test_listings_and_calendars_read_back_as_stored(engine: AsyncEngine) -
     assert await repo.listings(platform) == [stored]
     two_nights = await repo.calendar(stored.id, DateRange(nights[0], nights[2]))
     assert two_nights == calendar[:2]
+    assert await repo.calendars(platform, DateRange(nights[0], nights[2])) == {
+        stored.id: calendar[:2]
+    }

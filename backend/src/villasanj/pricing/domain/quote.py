@@ -10,6 +10,9 @@ Rules (ROADMAP M3 criterion 3, product rules 1 and 6):
 - Platform fees that are not published make the upper bound open as well.
 - A direct quote from the platform for exactly this stay and group wins over the calendar, unless
   the calendar was observed after it.
+- Every component carries its provenance (ADR-0007): an observed calendar night points at its
+  snapshot, a rate-card fallback is derived from the listing's snapshot, and the total is derived
+  from its components. A quote without provenance cannot be constructed (M6 criterion 1).
 """
 
 from __future__ import annotations
@@ -21,8 +24,14 @@ from enum import StrEnum
 
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.ingestion.domain.parsed import Availability, ParsedRateCard
+from villasanj.shared.domain.errors import DomainError
 from villasanj.shared.domain.money import Money, MoneyRange
+from villasanj.shared.domain.provenance import Provenance, ProvenanceMethod, SourceRef
 from villasanj.shared.domain.stay import DateRange, GuestCount
+
+
+class InvalidQuote(DomainError):
+    """A quote that breaks the pricing invariants (e.g. a total without provenance)."""
 
 
 class QuoteStatus(StrEnum):
@@ -45,6 +54,14 @@ class Caveat(StrEnum):
 class QuoteSource(StrEnum):
     CALENDAR = "calendar"
     DIRECT_QUOTE = "direct_quote"
+
+
+class OfferKind(StrEnum):
+    """How much we know about a bookable total (M6 criterion 2)."""
+
+    EXACT = "exact"
+    RANGE = "range"  # bounded
+    OPEN = "open"  # ">= low": an unknown component has no safe upper bound
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,8 +94,10 @@ class DirectQuote:
 class NightCharge:
     night: date
     price: MoneyRange
+    price_provenance: Provenance
     extra_guests: int
     extra_guest_price: MoneyRange  # per guest; exact zero when nobody is extra
+    extra_guest_provenance: Provenance
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,10 +107,31 @@ class Quote:
     status: QuoteStatus
     total: MoneyRange | None  # only for bookable stays
     source: QuoteSource
+    provenance: Provenance  # of the total, or of the evidence behind a non-bookable status
     nights: tuple[NightCharge, ...] = ()
     caveats: frozenset[Caveat] = frozenset()
     oldest_observation: datetime | None = None
     newest_observation: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.provenance, Provenance):
+            raise InvalidQuote("a quote needs provenance")
+        bookable = self.status is QuoteStatus.BOOKABLE
+        if bookable != (self.total is not None):
+            raise InvalidQuote("only a bookable quote has a total, and it always has one")
+        if bookable and self.source is QuoteSource.CALENDAR:
+            if len(self.nights) != self.request.stay.night_count:
+                raise InvalidQuote("a calendar quote prices every night of the stay")
+            if self.provenance.method is not ProvenanceMethod.DERIVED:
+                raise InvalidQuote("a calendar total is derived from its components")
+
+    @property
+    def kind(self) -> OfferKind | None:
+        if self.total is None:
+            return None
+        if self.total.is_open:
+            return OfferKind.OPEN
+        return OfferKind.EXACT if self.total.is_exact else OfferKind.RANGE
 
 
 _BLOCKING = frozenset({Availability.UNAVAILABLE, Availability.BOOKED, Availability.BLOCKED})
@@ -108,6 +148,7 @@ def quote_stay(
     used = list(latest.values())
     oldest = min((o.observed_at for o in used), default=None)
     newest = max((o.observed_at for o in used), default=None)
+    page = SourceRef(listing.id.platform, listing.url)
 
     if (
         direct_quote is not None
@@ -121,13 +162,24 @@ def quote_stay(
             status=QuoteStatus.BOOKABLE,
             total=MoneyRange.exact(direct_quote.total),
             source=QuoteSource.DIRECT_QUOTE,
+            provenance=Provenance(
+                ProvenanceMethod.OBSERVED, direct_quote.observed_at, page, direct_quote.snapshot_id
+            ),
             oldest_observation=direct_quote.observed_at,
             newest_observation=direct_quote.observed_at,
         )
 
     def outcome(status: QuoteStatus) -> Quote:
+        evidence = _derived(listing.provenance, *(_observed(o, page) for o in used))
         return Quote(
-            listing.id, request, status, None, QuoteSource.CALENDAR, (), frozenset(), oldest, newest
+            listing.id,
+            request,
+            status,
+            None,
+            QuoteSource.CALENDAR,
+            evidence,
+            oldest_observation=oldest,
+            newest_observation=newest,
         )
 
     maximum = listing.max_capacity
@@ -146,7 +198,7 @@ def quote_stay(
     caveats: set[Caveat] = set()
     extra_guests = _extra_guests(listing, request.guests, caveats)
     nights = tuple(
-        _charge(latest[night], listing.rate_card, extra_guests, caveats)
+        _charge(latest[night], listing, page, extra_guests, caveats)
         for night in request.stay.nights()
     )
     total = MoneyRange.exact(Money.zero())
@@ -163,6 +215,9 @@ def quote_stay(
         status=QuoteStatus.BOOKABLE,
         total=total,
         source=QuoteSource.CALENDAR,
+        provenance=_derived(
+            *(p for n in nights for p in (n.price_provenance, n.extra_guest_provenance))
+        ),
         nights=nights,
         caveats=frozenset(caveats),
         oldest_observation=oldest,
@@ -197,24 +252,45 @@ def _extra_guests(listing: Listing, guests: GuestCount, caveats: set[Caveat]) ->
     return max(0, guests.value - listing.base_capacity)
 
 
+def _observed(observation: CalendarObservation, page: SourceRef) -> Provenance:
+    return Provenance(
+        ProvenanceMethod.OBSERVED, observation.observed_at, page, observation.snapshot_id
+    )
+
+
+def _derived(*inputs: Provenance) -> Provenance:
+    unique = tuple(dict.fromkeys(inputs))
+    return Provenance(
+        ProvenanceMethod.DERIVED, max(p.observed_at for p in unique), derived_from=unique
+    )
+
+
 def _charge(
     night: CalendarObservation,
-    card: ParsedRateCard,
+    listing: Listing,
+    page: SourceRef,
     extra_guests: int | None,
     caveats: set[Caveat],
 ) -> NightCharge:
+    card: ParsedRateCard = listing.rate_card
+    observed = _observed(night, page)
+    from_card = _derived(listing.provenance)
     if night.nightly_price is not None:
-        price = MoneyRange.exact(night.nightly_price)
+        price, price_from = MoneyRange.exact(night.nightly_price), observed
     else:
-        price = _from_card(night.is_holiday, (card.base, card.weekend, card.holiday))
+        price, price_from = (
+            _from_card(night.is_holiday, (card.base, card.weekend, card.holiday)),
+            from_card,
+        )
         caveats.add(
             Caveat.NIGHT_PRICE_UNKNOWN if price.is_open else Caveat.NIGHT_PRICE_FROM_RATE_CARD
         )
-    if not extra_guests:
-        extra = MoneyRange.exact(Money.zero())
+    if not extra_guests:  # nobody is extra (or capacity is unknown): derived from the listing
+        extra, extra_from = MoneyRange.exact(Money.zero()), from_card
     elif night.extra_guest_price is not None:
-        extra = MoneyRange.exact(night.extra_guest_price)
+        extra, extra_from = MoneyRange.exact(night.extra_guest_price), observed
     else:
+        extra_from = from_card
         extra = _from_card(
             night.is_holiday,
             (card.extra_guest_base, card.extra_guest_weekend, card.extra_guest_holiday),
@@ -224,7 +300,7 @@ def _charge(
             if extra.is_open
             else Caveat.EXTRA_GUEST_PRICE_FROM_RATE_CARD
         )
-    return NightCharge(night.night, price, extra_guests or 0, extra)
+    return NightCharge(night.night, price, price_from, extra_guests or 0, extra, extra_from)
 
 
 def _from_card(

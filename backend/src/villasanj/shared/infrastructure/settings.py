@@ -42,6 +42,10 @@ class DatabaseSettings(BaseModel):
     pool_size: int = Field(default=5, ge=1)
 
 
+class PricingSettings(BaseModel):
+    offer_max_age_hours: float = Field(default=24.0, gt=0)  # older offers are flagged stale (M6)
+
+
 class BlobSettings(BaseModel):
     root: Path = Path("../var/blobs")
 
@@ -70,6 +74,7 @@ class Settings(BaseSettings):
     crawl: CrawlSettings = CrawlSettings()
     database: DatabaseSettings = DatabaseSettings()
     blob: BlobSettings = BlobSettings()
+    pricing: PricingSettings = PricingSettings()
     logging: LoggingSettings = LoggingSettings()
 
     @property

@@ -18,3 +18,9 @@ class ListingReader(Protocol):
     async def calendar(self, listing_id: ListingId, stay: DateRange) -> list[CalendarObservation]:
         """All stored observations for the stay's nights (every snapshot, not only the newest)."""
         ...
+
+    async def calendars(
+        self, platform: str, stay: DateRange
+    ) -> dict[ListingId, list[CalendarObservation]]:
+        """The same for every listing of a platform at once (for batch reports)."""
+        ...

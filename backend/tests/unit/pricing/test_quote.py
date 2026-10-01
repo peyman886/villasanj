@@ -3,6 +3,8 @@
 from datetime import date, timedelta
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from tests.fakes.llm import NOW
 from tests.unit.catalog.test_listing import parsed
@@ -12,12 +14,16 @@ from villasanj.pricing.domain.quote import (
     Caveat,
     DirectQuote,
     FeePolicy,
+    InvalidQuote,
+    OfferKind,
+    Quote,
     QuoteSource,
     QuoteStatus,
     StayRequest,
     quote_stay,
 )
 from villasanj.shared.domain.money import Money, MoneyRange
+from villasanj.shared.domain.provenance import Provenance, ProvenanceMethod, SourceRef
 from villasanj.shared.domain.stay import DateRange, GuestCount
 
 SNAPSHOT = "00000000-0000-0000-0000-000000000501"
@@ -243,3 +249,137 @@ def test_a_stale_or_different_direct_quote_is_ignored(direct: DirectQuote) -> No
     quote = quote_stay(listing(), observations, ask(), FINAL, direct)
     assert quote.source is QuoteSource.CALENDAR
     assert quote.status is QuoteStatus.UNAVAILABLE
+
+
+# ---------------------------------------------------------------- provenance (M6 criterion 1)
+
+
+def test_observed_nights_point_at_their_snapshot_and_the_total_is_derived() -> None:
+    quote = quote_stay(listing(), [night(THU), night(FRI)], ask(), FINAL)
+    assert quote.provenance.method is ProvenanceMethod.DERIVED
+    for charge in quote.nights:
+        assert charge.price_provenance.method is ProvenanceMethod.OBSERVED
+        assert charge.price_provenance.snapshot_id == SNAPSHOT
+        assert charge.price_provenance.source is not None
+        assert charge.price_provenance.source.url == "https://www.example.test/stay/42"
+    assert set(quote.provenance.derived_from) >= {n.price_provenance for n in quote.nights}
+
+
+def test_rate_card_prices_and_absent_extra_guests_derive_from_the_listing() -> None:
+    stay = DateRange(THU, FRI)
+    quote = quote_stay(listing(rate_card=CARD), [night(THU, None)], ask(stay=stay), FINAL)
+    (charge,) = quote.nights
+    for derived in (charge.price_provenance, charge.extra_guest_provenance):
+        assert derived.method is ProvenanceMethod.DERIVED
+        assert derived.derived_from[0].snapshot_id == SNAPSHOT
+
+
+def test_extra_guest_prices_from_the_calendar_are_observed() -> None:
+    quote = quote_stay(listing(), [night(THU, extra=1), night(FRI, extra=1)], ask(6), FINAL)
+    assert all(n.extra_guest_provenance.method is ProvenanceMethod.OBSERVED for n in quote.nights)
+
+
+def test_a_direct_quote_is_observed_and_a_refusal_cites_its_evidence() -> None:
+    direct = DirectQuote(ID, ask(), toman(2_500_000), "snap-direct", NOW)
+    quote = quote_stay(listing(), [], ask(), FINAL, direct)
+    assert (quote.provenance.method, quote.provenance.snapshot_id) == (
+        ProvenanceMethod.OBSERVED,
+        "snap-direct",
+    )
+    booked = night(THU, availability=Availability.BOOKED, age_hours=1)
+    refused = quote_stay(listing(), [booked], ask(), FINAL)
+    assert refused.provenance.method is ProvenanceMethod.DERIVED
+    assert len(refused.provenance.derived_from) == 2  # the listing and the booked night
+
+
+def test_offer_kind_tells_exact_range_and_open_apart() -> None:
+    exact = quote_stay(listing(), [night(THU), night(FRI)], ask(), FINAL)
+    ranged = quote_stay(
+        listing(rate_card=CARD), [night(THU, None)], ask(stay=DateRange(THU, FRI)), FINAL
+    )
+    open_ended = quote_stay(listing(), [night(THU), night(FRI)], ask(), UNKNOWN_FEES)
+    refused = quote_stay(listing(), [], ask(), FINAL)
+    assert [q.kind for q in (exact, ranged, open_ended, refused)] == [
+        OfferKind.EXACT,
+        OfferKind.RANGE,
+        OfferKind.OPEN,
+        None,
+    ]
+
+
+def _provenance() -> Provenance:
+    return Provenance(
+        ProvenanceMethod.OBSERVED, NOW, SourceRef("example", "https://x.test"), SNAPSHOT
+    )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"provenance": None},
+        {"status": QuoteStatus.UNAVAILABLE},  # a refusal with a total
+        {"total": None},  # bookable without a total
+        {"nights": ()},  # calendar total without its nights
+        {"provenance": _provenance()},  # calendar total that is not derived
+    ],
+)
+def test_invalid_quotes_cannot_be_constructed(overrides: dict[str, object]) -> None:
+    valid = quote_stay(listing(), [night(THU), night(FRI)], ask(), FINAL)
+    values = {
+        "listing_id": valid.listing_id,
+        "request": valid.request,
+        "status": valid.status,
+        "total": valid.total,
+        "source": valid.source,
+        "provenance": valid.provenance,
+        "nights": valid.nights,
+    }
+    values.update(overrides)
+    with pytest.raises(InvalidQuote):
+        Quote(**values)  # type: ignore[arg-type]
+
+
+AVAILABILITY = st.sampled_from(list(Availability))
+PRICE = st.one_of(st.none(), st.integers(min_value=1, max_value=50_000_000))
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    nights=st.lists(
+        st.tuples(AVAILABILITY, PRICE, PRICE, st.sampled_from([True, False, None])),
+        min_size=0,
+        max_size=4,
+    ),
+    guests=st.integers(min_value=1, max_value=12),
+    base_capacity=st.one_of(st.none(), st.integers(min_value=1, max_value=8)),
+    fees_known=st.booleans(),
+)
+def test_every_quote_carries_provenance_for_every_component(
+    nights: list[tuple[Availability, int | None, int | None, bool | None]],
+    guests: int,
+    base_capacity: int | None,
+    fees_known: bool,
+) -> None:
+    stay = DateRange(THU, THU + timedelta(days=4))
+    observations = [
+        night(THU + timedelta(days=i), price, extra, availability, is_holiday=holiday)
+        for i, (availability, price, extra, holiday) in enumerate(nights)
+    ]
+    policy = FeePolicy("example", fees_known, "test")
+    quote = quote_stay(
+        listing(base_capacity=base_capacity, extra_capacity=2, rate_card=CARD),
+        observations,
+        ask(guests, stay),
+        policy,
+    )
+    assert isinstance(quote.provenance, Provenance)
+    if quote.status is QuoteStatus.BOOKABLE:
+        assert quote.total is not None
+        assert len(quote.nights) == stay.night_count
+        components = {
+            p for n in quote.nights for p in (n.price_provenance, n.extra_guest_provenance)
+        }
+        assert components <= set(quote.provenance.derived_from)
+        assert quote.provenance.oldest_observation <= min(p.observed_at for p in components)
+    else:
+        assert quote.total is None

@@ -16,6 +16,7 @@ from villasanj.ingestion.domain.parsed import Availability
 from villasanj.pricing.application.quotes import QuoteStays
 from villasanj.pricing.domain.quote import Quote, QuoteSource, QuoteStatus, StayRequest
 from villasanj.shared.domain.money import Money, MoneyRange
+from villasanj.shared.domain.provenance import Provenance, ProvenanceMethod, SourceRef
 from villasanj.shared.domain.stay import DateRange, GuestCount, StayScenario
 
 SNAPSHOT = "00000000-0000-0000-0000-000000000b01"
@@ -27,7 +28,10 @@ def quote(
     listing: ListingId, toman: int | None, status: QuoteStatus = QuoteStatus.BOOKABLE
 ) -> Quote:
     total = MoneyRange.at_least(Money.from_toman(toman)) if toman is not None else None
-    return Quote(listing, StayRequest(STAY, GuestCount(4)), status, total, QuoteSource.CALENDAR)
+    source = Provenance(ProvenanceMethod.OBSERVED, NOW, SourceRef(listing.platform, "u"), SNAPSHOT)
+    return Quote(
+        listing, StayRequest(STAY, GuestCount(4)), status, total, QuoteSource.DIRECT_QUOTE, source
+    )
 
 
 def test_price_gap_compares_listed_totals() -> None:
@@ -92,7 +96,7 @@ def listing(key: ListingId) -> Listing:
 
 class Reader:
     def __init__(self, calendars: dict[ListingId, list[CalendarObservation]]) -> None:
-        self.calendars = calendars
+        self.by_listing = calendars
         self.all = {key: listing(key) for key in calendars}
 
     async def get(self, listing_id: ListingId) -> Listing | None:
@@ -102,7 +106,15 @@ class Reader:
         return [x for x in self.all.values() if x.id.platform == platform]
 
     async def calendar(self, listing_id: ListingId, stay: DateRange) -> list[CalendarObservation]:
-        return [o for o in self.calendars.get(listing_id, []) if stay.contains_night(o.night)]
+        return [o for o in self.by_listing.get(listing_id, []) if stay.contains_night(o.night)]
+
+    async def calendars(
+        self, platform: str, stay: DateRange
+    ) -> dict[ListingId, list[CalendarObservation]]:
+        result: dict[ListingId, list[CalendarObservation]] = {}
+        for listing_id in [x.id for x in await self.listings(platform)]:
+            result[listing_id] = await self.calendar(listing_id, stay)
+        return result
 
 
 def priced(listing_id: ListingId, night: date, toman: int) -> CalendarObservation:

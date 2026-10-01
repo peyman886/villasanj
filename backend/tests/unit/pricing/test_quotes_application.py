@@ -34,6 +34,14 @@ class StaticReader:
     async def calendar(self, listing_id: ListingId, stay: DateRange) -> list[CalendarObservation]:
         return [o for o in self.calendar_rows if stay.contains_night(o.night)]
 
+    async def calendars(
+        self, platform: str, stay: DateRange
+    ) -> dict[ListingId, list[CalendarObservation]]:
+        result: dict[ListingId, list[CalendarObservation]] = {}
+        for listing_id in [x.id for x in await self.listings(platform)]:
+            result[listing_id] = await self.calendar(listing_id, stay)
+        return result
+
 
 READER = StaticReader(
     Listing.from_parsed(parsed(), SNAPSHOT, NOW), [night(STAY.check_in), night(date(2026, 10, 16))]

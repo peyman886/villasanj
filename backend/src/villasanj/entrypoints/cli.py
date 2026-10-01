@@ -638,6 +638,25 @@ def pricing_quote(
         raise typer.Exit(code=1)
 
 
+@pricing_app.command("offers")
+def pricing_offers() -> None:
+    """Per platform, scenario and group size: offer status, EXACT/RANGE/OPEN and stale counts."""
+
+    async def run(container: Container) -> bool:
+        scenarios = load_scenarios(container.settings.scenarios_path)
+        rows = await container.offers().distribution(sorted(container.crawl.adapters), scenarios)
+        for r in rows:
+            statuses = " ".join(f"{k}={v}" for k, v in r.by_status.items())
+            kinds = " ".join(f"{k}={v}" for k, v in r.by_kind.items()) or "-"
+            typer.echo(
+                f"{r.platform:<7} {r.scenario:<8} x{r.guests:<2} listings={r.listings} "
+                f"[{statuses}] kinds[{kinds}] stale={r.stale}"
+            )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
 def _toman(amount: MoneyRange) -> str:
     low = f"{amount.low.toman:,.0f}"
     if amount.high is None:
