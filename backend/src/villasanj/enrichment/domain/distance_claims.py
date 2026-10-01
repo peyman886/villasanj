@@ -6,6 +6,13 @@ the claim has two readings. The verdict follows ADR-0007 decision 8: a claim is 
 when every reading fails even in the best case (fastest speed, the nearest point the obfuscated
 location allows), and SUPPORTED only when every reading holds wherever the villa is inside its
 published circle; otherwise it is NOT_CONFIRMED («تأیید نشد»), never "false".
+
+Two readings protect against false accusations (found on real claims, ADR-0013):
+- a stated value is a rounded choice from a short list («۵، ۱۰، ۱۵ دقیقه»), so "N" means "about N
+  or less": up to N plus a rounding margin of max(5 minutes, N/2), enough for nearest-option
+  rounding on both platforms' lists (metres: max(50 m, N/2));
+- only "farther than claimed" can contradict: a villa closer to the sea than its claim, or one that
+  understates («بیشتر از ۳۰ دقیقه»), is never CONTRADICTED.
 """
 
 from __future__ import annotations
@@ -54,6 +61,10 @@ _OVER = re.compile(r"^(بیشتر از|بیش از|بالای)\s*(\d+)\s*(دقی
 _BETWEEN = re.compile(r"^(\d+)\s*(تا|-)\s*(\d+)\s*(دقیقه|متر|کیلومتر)$")
 _EXACT = re.compile(r"^(\d+)\s*(دقیقه|متر|کیلومتر)$")
 
+# A stated value is a rounded choice: "N" means up to N plus this margin (at least).
+MINUTES_ROUNDING = 5.0
+METRES_ROUNDING = 50.0
+
 # Straight-line metres covered per minute, generous on purpose (best case for the listing).
 WALK_M_PER_MIN = (40.0, 100.0)  # slow stroll .. brisk walk
 DRIVE_M_PER_MIN = (150.0, 1000.0)  # village lanes .. 60 km/h on a straight road
@@ -95,9 +106,20 @@ class DistanceClaim:
         return min(low for low, _ in readings), high
 
 
+_SEA_WORDS = frozenset({"دریا", "ساحل"})  # whole words: «دریاسر», «دریاچه», «ساحلی» are not the sea
+_WORD = re.compile(r"[^\W\d_]+")
+
+
 def target_of(text: str) -> ClaimTarget:
-    key = normalize_persian(text).replace(" ", "").replace(ZWNJ, "")
-    return next((target for word, target in _TARGET_KEYWORDS if word in key), ClaimTarget.OTHER)
+    normalized = normalize_persian(text).replace(ZWNJ, " ")
+    key = normalized.replace(" ", "")
+    others = [
+        target for word, target in _TARGET_KEYWORDS if target is not ClaimTarget.SEA and word in key
+    ]
+    if _SEA_WORDS & set(_WORD.findall(normalized)):
+        # «فاصله تا جنگل و دریا»: one value for two places cannot be judged against the sea alone.
+        return ClaimTarget.OTHER if others else ClaimTarget.SEA
+    return others[0] if others else ClaimTarget.OTHER
 
 
 def parse_claim(claim: ParsedDistanceClaim) -> DistanceClaim | None:
@@ -121,7 +143,10 @@ def parse_claim(claim: ParsedDistanceClaim) -> DistanceClaim | None:
     if (m := _EXACT.match(value)) is not None:
         unit, scale = _unit(m.group(2))
         amount = int(m.group(1)) * scale
-        return DistanceClaim(target, claim.target_fa, claim.mode, unit, amount, amount)
+        floor = MINUTES_ROUNDING if unit is Unit.MINUTES else METRES_ROUNDING
+        return DistanceClaim(
+            target, claim.target_fa, claim.mode, unit, 0.0, amount + max(floor, amount / 2)
+        )
     return None
 
 
@@ -157,8 +182,6 @@ def _reading_verdict(
     (claim_low, claim_high), (nearest, farthest) = claimed, measured
     if claim_high is not None and nearest > claim_high:
         return Verdict.CONTRADICTED  # even the nearest possible point is beyond the claim
-    if farthest is not None and claim_low > farthest:
-        return Verdict.CONTRADICTED  # "more than X" but every possible point is closer
     fits_high = claim_high is None or (farthest is not None and farthest <= claim_high)
     if fits_high and nearest >= claim_low:
         return Verdict.SUPPORTED

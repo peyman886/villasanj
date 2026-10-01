@@ -6,6 +6,7 @@ JOB ?= llm-smoke
 
 .DEFAULT_GOAL := help
 .PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live openapi openapi-check lint fmt \
+	osm-download osm-prepare routing-up routing-down geo \
 	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-scenarios crawl-status crawl-metrics reparse report match eval eval-hypotheses
 
 help: ## Show available targets
@@ -61,6 +62,30 @@ test-live: ## Opt-in live AvalAI smoke tests (real calls, capped at $0.05)
 openapi: ## Regenerate the OpenAPI schema and the frontend's TypeScript types from it
 	cd backend && uv run villasanj api openapi
 	cd frontend && npm run -s api:types
+
+OSM_SNAPSHOT ?= iran-260930
+
+osm-download: ## Download the Geofabrik Iran extract (230 MB on 2026-10-02) and check its MD5
+	mkdir -p data/osm && cd data/osm && curl -sSfL -o $(OSM_SNAPSHOT).osm.pbf.md5 \
+		https://download.geofabrik.de/asia/$(OSM_SNAPSHOT).osm.pbf.md5 \
+		&& curl -sSfL --retry 3 -o $(OSM_SNAPSHOT).osm.pbf \
+		https://download.geofabrik.de/asia/$(OSM_SNAPSHOT).osm.pbf \
+		&& test "$$(md5 -q $(OSM_SNAPSHOT).osm.pbf 2>/dev/null || md5sum $(OSM_SNAPSHOT).osm.pbf | cut -d' ' -f1)" \
+		= "$$(cut -d' ' -f1 $(OSM_SNAPSHOT).osm.pbf.md5)"
+
+osm-prepare: ## Clip to the Tehran-Caspian box, export the coastline, build the OSRM graph
+	docker build -q -t villasanj-osmium:local infra/docker/osmium
+	OSM_SNAPSHOT=$(OSM_SNAPSHOT) infra/osm/prepare.sh
+
+routing-up: ## Start OSRM (profile "routing"); the core stack is not touched
+	docker compose --profile routing up -d osrm
+
+routing-down: ## Stop OSRM
+	docker compose --profile routing stop osrm
+
+geo: ## Coastline into PostGIS, coast distances, drive times, sea truth check (OSRM must be up)
+	cd backend && uv run villasanj enrichment coastline-load && uv run villasanj enrichment coast \
+		&& uv run villasanj discovery drive-times && uv run villasanj enrichment truth-sea
 
 openapi-check: ## Fail if the committed OpenAPI schema or TS types are out of date
 	@tmp=$$(mktemp -d) && cd backend && uv run villasanj api openapi --out $$tmp/openapi.json >/dev/null \

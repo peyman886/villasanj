@@ -23,10 +23,18 @@ from villasanj.catalog.infrastructure.repositories import (
 )
 from villasanj.discovery.application.dates import BuildHolidayCalendar
 from villasanj.discovery.application.hypotheses import BuildHypothesisReport
+from villasanj.discovery.application.routing import ComputeDriveTimes
 from villasanj.discovery.application.search import SearchListings
 from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.infrastructure.holidays import load_holiday_sources
+from villasanj.discovery.infrastructure.routing import (
+    OsrmRoutingService,
+    PgDriveTimeStore,
+    load_origin,
+)
+from villasanj.enrichment.application.coast import MeasureCoastDistances
 from villasanj.enrichment.application.review_summary import SummarizeReviews
+from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore, PgCoastline
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
 from villasanj.entity_resolution.application.judge import JudgePairs
@@ -201,6 +209,28 @@ class Container:
             load_gazetteer(self.settings.gazetteer_path),
             sorted(self.crawl.adapters),
             self.clock,
+        )
+
+    def coastline(self) -> PgCoastline:
+        return PgCoastline(self.engine, self.settings.geo.dataset)
+
+    def coast_distances(self) -> MeasureCoastDistances:
+        return MeasureCoastDistances(
+            self.listings,
+            self.coastline(),
+            PgCoastDistanceStore(self.engine),
+            self.clock,
+            self.settings.geo.dataset,
+        )
+
+    def drive_times(self) -> ComputeDriveTimes:
+        return ComputeDriveTimes(
+            self.listings,
+            OsrmRoutingService(self.settings.geo.osrm_url),
+            PgDriveTimeStore(self.engine),
+            self.clock,
+            load_origin(self.settings.routing_origin_path),
+            self.settings.geo.dataset,
         )
 
     def review_summaries(self) -> SummarizeReviews:

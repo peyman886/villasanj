@@ -41,6 +41,8 @@ from villasanj.discovery.domain.dates import (
 from villasanj.discovery.infrastructure.eval_cases import load_cases
 from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.enrichment.application.features import MeasureFeatureClaims
+from villasanj.enrichment.application.truth import CheckSeaClaims
+from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
@@ -589,6 +591,72 @@ def enrichment_features() -> None:
     asyncio.run(_with_container(run))
 
 
+@enrichment_app.command("coastline-load")
+def enrichment_coastline_load() -> None:
+    """Load the exported OSM coastline (infra/osm/prepare.sh) into PostGIS."""
+
+    async def run(container: Container) -> bool:
+        path = container.settings.geo.osm_dir / "coastline.geojsonseq"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        loaded = await container.coastline().load(lines)
+        typer.echo(f"dataset={container.settings.geo.dataset} coastline_ways={loaded}")
+        return loaded > 0
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@enrichment_app.command("coast")
+def enrichment_coast() -> None:
+    """Distance from every listing to the coastline, with its range over the blur circle."""
+
+    async def run(container: Container) -> bool:
+        measure = container.coast_distances()
+        for platform in sorted(container.crawl.adapters):
+            r = await measure.run(platform)
+            typer.echo(
+                f"{platform:<7} listings={r.listings} with_location={r.with_location} "
+                f"measured={r.measured} radius_assumed={r.radius_assumed}"
+            )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@enrichment_app.command("truth-sea")
+def enrichment_truth_sea() -> None:
+    """Published distance-to-the-sea claims against the measured coast distance (zero network)."""
+
+    async def run(container: Container) -> bool:
+        check = CheckSeaClaims(container.listings, PgCoastDistanceStore(container.engine))
+        for platform in sorted(container.crawl.adapters):
+            r = await check.run(platform)
+            verdicts = " ".join(f"{k}={v}" for k, v in sorted(r.verdicts.items())) or "-"
+            assumed = " ".join(
+                f"{k}={v}" for k, v in sorted(r.verdicts_with_assumed_radius.items())
+            )
+            modes = " ".join(f"{k}={v}" for k, v in sorted(r.by_mode.items()))
+            typer.echo(
+                f"{platform:<7} listings_with_sea_claim={r.listings_with_claim} "
+                f"no_distance={r.without_distance} "
+                f"listings_with_a_contradiction={r.listings_contradicted} verdicts[{verdicts}]"
+            )
+            typer.echo(f"    by_mode[{modes}]")
+            if assumed:
+                typer.echo(f"    with an assumed radius[{assumed}]")
+            for v in r.contradicted:
+                low, high = v.assessment.measured_m
+                claim_low, claim_high = v.assessment.claimed_m
+                typer.echo(
+                    f"    CONTRADICTED {v.listing_id}: «{v.claim.target_text}: …» "
+                    f"mode={v.claim.mode} claims {claim_low:.0f}..{claim_high or 0:.0f} m, "
+                    f"measured {low:.0f}..{high:.0f} m"
+                )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
 @enrichment_app.command("summarize")
 def enrichment_summarize(
     platform: Annotated[str, typer.Argument(help="Platform slug.")],
@@ -732,6 +800,23 @@ def discovery_eval_understanding(
 
     if not asyncio.run(_with_container(run)):
         raise typer.Exit(code=1)
+
+
+@discovery_app.command("drive-times")
+def discovery_drive_times() -> None:
+    """Free-flow drive times from the origin to every listing (needs the routing profile up)."""
+
+    async def run(container: Container) -> bool:
+        compute = container.drive_times()
+        for platform in sorted(container.crawl.adapters):
+            r = await compute.run(platform)
+            typer.echo(
+                f"{platform:<7} listings={r.listings} with_location={r.with_location} "
+                f"routed={r.routed} pin_unroutable_but_circle_routed={r.center_unroutable}"
+            )
+        return True
+
+    asyncio.run(_with_container(run))
 
 
 @discovery_app.command("holidays")

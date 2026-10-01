@@ -1,0 +1,8 @@
+# Origin of the free-flow drive times (ADR-0013). Azadi Square is a common reference point for
+# "from Tehran"; times are labelled free-flow because no traffic data exists.
+[origin]
+slug = "tehran-azadi"
+name_fa = "میدان آزادی تهران"
+lat = 35.6997
+lon = 51.3380
+source = "Azadi Square, Tehran (OpenStreetMap)"

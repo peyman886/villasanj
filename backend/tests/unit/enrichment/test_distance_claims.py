@@ -39,6 +39,12 @@ def claim(target: str, value: str, mode: TravelMode = TravelMode.WALK) -> Distan
         ("فاصله از مراکز خرید", ClaimTarget.SHOPPING),
         ("فاصله از حرم", ClaimTarget.SHRINE),
         ("تله کابین", ClaimTarget.OTHER),
+        # Found on real claims: the sea is a whole word.
+        ("دشت دریاسر", ClaimTarget.OTHER),
+        ("پیاده راه ساحلی", ClaimTarget.OTHER),
+        ("فاصله با دریا 4 دقیقه", ClaimTarget.SEA),
+        ("لب ساحل", ClaimTarget.SEA),
+        ("فاصله تا جنگل و دریا", ClaimTarget.OTHER),  # one value for two places
     ],
 )
 def test_targets(text: str, target: ClaimTarget) -> None:
@@ -48,13 +54,13 @@ def test_targets(text: str, target: ClaimTarget) -> None:
 @pytest.mark.parametrize(
     ("value", "unit", "low", "high"),
     [
-        ("5 دقیقه", Unit.MINUTES, 5, 5),
-        ("۱۰ دقیقه", Unit.MINUTES, 10, 10),
+        ("5 دقیقه", Unit.MINUTES, 0, 10),  # a rounded choice: "about five or less"
+        ("۱۰ دقیقه", Unit.MINUTES, 0, 15),
         (f"زیر {ZWJ}۵ دقیقه", Unit.MINUTES, 0, 5),  # as published, with a stray joiner
         ("بیشتر از 30 دقیقه", Unit.MINUTES, 30, None),
         ("10 تا 15 دقیقه", Unit.MINUTES, 10, 15),
-        ("200 متر", Unit.METRES, 200, 200),
-        ("۲ کیلومتر", Unit.METRES, 2000, 2000),
+        ("200 متر", Unit.METRES, 0, 300),
+        ("۲ کیلومتر", Unit.METRES, 0, 3000),
     ],
 )
 def test_published_wordings_become_ranges(
@@ -72,11 +78,13 @@ def test_unknown_wording_is_not_guessed(value: str) -> None:
 def test_minutes_become_generous_straight_line_ranges() -> None:
     walk = claim("دریا", "زیر 10 دقیقه", TravelMode.WALK)
     assert walk.metres() == (0.0, 10 * WALK_M_PER_MIN[1])
-    drive = claim("دریا", "10 دقیقه", TravelMode.CAR)
-    assert drive.metres() == (10 * DRIVE_M_PER_MIN[0], 10 * DRIVE_M_PER_MIN[1])
-    unknown = claim("دریا", "10 دقیقه", TravelMode.UNKNOWN)  # judged as walk or drive
-    assert unknown.metres() == (10 * WALK_M_PER_MIN[0], 10 * DRIVE_M_PER_MIN[1])
-    assert claim("دریا", "200 متر").metres() == (200, 200)
+    drive = claim("دریا", "10 دقیقه", TravelMode.CAR)  # up to 15 minutes after rounding
+    assert drive.metres() == (0.0, 15 * DRIVE_M_PER_MIN[1])
+    unknown = claim(
+        "دریا", "10 تا 20 دقیقه", TravelMode.UNKNOWN
+    )  # an explicit range keeps its floor
+    assert unknown.metres() == (10 * WALK_M_PER_MIN[0], 20 * DRIVE_M_PER_MIN[1])
+    assert claim("دریا", "200 متر").metres() == (0, 300)
 
 
 @pytest.mark.parametrize(
@@ -93,9 +101,17 @@ def test_minutes_become_generous_straight_line_ranges() -> None:
         ),  # maybe by car
         ("زیر 5 دقیقه", TravelMode.CAR, (6000.0, 6800.0), Verdict.CONTRADICTED),
         ("زیر 5 دقیقه", TravelMode.WALK, (100.0, None), Verdict.NOT_CONFIRMED),  # radius unknown
-        ("بیشتر از 30 دقیقه", TravelMode.WALK, (100.0, 500.0), Verdict.CONTRADICTED),
+        (
+            "بیشتر از 30 دقیقه",
+            TravelMode.WALK,
+            (100.0, 500.0),
+            Verdict.NOT_CONFIRMED,
+        ),  # understates
         ("بیشتر از 30 دقیقه", TravelMode.WALK, (5000.0, 6000.0), Verdict.SUPPORTED),
-        ("200 متر", TravelMode.WALK, (150.0, 250.0), Verdict.NOT_CONFIRMED),
+        ("200 متر", TravelMode.WALK, (150.0, 250.0), Verdict.SUPPORTED),
+        # Found on real claims: a villa 0..638 m from the sea claiming five minutes by car.
+        ("5 دقیقه", TravelMode.CAR, (0.0, 638.0), Verdict.SUPPORTED),
+        ("5 دقیقه", TravelMode.WALK, (1808.0, 2808.0), Verdict.CONTRADICTED),
     ],
 )
 def test_contradicted_only_when_the_best_case_fails(

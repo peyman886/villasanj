@@ -50,6 +50,19 @@ class BlobSettings(BaseModel):
     root: Path = Path("../var/blobs")
 
 
+class GeoSettings(BaseModel):
+    """OSM data and the routing server (ADR-0013); ``infra/osm/prepare.sh`` fills ``osm_dir``."""
+
+    osm_dir: Path = Path("../data/osm")
+    osrm_url: str = "http://127.0.0.1:5050"
+
+    @property
+    def dataset(self) -> str:
+        """The OSM snapshot the prepared files came from, e.g. "iran-260930"."""
+        marker = self.osm_dir / "SNAPSHOT"
+        return marker.read_text(encoding="utf-8").strip() if marker.exists() else "unknown"
+
+
 class LoggingSettings(BaseModel):
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     format: Literal["json", "console"] = "json"
@@ -75,6 +88,7 @@ class Settings(BaseSettings):
     database: DatabaseSettings = DatabaseSettings()
     blob: BlobSettings = BlobSettings()
     pricing: PricingSettings = PricingSettings()
+    geo: GeoSettings = GeoSettings()
     logging: LoggingSettings = LoggingSettings()
 
     @property
@@ -96,6 +110,10 @@ class Settings(BaseSettings):
     @property
     def features_path(self) -> Path:
         return self.config_dir / "features.toml"
+
+    @property
+    def routing_origin_path(self) -> Path:
+        return self.config_dir / "routing.toml"
 
     @property
     def holidays_path(self) -> Path:

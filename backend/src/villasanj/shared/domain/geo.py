@@ -32,3 +32,18 @@ class GeoPoint:
         d_lon = math.radians(other.lon - self.lon)
         h = math.sin(d_lat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(d_lon / 2) ** 2
         return 2 * EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(h)))
+
+    def offset(self, bearing_deg: float, distance_m: float) -> GeoPoint:
+        """The point ``distance_m`` away along ``bearing_deg`` (0 = north, 90 = east)."""
+        angular = distance_m / EARTH_RADIUS_M
+        bearing = math.radians(bearing_deg)
+        lat1, lon1 = math.radians(self.lat), math.radians(self.lon)
+        lat2 = math.asin(
+            math.sin(lat1) * math.cos(angular)
+            + math.cos(lat1) * math.sin(angular) * math.cos(bearing)
+        )
+        lon2 = lon1 + math.atan2(
+            math.sin(bearing) * math.sin(angular) * math.cos(lat1),
+            math.cos(angular) - math.sin(lat1) * math.sin(lat2),
+        )
+        return GeoPoint(math.degrees(lat2), (math.degrees(lon2) + 540) % 360 - 180)

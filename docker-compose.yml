@@ -1,5 +1,6 @@
 # Villasanj local stack. `make up` starts the core services (db, migrate, api, web).
-# Pipeline (worker, browser) and routing (osrm) profiles arrive with M2 and M8.
+# The routing profile (osrm) serves free-flow drive times from data/osm (ADR-0013):
+#   docker compose --profile routing up -d osrm
 # Host ports are configurable (VILLASANJ_*_PORT) and default away from common dev ports.
 name: villasanj
 
@@ -69,6 +70,15 @@ services:
       api:
         condition: service_healthy
     mem_limit: 512m
+
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    profiles: ["routing"]
+    command: ["osrm-routed", "--algorithm", "mld", "--max-table-size", "10000", "/data/north.osrm"]
+    volumes:
+      - ./data/osm:/data:ro
+    ports:
+      - "127.0.0.1:${VILLASANJ_OSRM_PORT:-5050}:5000"
 
 volumes:
   pgdata:
