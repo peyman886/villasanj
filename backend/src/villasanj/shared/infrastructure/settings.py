@@ -27,6 +27,14 @@ class LLMSettings(BaseModel):
 class CrawlSettings(BaseModel):
     contact: str | None = None
     mode: Literal["offline", "live"] = "offline"
+    min_delay_seconds: float = Field(default=3.0, ge=3.0)  # ADR-0008 floor
+    region_file: str = "region.toml"  # relative to config_dir
+    bot_name: str = "VillasanjBot"
+    bot_version: str = "0.1"
+
+    def user_agent(self) -> str:
+        contact = f"; contact: {self.contact}" if self.contact else ""
+        return f"{self.bot_name}/{self.bot_version} (research prototype{contact})"
 
 
 class DatabaseSettings(BaseModel):
@@ -67,6 +75,10 @@ class Settings(BaseSettings):
     @property
     def routing_path(self) -> Path:
         return self.config_dir / self.llm.routing_file
+
+    @property
+    def region_path(self) -> Path:
+        return self.config_dir / self.crawl.region_file
 
     @property
     def models_path(self) -> Path:

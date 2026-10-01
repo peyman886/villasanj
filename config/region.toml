@@ -1,0 +1,13 @@
+# Crawl region (ADR-0011). Bounding box is approximate (it only filters coordinates, it is never shown).
+slug = "ramsar-tonekabon"
+name_fa = "رامسر تا تنکابن"
+south_west = { lat = 36.55, lon = 50.35 }
+north_east = { lat = 37.05, lon = 51.05 }
+
+[[places]]
+slug = "ramsar"
+name_fa = "رامسر"
+
+[[places]]
+slug = "tonekabon"
+name_fa = "تنکابن"

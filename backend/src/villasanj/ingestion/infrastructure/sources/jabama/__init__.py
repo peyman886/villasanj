@@ -1,0 +1,1 @@
+"""jabama.com source adapter."""

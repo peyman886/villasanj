@@ -3,10 +3,23 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from villasanj.ingestion.application.crawl import CrawlPlatform, SnapshotReplayFetcher
+from villasanj.ingestion.application.polite_fetcher import PoliteFetcher
+from villasanj.ingestion.application.ports import Fetcher, SourceAdapter
+from villasanj.ingestion.domain.pages import FetchedPage
+from villasanj.ingestion.domain.policy import CrawlPolicy
+from villasanj.ingestion.domain.region import Region
+from villasanj.ingestion.infrastructure.http import HttpxFetcher, ProtegoRobotsParser
+from villasanj.ingestion.infrastructure.registry import load_region, load_source_adapters
+from villasanj.ingestion.infrastructure.repositories import (
+    PgCrawlRunRepository,
+    PgFrontierRepository,
+    PgSnapshotRepository,
+)
 from villasanj.shared.application.clock import Clock
 from villasanj.shared.application.errors import ConfigurationError
 from villasanj.shared.application.health import CheckHealth
@@ -49,16 +62,76 @@ class LLMStack:
 
 
 @dataclass
+class CrawlStack:
+    adapters: dict[str, SourceAdapter]
+    region: Region
+    policy: CrawlPolicy
+    snapshots: PgSnapshotRepository
+    frontier: PgFrontierRepository
+    runs: PgCrawlRunRepository
+
+
+@dataclass
 class Container:
     settings: Settings
+    clock: SystemClock
     engine: AsyncEngine
     blobs: LocalFsBlobStore
     jobs: PgJobRepository
     ledger: PgLLMLedger
     llm: LLMStack
+    crawl: CrawlStack
     health: CheckHealth
+    http_fetchers: list[HttpxFetcher] = field(default_factory=list)
+
+    def adapter(self, platform: str) -> SourceAdapter:
+        try:
+            return self.crawl.adapters[platform]
+        except KeyError:
+            known = ", ".join(sorted(self.crawl.adapters)) or "none"
+            raise ConfigurationError(
+                f"unknown platform {platform!r} (registered: {known})"
+            ) from None
+
+    def fetcher(self, live: bool) -> Fetcher:
+        """Live: polite HTTP (needs CRAWL__CONTACT). Offline: stored snapshots only."""
+        if not live:
+            return SnapshotReplayFetcher(self.crawl.snapshots, self.blobs)
+        if not self.settings.crawl.contact:
+            raise ConfigurationError(
+                "live crawling requires CRAWL__CONTACT (shown in the user agent)"
+            )
+        http = HttpxFetcher(self.crawl.policy.user_agent, self.clock)
+        self.http_fetchers.append(http)
+        profiles = {slug: adapter.profile for slug, adapter in self.crawl.adapters.items()}
+        return PoliteFetcher(
+            http,
+            ProtegoRobotsParser(),
+            self.crawl.policy,
+            profiles,
+            self.clock,
+            asyncio.sleep,
+            robots_sink=self.store_page,
+        )
+
+    async def store_page(self, page: FetchedPage) -> str:
+        blob = await self.blobs.put(page.body)
+        return (await self.crawl.snapshots.save(page, blob, None)).id
+
+    def crawler(self, platform: str, live: bool) -> CrawlPlatform:
+        return CrawlPlatform(
+            self.adapter(platform),
+            self.fetcher(live),
+            self.blobs,
+            self.crawl.snapshots,
+            self.crawl.frontier,
+            self.crawl.runs,
+            self.clock,
+        )
 
     async def aclose(self) -> None:
+        for http in self.http_fetchers:
+            await http.aclose()
         if isinstance(self.llm.provider, AvalAIProvider):
             await self.llm.provider.aclose()
         await self.engine.dispose()
@@ -112,12 +185,26 @@ def build_container(settings: Settings | None = None) -> Container:
         [DatabaseProbe(engine), BlobStoreProbe(blobs), LLMProviderProbe(llm.provider, clock)],
         timeout_seconds=settings.health_timeout_seconds,
     )
+    crawl = CrawlStack(
+        adapters=load_source_adapters(),
+        region=load_region(settings.region_path),
+        policy=CrawlPolicy(
+            user_agent=settings.crawl.user_agent(),
+            robots_token=settings.crawl.bot_name,
+            min_delay_seconds=settings.crawl.min_delay_seconds,
+        ),
+        snapshots=PgSnapshotRepository(engine),
+        frontier=PgFrontierRepository(engine, clock),
+        runs=PgCrawlRunRepository(engine, clock),
+    )
     return Container(
         settings=settings,
+        clock=clock,
         engine=engine,
         blobs=blobs,
         jobs=PgJobRepository(engine, clock),
         ledger=ledger,
         llm=llm,
+        crawl=crawl,
         health=health,
     )

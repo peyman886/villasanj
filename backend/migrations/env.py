@@ -6,10 +6,12 @@ from alembic import context
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from villasanj.shared.infrastructure.db.tables import metadata
+from villasanj.ingestion.infrastructure.tables import metadata as ingestion_metadata
+from villasanj.shared.infrastructure.db.tables import metadata as ops_metadata
 from villasanj.shared.infrastructure.settings import Settings
 
 config = context.config
+target_metadata = [ops_metadata, ingestion_metadata]
 
 
 def _database_url() -> str:
@@ -19,14 +21,17 @@ def _database_url() -> str:
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=_database_url(), target_metadata=metadata, include_schemas=True, literal_binds=True
+        url=_database_url(),
+        target_metadata=target_metadata,
+        include_schemas=True,
+        literal_binds=True,
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def _run_sync(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=metadata, include_schemas=True)
+    context.configure(connection=connection, target_metadata=target_metadata, include_schemas=True)
     with context.begin_transaction():
         context.run_migrations()
 

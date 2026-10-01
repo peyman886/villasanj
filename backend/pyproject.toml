@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.115",
     "httpx>=0.28",
     "openai>=2.0",
+    "protego>=0.7.0",
     "psycopg[binary]>=3.2",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
@@ -19,6 +20,10 @@ dependencies = [
 
 [project.scripts]
 villasanj = "villasanj.entrypoints.cli:app"
+
+# Source adapters (ADR-0001 OCP): adding a platform = one package + one line here.
+[project.entry-points."villasanj.sources"]
+jabama = "villasanj.ingestion.infrastructure.sources.jabama.adapter:JabamaAdapter"
 
 [dependency-groups]
 dev = [

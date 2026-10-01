@@ -11,6 +11,8 @@ from typing import Annotated
 import typer
 
 from villasanj.entrypoints.container import Container, build_container
+from villasanj.ingestion.application.errors import CrawlError
+from villasanj.ingestion.domain.pages import PageKind, PageRequest
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.application.llm.smoke import LLMSmokeCheck
 from villasanj.shared.infrastructure.llm.models_snapshot import (
@@ -22,7 +24,9 @@ from villasanj.shared.infrastructure.settings import Settings
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 llm_app = typer.Typer(no_args_is_help=True, help="LLM gateway operations.")
+crawl_app = typer.Typer(no_args_is_help=True, help="Polite crawling (ADR-0008, ADR-0011).")
 app.add_typer(llm_app, name="llm")
+app.add_typer(crawl_app, name="crawl")
 
 DEFAULT_SMOKE_BUDGET_USD = "0.05"
 
@@ -94,6 +98,74 @@ def llm_refresh_models() -> None:
     source = f"{settings.avalai_base_url.rstrip('/')}/models"
     write_snapshot(settings.models_path, compact_snapshot(models, datetime.now(UTC), source))
     typer.echo(f"wrote {settings.models_path}")
+
+
+@crawl_app.command("probe")
+def crawl_probe(
+    platform: Annotated[str, typer.Argument(help="Registered platform slug.")],
+    urls: Annotated[list[str], typer.Argument(help="URLs to fetch once each (live).")],
+    kind: Annotated[PageKind, typer.Option(help="Page kind recorded on the snapshot.")] = (
+        PageKind.OTHER
+    ),
+) -> None:
+    """Fetch individual pages politely (robots.txt, pacing) and store them as snapshots."""
+
+    async def run(container: Container) -> bool:
+        fetcher = container.fetcher(live=True)
+        all_ok = True
+        for url in urls:
+            request = PageRequest(platform, kind, url)
+            try:
+                page = await fetcher.fetch(request)
+            except CrawlError as error:
+                typer.echo(f"{url} -> {type(error).__name__}: {error}")
+                all_ok = False
+                continue
+            snapshot_id = await container.store_page(page)
+            typer.echo(
+                f"{url} -> {page.status} {page.header('content-type') or '?'} "
+                f"{len(page.body)}B snapshot={snapshot_id}"
+            )
+            all_ok = all_ok and page.ok
+        return all_ok
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@crawl_app.command("run")
+def crawl_run(
+    platform: Annotated[str, typer.Argument(help="Registered platform slug.")],
+    live: Annotated[bool, typer.Option(help="Allow network requests (default: replay).")] = False,
+    max_requests: Annotated[int, typer.Option(min=1, help="Stop after this many fetches.")] = 50,
+) -> None:
+    """Crawl a platform's frontier for the configured region."""
+
+    async def run(container: Container) -> bool:
+        report = await container.crawler(platform, live).run(
+            container.crawl.region, max_requests, live
+        )
+        typer.echo(
+            f"run={report.run_id} fetched={report.fetched} skipped={report.skipped} "
+            f"retried={report.retried} gave_up={report.gave_up} discovered={report.discovered} "
+            f"discover_errors={report.discover_errors} stop={report.stop_reason}"
+        )
+        return not report.stop_reason.startswith("blocked")
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@crawl_app.command("status")
+def crawl_status(platform: Annotated[str, typer.Argument(help="Platform slug.")]) -> None:
+    """Frontier counts per status."""
+
+    async def run(container: Container) -> bool:
+        counts = await container.crawl.frontier.counts(platform)
+        typer.echo(" ".join(f"{status}={count}" for status, count in sorted(counts.items())))
+        return True
+
+    asyncio.run(_with_container(run))
 
 
 async def _with_container[R](run: Callable[[Container], Awaitable[R]]) -> R:
