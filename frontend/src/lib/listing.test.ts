@@ -111,3 +111,15 @@ describe("calendar", () => {
     expect(weeks[1]?.slice(1)).toEqual([null, null, null, null, null, null]);
   });
 });
+
+describe("map circle", () => {
+  it("lies at the radius around the pin and closes", async () => {
+    const { circleRing } = await import("@/components/listing-map");
+    const ring = circleRing(36.9, 50.66, 400, 8);
+    expect(ring).toHaveLength(9);
+    expect(ring[0]).toEqual(ring[8]);
+    const [lon = 0, lat = 0] = ring[0] ?? [];
+    expect(lon).toBeCloseTo(50.66, 6); // the first point is due north
+    expect((lat - 36.9) * 111_195).toBeCloseTo(400, 0);
+  });
+});

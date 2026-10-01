@@ -45,3 +45,4 @@ frontend/next-env.d.ts
 .playwright-cli/
 frontend/test-results/
 frontend/playwright-report/
+frontend/public/maplibre/

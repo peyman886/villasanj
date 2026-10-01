@@ -68,3 +68,13 @@ Facts that shape the design:
 - (+) No GPU dependency; results are reproducible on any machine with Docker.
 - (−) CPU image embedding is slower; mitigated by batching, ≤ 800 px downloads and the optional MPS runner.
 - (−) The custom Postgres image must be built once (`make setup`).
+
+## Amendment (2026-10-02): basemap for the listing map (decision 6)
+
+The listing page shows the published pin and its blur circle on a MapLibre map (static: no drag or
+zoom, so it never takes the page's scroll or keyboard focus). For now the basemap is OSM's raster
+tiles with attribution, the decision-6 fallback, at demo-level volume. The offline demo (M11
+criterion 1) cannot use them, and bulk-downloading OSM tiles is against OSM's tile policy, so M11
+builds a local style from the clipped extract `data/osm/north.osm.pbf` and sets
+`NEXT_PUBLIC_MAP_STYLE_URL`. MapLibre 6 needs its worker files served next to each other; they are
+copied from `node_modules` into `public/maplibre/` before `next dev` and `next build`.

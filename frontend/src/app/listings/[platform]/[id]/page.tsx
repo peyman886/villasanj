@@ -8,6 +8,7 @@ import {
   type Listing,
   type Review,
 } from "@/lib/api/client";
+import { ListingMap } from "@/components/listing-map";
 import { addDays, iranToday } from "@/lib/listing";
 
 import {
@@ -22,6 +23,7 @@ import {
 export const metadata: Metadata = { title: "آگهی · ویلاسنج" };
 
 const CALENDAR_DAYS = 60;
+const ASSUMED_RADIUS_M = 500; // a pin without a published radius (ADR-0013, assumption A14)
 const NO_STORE = { cache: "no-store" } as const; // observations change; never serve stale ones
 
 type PageData = {
@@ -89,6 +91,14 @@ export default async function ListingPage(props: {
   return (
     <main className="mx-auto max-w-5xl px-4 pt-6 pb-16 sm:px-6">
       <Header listing={listing} geo={data.geo} now={now} />
+      {listing.location ? (
+        <ListingMap
+          lat={listing.location.lat}
+          lon={listing.location.lon}
+          radiusM={listing.location.radius_m ?? ASSUMED_RADIUS_M}
+          assumed={listing.location.radius_m === null}
+        />
+      ) : null}
       <Photos listing={listing} />
       <OffersSection listing={listing} scenarios={data.scenarios} now={now} />
       <CalendarSection
