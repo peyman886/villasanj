@@ -1,0 +1,1 @@
+"""shab.ir source adapter."""

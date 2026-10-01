@@ -1,0 +1,90 @@
+{
+ "data": {
+  "pagination": {
+   "total": 3
+  },
+  "records": {
+   "1405-07": [
+    {
+     "day": 8,
+     "price": {
+      "raw_price": 40000000,
+      "price_after_discount": 40000000,
+      "amount": 40000000,
+      "currency_name": "تومان",
+      "currency_short_form": "ت"
+     },
+     "raw_day_price": 40000000,
+     "is_instant": true,
+     "min_book_day": 2,
+     "is_peak": false,
+     "is_bookable": true
+    },
+    {
+     "day": 9,
+     "price": {
+      "raw_price": 40000000,
+      "price_after_discount": 40000000,
+      "amount": 40000000,
+      "currency_name": "تومان",
+      "currency_short_form": "ت"
+     },
+     "raw_day_price": 40000000,
+     "is_instant": true,
+     "min_book_day": 2,
+     "is_peak": false,
+     "is_bookable": true
+    },
+    {
+     "day": 10,
+     "price": {
+      "raw_price": 35000000,
+      "price_after_discount": 35000000,
+      "amount": 35000000,
+      "currency_name": "تومان",
+      "currency_short_form": "ت"
+     },
+     "raw_day_price": 35000000,
+     "is_instant": true,
+     "min_book_day": 2,
+     "is_peak": false,
+     "is_bookable": true
+    },
+    {
+     "day": 11,
+     "price": {
+      "raw_price": 35000000,
+      "price_after_discount": 35000000,
+      "amount": 35000000,
+      "currency_name": "تومان",
+      "currency_short_form": "ت"
+     },
+     "raw_day_price": 35000000,
+     "is_instant": true,
+     "min_book_day": 2,
+     "is_peak": false,
+     "is_bookable": true
+    },
+    {
+     "day": 12,
+     "price": {
+      "raw_price": 35000000,
+      "price_after_discount": 35000000,
+      "amount": 35000000,
+      "currency_name": "تومان",
+      "currency_short_form": "ت"
+     },
+     "raw_day_price": 35000000,
+     "is_instant": true,
+     "min_book_day": 2,
+     "is_peak": false,
+     "is_bookable": true
+    }
+   ]
+  }
+ },
+ "meta": {
+  "status": 200,
+  "messages": []
+ }
+}

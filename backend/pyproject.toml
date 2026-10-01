@@ -24,6 +24,7 @@ villasanj = "villasanj.entrypoints.cli:app"
 # Source adapters (ADR-0001 OCP): adding a platform = one package + one line here.
 [project.entry-points."villasanj.sources"]
 jabama = "villasanj.ingestion.infrastructure.sources.jabama.adapter:JabamaAdapter"
+shab = "villasanj.ingestion.infrastructure.sources.shab.adapter:ShabAdapter"
 
 [dependency-groups]
 dev = [
