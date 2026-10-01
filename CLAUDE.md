@@ -158,6 +158,9 @@ make test-ml                            # opt-in test with the real image model 
 make crawl-scenarios [LIVE=1]           # same-window re-capture of all calendars (plan only by default)
 make crawl-metrics                      # traffic per host with measured pacing, queue, runs
 make openapi / openapi-check           # regenerate / verify the OpenAPI schema and TS types
+make osm-download / osm-prepare         # Geofabrik Iran snapshot -> clipped extract, coastline, OSRM graph
+make routing-up / routing-down          # OSRM (compose profile routing); core stack untouched
+make geo                                # coastline into PostGIS, coast distances, drive times, sea check
 make seed                               # nothing to seed until M11
 ```
 
@@ -174,7 +177,8 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `enrichment summarize <platform> <id>... [--dry-run]` (cited pros/cons of a listing's reviews; live calls),
 `enrichment features` (description claims vs amenity lists), `llm spend` (ledger totals and the cap),
 `discovery search <query>` (query → ranked listings with reasons; one LLM call),
-`discovery eval-understanding <cases.jsonl> [--dry-run]` (M8 crit. 1 harness). Search page: `/search`.
+`discovery eval-understanding <cases.jsonl> [--dry-run]` (M8 crit. 1 harness), `enrichment coast`,
+`enrichment truth-sea`, `discovery drive-times` (OSRM up). Search page: `/search`.
 Labelling UI: `http://localhost:3300/label` (stack) or `npm run dev` with `API_URL` set.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.
