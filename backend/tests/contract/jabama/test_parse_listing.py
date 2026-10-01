@@ -57,6 +57,7 @@ def test_core_fields() -> None:
         "رامسر",
         "ramsar",
     )
+    assert listing.locality_fa is None  # empty neighbourhood on this listing
     assert listing.location == GeoPoint(36.887585, 50.691742)
     assert listing.location_radius_m == 400
     assert (listing.bedrooms, listing.bathrooms, listing.area_m2) == (2, 1, 100)

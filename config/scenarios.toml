@@ -1,0 +1,22 @@
+# Stay scenarios used for coverage (M2) and all-in pricing (M3+). Chosen 2026-10-01.
+# The holiday night is not guessed: jabama calendars flag 2026-11-13 (22 Aban 1405) with
+# isHoliday=true in every listing observed on 2026-10-01 (catalog.calendar_observation).
+guests = [4, 8]
+
+[[scenarios]]
+slug = "weekend"
+name_fa = "آخر هفته‌ی عادی"
+check_in = 2026-10-15   # Thursday
+check_out = 2026-10-17  # Saturday: nights Thu + Fri
+
+[[scenarios]]
+slug = "midweek"
+name_fa = "وسط هفته"
+check_in = 2026-10-18   # Sunday
+check_out = 2026-10-20  # Tuesday: nights Sun + Mon
+
+[[scenarios]]
+slug = "holiday"
+name_fa = "تعطیلی"
+check_in = 2026-11-12   # Thursday
+check_out = 2026-11-14  # Saturday: nights Thu + Fri (Fri 2026-11-13 is the flagged holiday)

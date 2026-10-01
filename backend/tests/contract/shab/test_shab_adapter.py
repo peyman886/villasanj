@@ -90,6 +90,7 @@ def test_parse_listing() -> None:
         "رامسر",
         "ramsar",
     )
+    assert listing.locality_fa == "چالکرود"
     assert listing.location == GeoPoint(36.873366, 50.772264)
     assert listing.location_radius_m is None
     assert (listing.bedrooms, listing.area_m2) == (4, 400)
@@ -149,3 +150,10 @@ def test_structure_changes_are_reported() -> None:
     broken = fetched("sitemap_ramsar.xml", PageKind.CALENDAR, "https://api.shab.ir/c", CONTEXT)
     with pytest.raises(PageStructureChanged):
         ShabAdapter().parse_calendar(broken)
+
+
+def test_calendar_house_id_falls_back_to_the_url() -> None:
+    url = "https://api.shab.ir/api/fa/sandbox/v_1_4/house/2085/calendar?from_date=1405-07-01"
+    calendar = ShabAdapter().parse_calendar(fetched("calendar_direct.json", PageKind.CALENDAR, url))
+    assert calendar is not None
+    assert calendar.external_id == "2085"

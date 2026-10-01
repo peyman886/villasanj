@@ -184,8 +184,12 @@ class InMemoryFrontierRepository:
             new += 1
         return new
 
-    async def claim(self, platform: str, now: datetime) -> FrontierItem | None:
+    async def claim(
+        self, platform: str, now: datetime, kinds: Sequence[PageKind] | None = None
+    ) -> FrontierItem | None:
         for row in sorted(self.rows.values(), key=lambda r: (r.not_before, r.item.id)):
+            if kinds and row.item.request.kind not in kinds:
+                continue
             if row.status is FrontierStatus.PENDING and row.not_before <= now:
                 row.status = FrontierStatus.IN_PROGRESS
                 return row.item

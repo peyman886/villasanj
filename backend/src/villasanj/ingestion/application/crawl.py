@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import timedelta
 
@@ -22,7 +23,7 @@ from villasanj.ingestion.application.ports import (
     SnapshotRepository,
     SourceAdapter,
 )
-from villasanj.ingestion.domain.pages import FetchedPage, PageRequest
+from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest
 from villasanj.ingestion.domain.region import Region
 from villasanj.shared.application.blobs import BlobStore
 from villasanj.shared.application.clock import Clock
@@ -58,14 +59,22 @@ class CrawlPlatform:
     def platform(self) -> str:
         return self._adapter.profile.slug
 
-    async def run(self, region: Region, max_requests: int, live: bool) -> CrawlReport:
+    async def run(
+        self,
+        region: Region,
+        max_requests: int,
+        live: bool,
+        kinds: Sequence[PageKind] | None = None,
+    ) -> CrawlReport:
+        """Process the frontier; ``kinds`` restricts the run (e.g. photos on a CDN host)."""
         run_id = await self._runs.start(self.platform, live)
         report = CrawlReport(run_id=run_id, platform=self.platform, live=live)
-        new = await self._frontier.enqueue(self._adapter.seed_requests(region), None)
-        report = replace(report, discovered=new)
+        if not kinds or PageKind.SEARCH in kinds or PageKind.SITEMAP in kinds:
+            new = await self._frontier.enqueue(self._adapter.seed_requests(region), None)
+            report = replace(report, discovered=new)
         unavailable: set[int] = set()  # offline: items with no snapshot, released for a live run
         while report.fetched < max_requests:
-            item = await self._frontier.claim(self.platform, self._clock.now())
+            item = await self._frontier.claim(self.platform, self._clock.now(), kinds)
             if item is None:
                 break
             if item.id in unavailable:

@@ -8,7 +8,9 @@ from dataclasses import dataclass, field
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from villasanj.catalog.application.ingest import IngestListingSnapshots
-from villasanj.catalog.infrastructure.repositories import PgListingRepository
+from villasanj.catalog.application.photos import EnqueueListingPhotos, FingerprintPhotos
+from villasanj.catalog.infrastructure.imaging import ImagehashHasher
+from villasanj.catalog.infrastructure.repositories import PgListingRepository, PgPhotoRepository
 from villasanj.ingestion.application.crawl import CrawlPlatform, SnapshotReplayFetcher
 from villasanj.ingestion.application.polite_fetcher import PoliteFetcher
 from villasanj.ingestion.application.ports import Fetcher, SourceAdapter
@@ -90,6 +92,14 @@ class Container:
     def catalog_ingest(self) -> IngestListingSnapshots:
         return IngestListingSnapshots(
             self.crawl.adapters, self.crawl.snapshots, self.blobs, self.listings
+        )
+
+    def enqueue_photos(self) -> EnqueueListingPhotos:
+        return EnqueueListingPhotos(self.listings, self.crawl.frontier)
+
+    def fingerprint_photos(self) -> FingerprintPhotos:
+        return FingerprintPhotos(
+            self.crawl.snapshots, self.blobs, ImagehashHasher(), PgPhotoRepository(self.engine)
         )
 
     def adapter(self, platform: str) -> SourceAdapter:

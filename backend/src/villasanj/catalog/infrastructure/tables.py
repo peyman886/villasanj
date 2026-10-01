@@ -37,6 +37,7 @@ listing = Table(
     Column("property_type", Text),
     Column("city_fa", Text),
     Column("city_slug", Text),
+    Column("locality_fa", Text),
     Column("lat", Float),
     Column("lon", Float),
     Column("location_radius_m", Integer),
@@ -94,5 +95,23 @@ parse_failure = Table(
     Column("snapshot_id", Uuid, primary_key=True),
     Column("platform", Text, nullable=False),
     Column("reason", Text, nullable=False),
+    schema=SCHEMA,
+)
+
+photo = Table(
+    "photo",
+    metadata,
+    Column("platform", Text, nullable=False),
+    Column("external_id", Text, nullable=False),
+    Column("position", Integer, nullable=False),
+    Column("url", Text, nullable=False),
+    Column("snapshot_id", Uuid, nullable=False),
+    Column("sha256", Text, nullable=False),
+    Column("width", Integer, nullable=False),
+    Column("height", Integer, nullable=False),
+    Column("phash", BIGINT, nullable=False),
+    Column("dhash", BIGINT, nullable=False),
+    Column("observed_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("platform", "external_id", "position", name="pk_photo"),
     schema=SCHEMA,
 )

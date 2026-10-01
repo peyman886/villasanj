@@ -76,6 +76,7 @@ class ParsedListing:
     property_type: str | None
     city_fa: str | None
     city_slug: str | None
+    locality_fa: str | None  # village or neighbourhood, when published
     location: GeoPoint | None
     location_radius_m: int | None
     bedrooms: int | None

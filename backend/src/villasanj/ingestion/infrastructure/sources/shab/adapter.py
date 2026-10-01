@@ -45,6 +45,7 @@ _LOC = re.compile(r"<loc>\s*([^<\s]+)\s*</loc>")
 _NEXT_DATA = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.DOTALL)
 _JSON_HEADERS = (("Accept", "application/json"),)
 _MONTH_KEY = re.compile(r"^\d{4}-\d{2}$")
+_CALENDAR_HOUSE = re.compile(r"/house/(\d+)/calendar")
 
 PROFILE = SourceProfile(
     slug=SLUG,
@@ -91,7 +92,7 @@ class ShabAdapter:
     def parse_calendar(self, page: FetchedPage) -> ParsedCalendar | None:
         if page.request.kind is not PageKind.CALENDAR or not page.ok:
             return None
-        house_id = page.request.context_value(HOUSE_ID)
+        house_id = page.request.context_value(HOUSE_ID) or _house_id_in(page.request.url)
         try:
             records = json.loads(page.body)["data"]["records"]
         except (ValueError, KeyError, TypeError):
@@ -112,6 +113,11 @@ class ShabAdapter:
                     PageRequest(SLUG, PageKind.LISTING, url, context=((HOUSE_ID, match.group(1)),))
                 )
         return requests
+
+
+def _house_id_in(url: str) -> str | None:
+    match = _CALENDAR_HOUSE.search(url)
+    return match.group(1) if match else None
 
 
 def _calendar_request(house_id: str, today: date) -> PageRequest:
@@ -155,6 +161,7 @@ def _to_parsed_listing(house: Json, url: str) -> ParsedListing:
         property_type=_text(house.get("type")),
         city_fa=_text(location.get("city")),
         city_slug=(_text(location.get("city_en")) or "").lower() or None,
+        locality_fa=_text(location.get("village")),
         location=_geo(location),
         location_radius_m=None,  # shab does not publish its obfuscation radius
         bedrooms=sum(r for r in rooms if r is not None)

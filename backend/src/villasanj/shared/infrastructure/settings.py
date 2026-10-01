@@ -77,6 +77,10 @@ class Settings(BaseSettings):
         return self.config_dir / self.llm.routing_file
 
     @property
+    def scenarios_path(self) -> Path:
+        return self.config_dir / "scenarios.toml"
+
+    @property
     def region_path(self) -> Path:
         return self.config_dir / self.crawl.region_file
 

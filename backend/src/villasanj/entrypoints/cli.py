@@ -10,6 +10,8 @@ from typing import Annotated
 
 import typer
 
+from villasanj.catalog.application.coverage import MeasureScenarioCoverage
+from villasanj.catalog.infrastructure.repositories import PgCoverageQuery
 from villasanj.entrypoints.container import Container, build_container
 from villasanj.ingestion.application.errors import CrawlError
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
@@ -20,6 +22,7 @@ from villasanj.shared.infrastructure.llm.models_snapshot import (
     fetch_models,
     write_snapshot,
 )
+from villasanj.shared.infrastructure.scenarios import load_scenarios
 from villasanj.shared.infrastructure.settings import Settings
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
@@ -140,12 +143,15 @@ def crawl_run(
     platform: Annotated[str, typer.Argument(help="Registered platform slug.")],
     live: Annotated[bool, typer.Option(help="Allow network requests (default: replay).")] = False,
     max_requests: Annotated[int, typer.Option(min=1, help="Stop after this many fetches.")] = 50,
+    kinds: Annotated[
+        list[PageKind] | None, typer.Option("--kind", help="Only these page kinds (repeatable).")
+    ] = None,
 ) -> None:
     """Crawl a platform's frontier for the configured region."""
 
     async def run(container: Container) -> bool:
         report = await container.crawler(platform, live).run(
-            container.crawl.region, max_requests, live
+            container.crawl.region, max_requests, live, kinds
         )
         typer.echo(
             f"run={report.run_id} fetched={report.fetched} skipped={report.skipped} "
@@ -187,6 +193,57 @@ def catalog_ingest(
                 f"{platform}: snapshots={report.snapshots} saved={report.saved} "
                 f"superseded={report.superseded} not_listing={report.not_listing} "
                 f"failed={report.failed} listings_in_catalog={total}"
+            )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@catalog_app.command("enqueue-photos")
+def catalog_enqueue_photos(
+    platform: Annotated[str, typer.Argument(help="Platform slug.")],
+    per_listing: Annotated[int, typer.Option(min=1, help="Photos per listing.")] = 5,
+    listing_limit: Annotated[int | None, typer.Option(help="Only the first N listings.")] = None,
+) -> None:
+    """Queue listing photos for polite fetching (then: crawl run --kind photo)."""
+
+    async def run(container: Container) -> bool:
+        added = await container.enqueue_photos().run(platform, per_listing, listing_limit)
+        typer.echo(f"{platform}: queued {added} new photo requests")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@catalog_app.command("fingerprint-photos")
+def catalog_fingerprint_photos(
+    platform: Annotated[str, typer.Argument(help="Platform slug.")],
+) -> None:
+    """Compute perceptual hashes for stored photo snapshots (zero network requests)."""
+
+    async def run(container: Container) -> bool:
+        report = await container.fingerprint_photos().run(platform)
+        typer.echo(
+            f"{platform}: snapshots={report.snapshots} fingerprinted={report.fingerprinted} "
+            f"unreadable={report.unreadable} unattributed={report.unattributed}"
+        )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@catalog_app.command("coverage")
+def catalog_coverage() -> None:
+    """Share of listings whose stored calendars cover every night of each stay scenario."""
+
+    async def run(container: Container) -> bool:
+        scenarios = load_scenarios(container.settings.scenarios_path)
+        query = MeasureScenarioCoverage(PgCoverageQuery(container.engine))
+        for row in await query.run(sorted(container.crawl.adapters), scenarios):
+            spread = f"{row.spread.total_seconds() / 3600:.1f}h" if row.spread else "-"
+            typer.echo(
+                f"{row.platform:<8} {row.scenario:<8} covered={row.covered}/{row.listings} "
+                f"({row.ratio:.1%}) observation_spread={spread}"
             )
         return True
 

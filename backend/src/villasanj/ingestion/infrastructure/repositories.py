@@ -173,14 +173,19 @@ class PgFrontierRepository:
         async with self._engine.begin() as conn:
             return len((await conn.execute(statement)).all())
 
-    async def claim(self, platform: str, now: datetime) -> FrontierItem | None:
+    async def claim(
+        self, platform: str, now: datetime, kinds: Sequence[PageKind] | None = None
+    ) -> FrontierItem | None:
+        conditions = [
+            frontier.c.platform == platform,
+            frontier.c.status == FrontierStatus.PENDING.value,
+            frontier.c.next_attempt_at <= now,
+        ]
+        if kinds:
+            conditions.append(frontier.c.kind.in_([kind.value for kind in kinds]))
         candidate = (
             select(frontier.c.id)
-            .where(
-                frontier.c.platform == platform,
-                frontier.c.status == FrontierStatus.PENDING.value,
-                frontier.c.next_attempt_at <= now,
-            )
+            .where(*conditions)
             .order_by(frontier.c.next_attempt_at, frontier.c.id)
             .limit(1)
             .with_for_update(skip_locked=True)

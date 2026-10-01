@@ -30,6 +30,7 @@ def parsed(**overrides: object) -> ParsedListing:
         "property_type": "villa",
         "city_fa": f"رامسر{ZWJ}",
         "city_slug": "ramsar",
+        "locality_fa": None,
         "location": GeoPoint(36.9, 50.66),
         "location_radius_m": 400,
         "bedrooms": 2,

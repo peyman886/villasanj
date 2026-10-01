@@ -63,3 +63,13 @@ class GuestCount:
     def above(self, base_capacity: int) -> int:
         """How many guests exceed ``base_capacity`` (the extra-guest count used for pricing)."""
         return max(0, self.value - base_capacity)
+
+
+@dataclass(frozen=True, slots=True)
+class StayScenario:
+    """A named stay used to compare prices and availability across platforms."""
+
+    slug: str
+    name_fa: str
+    stay: DateRange
+    guests: tuple[GuestCount, ...]

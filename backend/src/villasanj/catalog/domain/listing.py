@@ -55,6 +55,7 @@ class Listing:
     property_type: str | None
     city_fa: str | None
     city_slug: str | None
+    locality_fa: str | None
     location: LocationEvidence | None
     bedrooms: int | None
     bathrooms: int | None
@@ -88,6 +89,7 @@ class Listing:
             property_type=parsed.property_type,
             city_fa=normalize_persian(parsed.city_fa) if parsed.city_fa else None,
             city_slug=parsed.city_slug,
+            locality_fa=normalize_persian(parsed.locality_fa) if parsed.locality_fa else None,
             location=(
                 LocationEvidence(parsed.location, parsed.location_radius_m)
                 if parsed.location

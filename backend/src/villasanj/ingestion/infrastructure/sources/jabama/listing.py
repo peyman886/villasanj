@@ -41,7 +41,9 @@ def to_parsed_listing(obj: JsonObject, platform: str, url: str) -> ParsedListing
     guests = (obj.get("capacity") or {}).get("guests") or {}
     rating = obj.get("rateAndReview") or {}
     residence = obj.get("placeOfResidence") or {}
-    city_name = ((residence.get("area") or {}).get("city") or {}).get("name") or {}
+    area = residence.get("area") or {}
+    city_name = (area.get("city") or {}).get("name") or {}
+    neighbourhood = (area.get("neighborhood") or {}).get("name") or {}
     location = residence.get("location") or {}
     return ParsedListing(
         platform=platform,
@@ -52,6 +54,7 @@ def to_parsed_listing(obj: JsonObject, platform: str, url: str) -> ParsedListing
         property_type=_text(obj.get("type")),
         city_fa=_text(city_name.get("fa")),
         city_slug=_text(city_name.get("en")),
+        locality_fa=_text(neighbourhood.get("fa")),
         location=_geo(location),
         location_radius_m=_positive(location.get("radius")),
         bedrooms=_count(metrics, "bedroomsCount"),
