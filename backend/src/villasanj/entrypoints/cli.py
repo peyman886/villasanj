@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -41,6 +42,7 @@ from villasanj.discovery.domain.dates import (
 from villasanj.discovery.infrastructure.eval_cases import load_cases
 from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.enrichment.application.features import MeasureFeatureClaims
+from villasanj.enrichment.application.photo_tags import EvaluatePhotoTags, PhotoQueueExists
 from villasanj.enrichment.application.truth import CheckSeaClaims
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore
 from villasanj.enrichment.infrastructure.features import load_amenity_map
@@ -652,6 +654,70 @@ def enrichment_truth_sea() -> None:
                     f"mode={v.claim.mode} claims {claim_low:.0f}..{claim_high or 0:.0f} m, "
                     f"measured {low:.0f}..{high:.0f} m"
                 )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@enrichment_app.command("tag-photos")
+def enrichment_tag_photos() -> None:
+    """Zero-shot tag scores for every stored photo, once per image and model (local SigLIP 2)."""
+
+    async def run(container: Container) -> bool:
+        r = await container.tag_photos().run(sorted(container.crawl.adapters))
+        typer.echo(
+            f"model={r.model} images={r.images} already_scored={r.already_scored} "
+            f"scored={r.scored} unreadable={r.unreadable}"
+        )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@enrichment_app.command("photo-queue")
+def enrichment_photo_queue(
+    name: Annotated[str, typer.Option(help="Queue name (drawn once).")] = "photos-v1",
+) -> None:
+    """Draw the stratified photo-tag labelling queue (per tag: top, middle and rest)."""
+
+    async def run(container: Container) -> bool:
+        try:
+            items = await container.photo_tag_queue().run(name)
+        except PhotoQueueExists:
+            typer.echo(f"queue {name} already exists (queues are drawn once)", err=True)
+            return False
+        strata = Counter(i.stratum for i in items)
+        typer.echo(f"queue={name} photos={len(items)}")
+        for stratum, count in sorted(strata.items()):
+            typer.echo(f"  {stratum:<18} {count}")
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@enrichment_app.command("photo-tags-eval")
+def enrichment_photo_tags_eval(
+    queue: Annotated[str, typer.Option(help="Labelled queue.")] = "photos-v1",
+    labeler: Annotated[str, typer.Option(help="Whose labels.")] = "owner",
+) -> None:
+    """M9 criterion 2: per tag, the threshold reaching 85% precision, or "not used"."""
+
+    async def run(container: Container) -> bool:
+        evaluation = await EvaluatePhotoTags(
+            container.photo_tags(), container.photo_queues(), container.photo_tagger().model_id
+        ).run(queue, labeler)
+        typer.echo(f"model={evaluation.model} labelled_photos={evaluation.labelled_photos}")
+        for t in evaluation.thresholds:
+            if t.threshold is None or t.precision is None or t.recall is None:
+                typer.echo(f"  {t.tag:<10} NOT USED (positives={t.positives}/{t.labelled})")
+                continue
+            typer.echo(
+                f"  {t.tag:<10} threshold={t.threshold:.4f} "
+                f"precision={t.precision.estimate:.1%} "
+                f"[{t.precision.low:.1%}, {t.precision.high:.1%}] "
+                f"recall={t.recall.estimate:.1%} positives={t.positives}/{t.labelled}"
+            )
         return True
 
     asyncio.run(_with_container(run))

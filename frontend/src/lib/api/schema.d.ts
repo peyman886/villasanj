@@ -178,6 +178,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/photo-labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Label */
+        post: operations["post_label_photo_labels_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/photo-labels/task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Task */
+        get: operations["get_task_photo_labels_task_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scenarios": {
         parameters: {
             query?: never;
@@ -450,6 +484,46 @@ export interface components {
             status: string;
             total: components["schemas"]["MoneyOut"] | null;
         };
+        /** PhotoLabelIn */
+        PhotoLabelIn: {
+            /**
+             * Labeler
+             * @default owner
+             */
+            labeler: string;
+            /** Present */
+            present: components["schemas"]["PhotoTag"][];
+            /** Queue */
+            queue: string;
+            /** Sha256 */
+            sha256: string;
+        };
+        /**
+         * PhotoTag
+         * @enum {string}
+         */
+        PhotoTag: "pool" | "jacuzzi" | "sea_view" | "forest" | "fireplace" | "barbecue";
+        /** PhotoTaskOut */
+        PhotoTaskOut: {
+            /** Done */
+            done: boolean;
+            /** Labelled */
+            labelled: number;
+            /** Position */
+            position: number;
+            /** Present */
+            present: components["schemas"]["PhotoTag"][];
+            /** Queue */
+            queue: string;
+            /** Sha256 */
+            sha256: string;
+            /** Tags */
+            tags: components["schemas"]["TagOut"][];
+            /** Total */
+            total: number;
+            /** Url */
+            url: string;
+        };
         /** ProbeOut */
         ProbeOut: {
             /** Detail */
@@ -599,6 +673,12 @@ export interface components {
             platform: string;
             /** Url */
             url: string;
+        };
+        /** TagOut */
+        TagOut: {
+            code: components["schemas"]["PhotoTag"];
+            /** Name */
+            name: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -883,6 +963,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_label_photo_labels_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhotoLabelIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_task_photo_labels_task_get: {
+        parameters: {
+            query?: {
+                queue?: string;
+                labeler?: string;
+                position?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoTaskOut"];
                 };
             };
             /** @description Validation Error */

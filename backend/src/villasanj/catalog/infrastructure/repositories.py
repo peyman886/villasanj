@@ -391,6 +391,22 @@ class PgPhotoRepository:
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
 
+    async def urls(self, sha256s: Sequence[str]) -> dict[str, str]:
+        """A platform URL for each image content hash (the first listing position that has it)."""
+        found: dict[str, str] = {}
+        async with self._engine.connect() as conn:
+            for start in range(0, len(sha256s), 5000):
+                query = (
+                    select(photo.c.sha256, photo.c.url)
+                    .where(photo.c.sha256.in_(sha256s[start : start + 5000]))
+                    .order_by(
+                        photo.c.sha256, photo.c.platform, photo.c.external_id, photo.c.position
+                    )
+                )
+                for row in await conn.execute(query):
+                    found.setdefault(row.sha256, row.url)
+        return found
+
     async def save(self, item: ListingPhoto) -> None:
         row = {
             "platform": item.listing_id.platform,

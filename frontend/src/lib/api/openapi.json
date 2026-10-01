@@ -752,6 +752,115 @@
         "title": "OfferOut",
         "type": "object"
       },
+      "PhotoLabelIn": {
+        "properties": {
+          "labeler": {
+            "default": "owner",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Labeler",
+            "type": "string"
+          },
+          "present": {
+            "items": {
+              "$ref": "#/components/schemas/PhotoTag"
+            },
+            "maxItems": 6,
+            "title": "Present",
+            "type": "array"
+          },
+          "queue": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Queue",
+            "type": "string"
+          },
+          "sha256": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "sha256",
+          "present"
+        ],
+        "title": "PhotoLabelIn",
+        "type": "object"
+      },
+      "PhotoTag": {
+        "enum": [
+          "pool",
+          "jacuzzi",
+          "sea_view",
+          "forest",
+          "fireplace",
+          "barbecue"
+        ],
+        "title": "PhotoTag",
+        "type": "string"
+      },
+      "PhotoTaskOut": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "labelled": {
+            "title": "Labelled",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "present": {
+            "items": {
+              "$ref": "#/components/schemas/PhotoTag"
+            },
+            "title": "Present",
+            "type": "array"
+          },
+          "queue": {
+            "title": "Queue",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "position",
+          "total",
+          "labelled",
+          "done",
+          "sha256",
+          "url",
+          "present",
+          "tags"
+        ],
+        "title": "PhotoTaskOut",
+        "type": "object"
+      },
       "ProbeOut": {
         "properties": {
           "detail": {
@@ -1246,6 +1355,23 @@
           "url"
         ],
         "title": "SourceOut",
+        "type": "object"
+      },
+      "TagOut": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/PhotoTag"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "TagOut",
         "type": "object"
       },
       "ValidationError": {
@@ -1757,6 +1883,110 @@
         "summary": "Get Reviews",
         "tags": [
           "listings"
+        ]
+      }
+    },
+    "/photo-labels": {
+      "post": {
+        "operationId": "post_label_photo_labels_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoLabelIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Label",
+        "tags": [
+          "photo-labels"
+        ]
+      }
+    },
+    "/photo-labels/task": {
+      "get": {
+        "operationId": "get_task_photo_labels_task_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "queue",
+            "required": false,
+            "schema": {
+              "default": "photos-v1",
+              "title": "Queue",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "labeler",
+            "required": false,
+            "schema": {
+              "default": "owner",
+              "title": "Labeler",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "position",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Task",
+        "tags": [
+          "photo-labels"
         ]
       }
     },

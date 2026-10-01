@@ -33,9 +33,16 @@ from villasanj.discovery.infrastructure.routing import (
     load_origin,
 )
 from villasanj.enrichment.application.coast import MeasureCoastDistances
+from villasanj.enrichment.application.photo_tags import (
+    BuildPhotoTagQueue,
+    PhotoLabeling,
+    TagPhotos,
+)
 from villasanj.enrichment.application.review_summary import SummarizeReviews
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore, PgCoastline
 from villasanj.enrichment.infrastructure.features import load_amenity_map
+from villasanj.enrichment.infrastructure.photo_tags import PgPhotoQueueStore, PgPhotoTagStore
+from villasanj.enrichment.infrastructure.siglip import SigLip2Tagger
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
 from villasanj.entity_resolution.application.judge import JudgePairs
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
@@ -244,6 +251,32 @@ class Container:
             load_origin(self.settings.routing_origin_path),
             self.settings.geo.dataset,
         )
+
+    def photo_tagger(self) -> SigLip2Tagger:
+        return SigLip2Tagger()
+
+    def photo_tags(self) -> PgPhotoTagStore:
+        return PgPhotoTagStore(self.engine)
+
+    def photo_queues(self) -> PgPhotoQueueStore:
+        return PgPhotoQueueStore(self.engine)
+
+    def tag_photos(self) -> TagPhotos:
+        return TagPhotos(
+            self.crawl.snapshots, self.blobs, self.photo_tagger(), self.photo_tags(), self.clock
+        )
+
+    def photo_tag_queue(self) -> BuildPhotoTagQueue:
+        return BuildPhotoTagQueue(
+            self.photo_tags(),
+            PgPhotoRepository(self.engine),
+            self.photo_queues(),
+            self.clock,
+            self.photo_tagger().model_id,
+        )
+
+    def photo_labeling(self) -> PhotoLabeling:
+        return PhotoLabeling(self.photo_queues(), self.clock)
 
     def review_summaries(self) -> SummarizeReviews:
         return SummarizeReviews(self.llm.client, self.listings)
