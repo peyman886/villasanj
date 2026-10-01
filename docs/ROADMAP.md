@@ -412,13 +412,17 @@ result.
 | Constrained clustering, stable villa ids, B-cubed, `er.villa*` schema with DB constraint (`985aa50`) | M5 crit. 3 (B-cubed), 5 | ✅ built, **not run** | final match decisions (gold set) |
 | Listing read API with required provenance, OpenAPI → typed TS client, drift check (`4b82fef`) | M7 crit. 1 | ✅ done, listing level | villa endpoints (M5) |
 | Gray-zone LLM judge: grids, verdict schema, pinned prompt, dry-run pricing (`175a7bf`) | M5 crit. 4 (infrastructure) | ✅ built, **dry-run only** | the bake-off, model choice and thresholds (gold set) |
+| Distance claims → ranges; verdicts per reading (walk and drive when the mode is unknown); `enrichment claims` coverage report: 100% of 18,707 jabama + 3,919 shab claims parse (`79c3047`) | M9 crit. 3 | ✅ rule built and tested; **no real verdicts yet** | nothing; real verdicts need measured distances (coastline/POIs, an external OSM download the owner has not approved yet) |
+| Persian number mentions; date-expression resolver; holiday calendar (Fridays + fixed solar holidays from `config/holidays.toml` + lunar holidays only where jabama flags them); provisional `SearchIntent` with number/place verifier; `discovery holidays` (`3baffb5`) | M8 crit. 1 (0 invented numbers), date resolution | ✅ deterministic parts built; **no LLM call yet** | nothing; the M8 query eval (50 queries) and model choice are still to do |
 
 Still blocked or waiting:
 - **M3:** photo crawl (jabama, ~11 h left on 2026-10-01 17:00 UTC) → `make match` → gold-v1 → owner labels → eval → H1–H3 → review.
 - **M4:** new adapters (no written permission); wider region (H1).
 - **M5:** Splink / supervised model, judge bake-off, ablations, human review queue for UNSURE, clustering on real data — all need the gold set.
 - **M6 crit. 3:** direct-quote comparison: no public quote source found on either platform.
-- **M8–M11:** not started beyond the pieces above.
+- **M8:** the `UnderstandQuery` LLM step and its 50-query eval, OSRM drive times, retrieval and ranking (ranking needs canonical villas from M5).
+- **M9:** real truth-check verdicts need coastline/POI distances (OSM data, an external download: ask the owner first); claim extraction from descriptions and photo tags not started.
+- **M10–M11:** not started beyond the pieces above.
 
 ---
 
