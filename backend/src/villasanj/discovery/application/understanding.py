@@ -103,6 +103,8 @@ class Understanding:
     dropped: tuple[str, ...]  # fields removed because they still broke a rule after the retry
     models: tuple[str, ...]
     cost_usd: Decimal
+    latency_ms: int = 0  # all calls together (a cache hit is near zero)
+    cache_hit: bool = False  # the first answer came from the cache
 
 
 class UnderstandQuery:
@@ -116,7 +118,7 @@ class UnderstandQuery:
 
     async def run(self, query: str, ctx: JobContext) -> Understanding:
         response = await self._client.generate(understanding_request(query), ctx)
-        models, cost = [response.model], response.cost_usd
+        models, cost, latency = [response.model], response.cost_usd, response.latency_ms
         intent, retried = response.value, False
         violations = verify_intent(intent, query)
         if violations:
@@ -124,5 +126,8 @@ class UnderstandQuery:
             intent, retried = again.value, True
             models.append(again.model)
             cost += again.cost_usd
+            latency += again.latency_ms
         kept, dropped = drop_violations(intent, query)
-        return Understanding(query, kept, retried, dropped, tuple(models), cost)
+        return Understanding(
+            query, kept, retried, dropped, tuple(models), cost, latency, response.cache_hit
+        )

@@ -27,6 +27,7 @@ from villasanj.catalog.infrastructure.repositories import (
 from villasanj.discovery.application.explanation import ExplainChoice, explain_first
 from villasanj.discovery.application.hypotheses import render_markdown
 from villasanj.discovery.application.understanding import UnderstandQuery
+from villasanj.discovery.application.understanding_eval import EvaluateUnderstanding
 from villasanj.discovery.domain.dates import (
     DateExpression,
     HolidayKind,
@@ -37,6 +38,7 @@ from villasanj.discovery.domain.dates import (
     describe_fa,
     resolve,
 )
+from villasanj.discovery.infrastructure.eval_cases import load_cases
 from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.enrichment.application.features import MeasureFeatureClaims
 from villasanj.enrichment.infrastructure.features import load_amenity_map
@@ -684,6 +686,52 @@ def discovery_search(
         return True
 
     asyncio.run(_with_container(run))
+
+
+@discovery_app.command("eval-understanding")
+def discovery_eval_understanding(
+    path: Annotated[Path, typer.Argument(help="JSON lines of query + expected intent.")],
+    dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "0.10",
+) -> None:
+    """M8 criterion 1: slot accuracy, invented numbers and latency per model on a case file."""
+
+    async def run(container: Container) -> bool:
+        cases = load_cases(path)
+        understand = UnderstandQuery(container.llm.client, [c.query for c in cases])
+        if dry_run:
+            estimate = await container.llm.dry_run.estimate(understand.plan())
+            typer.echo(
+                f"cases={len(cases)} calls={estimate.calls} cache_hits={estimate.cache_hits} "
+                f"expected=${estimate.expected_usd:.6f} "
+                f"worst_case=${estimate.worst_case_usd:.6f}"
+            )
+            return True
+        ctx = await container.jobs.start("eval_understanding", Decimal(budget_usd), {})
+        report = await EvaluateUnderstanding(understand).run(cases, ctx)
+        await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
+        typer.echo(
+            f"cases={len(report.cases)} slot_accuracy={report.slot_accuracy:.1%} "
+            f"exact_match={report.exact_match:.1%} invented_numbers={report.invented} "
+            f"retried={sum(c.retried for c in report.cases)} "
+            f"dropped_fields={sum(len(c.dropped) for c in report.cases)} "
+            f"cost=${report.cost_usd:.6f}"
+        )
+        for name, (right, seen) in sorted(report.per_slot.items()):
+            typer.echo(f"  {name:<18} {right}/{seen}")
+        for model, (calls, p50, p95) in report.latency_ms().items():
+            typer.echo(f"  latency {model}: uncached={calls} p50={p50}ms p95={p95}ms")
+        for case in report.cases:
+            if case.wrong:
+                typer.echo(f"  WRONG {case.query}")
+                for name in case.wrong:
+                    typer.echo(
+                        f"      {name}: expected={case.expected.get(name)} got={case.got.get(name)}"
+                    )
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
 
 
 @discovery_app.command("holidays")

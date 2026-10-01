@@ -1,0 +1,15 @@
+// DRAFT written by the agent on 2026-10-02 to exercise the harness: NOT the M8 gold set.
+// The M8 gold set (50 queries) needs expected intents written or reviewed by the owner.
+// One JSON object per line: {"query": "...", "expected": <SearchIntent JSON>}.
+{"query": "ویلا برای ۴ نفر آخر هفته زیر ۵ میلیون در رامسر", "expected": {"dates": {"kind": "weekend"}, "guest_parts": [4], "budget": {"max_toman": 5000000, "basis": "unknown"}, "places": ["رامسر"]}}
+{"query": "امشب یه ویلا برای من و همسرم نزدیک دریا", "expected": {"dates": {"kind": "tonight"}, "party": "couple", "features": ["near_sea"]}}
+{"query": "ویلای استخردار دوخوابه برای ۴ بزرگسال و ۲ بچه، آخر هفته‌ی بعد", "expected": {"dates": {"kind": "weekend", "which": "next"}, "guest_parts": [4, 2], "bedrooms_min": 2, "features": ["pool"]}}
+{"query": "۱۵ آبان سه شب، حداکثر دو ساعت و نیم از تهران", "expected": {"dates": {"kind": "jalali_day", "month": 8, "day": 15}, "nights": 3, "max_drive": {"value": 2.5, "unit": "hours"}}}
+{"query": "تعطیلات بعدی یه ویلای جنگلی تو تنکابن، شبی تا ۳ میلیون", "expected": {"dates": {"kind": "next_holiday"}, "budget": {"max_toman": 3000000, "basis": "per_night"}, "places": ["تنکابن"], "features": ["forest"]}}
+{"query": "نوروز ۱۴۰۶ ویلا برای ده نفر", "expected": {"dates": {"kind": "nowruz", "year": 1406}, "guest_parts": [10]}}
+{"query": "ویلا با جکوزی برای ۸ نفر آخر هفته در رامسر", "expected": {"dates": {"kind": "weekend"}, "guest_parts": [8], "places": ["رامسر"], "features": ["jacuzzi"]}}
+{"query": "پنجشنبه هفته بعد دو شب ویلای سه خوابه", "expected": {"dates": {"kind": "weekday", "weekday": "thursday", "which": "next"}, "nights": 2, "bedrooms_min": 3}}
+{"query": "آبان یه ویلای ساحلی با شومینه", "expected": {"dates": {"kind": "jalali_month", "month": 8}, "features": ["near_sea", "fireplace"]}}
+{"query": "فردا تنها میرم، یه سوئیت ارزون نزدیک دریا", "expected": {"dates": {"kind": "tomorrow"}, "party": "solo", "features": ["near_sea"]}}
+{"query": "حداکثر ۹۰ دقیقه رانندگی از تهران، آخر هفته، ۶ نفر", "expected": {"dates": {"kind": "weekend"}, "max_drive": {"value": 90, "unit": "minutes"}, "guest_parts": [6]}}
+{"query": "ویلا با پارکینگ و باربیکیو برای کل اقامت تا ۱۲ میلیون، پس‌فردا", "expected": {"dates": {"kind": "day_after_tomorrow"}, "budget": {"max_toman": 12000000, "basis": "whole_stay"}, "features": ["parking", "barbecue"]}}
