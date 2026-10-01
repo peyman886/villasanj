@@ -9,6 +9,7 @@ from pathlib import Path
 from tests.fakes.ingestion import InMemoryBlobStore, InMemorySnapshotRepository
 from tests.fakes.llm import NOW
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
+from villasanj.catalog.domain.review import ListingReview
 from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest, Snapshot
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -19,6 +20,7 @@ class InMemoryListingRepository:
         self.listings: dict[ListingId, Listing] = {}
         self.calendar: dict[tuple[ListingId, object, str], CalendarObservation] = {}
         self.failures: dict[str, str] = {}
+        self.reviews: dict[tuple[str, str], ListingReview] = {}
 
     async def save(self, listing: Listing, calendar: Sequence[CalendarObservation]) -> bool:
         current = self.listings.get(listing.id)
@@ -34,6 +36,12 @@ class InMemoryListingRepository:
         for observation in calendar:
             key = (observation.listing_id, observation.night, observation.snapshot_id)
             self.calendar.setdefault(key, observation)
+
+    async def save_reviews(self, reviews: Sequence[ListingReview]) -> None:
+        for review in reviews:
+            current = self.reviews.get((review.listing_id.platform, review.review_id))
+            if current is None or review.provenance.observed_at >= current.provenance.observed_at:
+                self.reviews[(review.listing_id.platform, review.review_id)] = review
 
     async def record_failure(self, snapshot_id: str, platform: str, reason: str) -> None:
         self.failures[snapshot_id] = reason

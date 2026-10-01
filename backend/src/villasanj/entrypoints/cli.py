@@ -16,6 +16,7 @@ from villasanj.catalog.application.coverage import MeasureScenarioCoverage
 from villasanj.catalog.application.places import MeasurePlaceResolution
 from villasanj.catalog.application.reports import PhotoPipelineReport, RegionalInventory
 from villasanj.catalog.domain.listing import ListingId
+from villasanj.catalog.domain.review import RatingPrior
 from villasanj.catalog.infrastructure.gazetteer_file import load_gazetteer
 from villasanj.catalog.infrastructure.repositories import (
     PgCoverageQuery,
@@ -45,6 +46,7 @@ from villasanj.shared.infrastructure.scenarios import load_scenarios
 from villasanj.shared.infrastructure.settings import Settings
 
 HYPOTHESIS_WINDOW_DAYS = 75  # jabama shows ~76 days of calendar
+FEW_VOTES = 5  # below this a listing's own average is mostly noise
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 llm_app = typer.Typer(no_args_is_help=True, help="LLM gateway operations.")
@@ -425,6 +427,29 @@ def catalog_inventory() -> None:
                 f"{r.platform:<7} discovered={r.discovered} responses=[{responses}] "
                 f"parsed={r.parsed} in_region={r.in_region} with_location={r.with_location} "
                 f"with_capacity={r.with_capacity} with_base_price={r.with_base_price}"
+            )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@catalog_app.command("reviews")
+def catalog_reviews() -> None:
+    """Stored reviews per platform and the Bayesian prior used to rate listings with few votes."""
+
+    async def run(container: Container) -> bool:
+        for platform in sorted(container.crawl.adapters):
+            listings = await container.listings.listings(platform)
+            counts = await container.listings.review_counts(platform)
+            prior = RatingPrior.from_listings(listings)
+            few = [x for x in listings if x.rating_count and x.rating_count < FEW_VOTES]
+            rated = sum(bool(x.rating_count) for x in listings)
+            mean = f"{prior.mean:.2f}" if prior else "-"
+            typer.echo(
+                f"{platform:<7} listings={len(listings)} rated={rated} "
+                f"stored_reviews={counts['reviews']} on_listings={counts['listings']} "
+                f"with_text={counts['with_text']} host_replied={counts['host_replied']} "
+                f"prior_mean={mean} listings_with_<{FEW_VOTES}_votes={len(few)}"
             )
         return True
 

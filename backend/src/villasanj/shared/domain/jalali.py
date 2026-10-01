@@ -21,6 +21,20 @@ MIN_JALALI_YEAR = 1  # date.toordinal() requires Gregorian year >= 1
 MAX_JALALI_YEAR = _BREAKS[-1]
 JALALI_EPOCH_OFFSET = 621
 MONTHS_PER_YEAR = 12
+MONTH_NAMES = (
+    "فروردین",
+    "اردیبهشت",
+    "خرداد",
+    "تیر",
+    "مرداد",
+    "شهریور",
+    "مهر",
+    "آبان",
+    "آذر",
+    "دی",
+    "بهمن",
+    "اسفند",
+)
 FIRST_HALF_MONTHS = 6
 FIRST_HALF_MONTH_DAYS = 31
 SECOND_HALF_MONTH_DAYS = 30

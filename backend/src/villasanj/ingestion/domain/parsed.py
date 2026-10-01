@@ -57,6 +57,23 @@ class ParsedAmenity:
     present: bool
 
 
+class DatePrecision(StrEnum):
+    DAY = "day"
+    MONTH = "month"  # the date is the first day of the month the platform names
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedReview:
+    """A guest review as published. Reviewer and host names are deliberately not kept."""
+
+    review_id: str
+    rating: float | None  # overall, on the platform's 1-5 scale
+    text: str | None
+    stayed_on: date | None  # when the guest stayed, as precisely as the platform says
+    stayed_precision: DatePrecision | None
+    host_replied: bool
+
+
 @dataclass(frozen=True, slots=True)
 class ParsedDistanceClaim:
     """A platform-published proximity statement, e.g. "sea: under 5 minutes by car"."""
@@ -98,6 +115,7 @@ class ParsedListing:
     amenities: tuple[ParsedAmenity, ...] = field(default=())
     distance_claims: tuple[ParsedDistanceClaim, ...] = field(default=())
     calendar: tuple[ParsedCalendarDay, ...] = field(default=())
+    reviews: tuple[ParsedReview, ...] = field(default=())  # the ones shown on the listing page
 
 
 @dataclass(frozen=True, slots=True)

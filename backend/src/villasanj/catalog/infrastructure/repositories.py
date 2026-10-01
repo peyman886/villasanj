@@ -21,15 +21,18 @@ from villasanj.catalog.domain.listing import (
     LocationEvidence,
 )
 from villasanj.catalog.domain.photo import ListingPhoto, PerceptualFingerprint, PhotoEmbedding
+from villasanj.catalog.domain.review import ListingReview
 from villasanj.catalog.infrastructure.tables import (
     calendar_observation,
     listing,
     parse_failure,
     photo,
     photo_embedding,
+    review,
 )
 from villasanj.ingestion.domain.parsed import (
     Availability,
+    DatePrecision,
     ParsedAmenity,
     ParsedDistanceClaim,
     ParsedRateCard,
@@ -219,6 +222,81 @@ class PgListingRepository:
                 .values(rows[start : start + _CALENDAR_BATCH])
                 .on_conflict_do_nothing()
             )
+
+    async def save_reviews(self, reviews: Sequence[ListingReview]) -> None:
+        rows = [
+            {
+                "platform": r.listing_id.platform,
+                "review_id": r.review_id,
+                "external_id": r.listing_id.external_id,
+                "rating": r.rating,
+                "text": r.text,
+                "text_norm": r.text_norm,
+                "stayed_on": r.stayed_on,
+                "stayed_precision": r.stayed_precision.value if r.stayed_precision else None,
+                "host_replied": r.host_replied,
+                "snapshot_id": uuid.UUID(r.provenance.snapshot_id or ""),
+                "observed_at": r.provenance.observed_at,
+            }
+            for r in {r.review_id: r for r in reviews}.values()
+        ]
+        if not rows:
+            return
+        statement = insert(review).values(rows)
+        upsert = statement.on_conflict_do_update(
+            index_elements=[review.c.platform, review.c.review_id],
+            set_={k: statement.excluded[k] for k in rows[0] if k not in ("platform", "review_id")},
+            where=statement.excluded.observed_at >= review.c.observed_at,
+        )
+        async with self._engine.begin() as conn:
+            await conn.execute(upsert)
+
+    async def review_counts(self, platform: str) -> dict[str, int]:
+        query = select(
+            func.count().label("reviews"),
+            func.count(func.distinct(review.c.external_id)).label("listings"),
+            func.count(review.c.text).label("with_text"),
+            func.count().filter(review.c.host_replied).label("host_replied"),
+        ).where(review.c.platform == platform)
+        async with self._engine.connect() as conn:
+            row = (await conn.execute(query)).one()
+        return {k: int(v) for k, v in row._mapping.items()}
+
+    async def reviews(self, listing_id: ListingId) -> list[ListingReview]:
+        query = (
+            select(review, listing.c.url)
+            .join(
+                listing,
+                (listing.c.platform == review.c.platform)
+                & (listing.c.external_id == review.c.external_id),
+            )
+            .where(
+                review.c.platform == listing_id.platform,
+                review.c.external_id == listing_id.external_id,
+            )
+            .order_by(review.c.stayed_on.desc().nulls_last(), review.c.review_id)
+        )
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        return [
+            ListingReview(
+                listing_id=listing_id,
+                review_id=r.review_id,
+                rating=r.rating,
+                text=r.text,
+                text_norm=r.text_norm,
+                stayed_on=r.stayed_on,
+                stayed_precision=DatePrecision(r.stayed_precision) if r.stayed_precision else None,
+                host_replied=r.host_replied,
+                provenance=Provenance(
+                    ProvenanceMethod.OBSERVED,
+                    r.observed_at,
+                    SourceRef(listing_id.platform, r.url),
+                    str(r.snapshot_id),
+                ),
+            )
+            for r in rows
+        ]
 
     async def record_failure(self, snapshot_id: str, platform: str, reason: str) -> None:
         async with self._engine.begin() as conn:

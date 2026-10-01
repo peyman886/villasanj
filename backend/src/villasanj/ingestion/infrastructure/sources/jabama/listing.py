@@ -7,23 +7,28 @@ explicit obfuscation radius in metres.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from datetime import date
+import re
+from collections.abc import Callable, Iterable, Sequence
+from datetime import date, timedelta
 from typing import Any
 
 from villasanj.ingestion.domain.parsed import (
     Availability,
+    DatePrecision,
     ParsedAmenity,
     ParsedCalendarDay,
     ParsedDistanceClaim,
     ParsedListing,
     ParsedRateCard,
+    ParsedReview,
     TravelMode,
 )
 from villasanj.ingestion.infrastructure.sources.jabama.flight import JsonObject
 from villasanj.shared.domain.errors import InvalidGeoPoint
 from villasanj.shared.domain.geo import GeoPoint
+from villasanj.shared.domain.jalali import MONTH_NAMES, JalaliDate
 from villasanj.shared.domain.money import Money
+from villasanj.shared.domain.persian_text import normalize_persian, to_latin_digits
 
 _AVAILABILITY = {
     "available": Availability.AVAILABLE,
@@ -36,7 +41,9 @@ def is_stay_object(code: str) -> Callable[[JsonObject], bool]:
     return lambda obj: "calendar" in obj and str(obj.get("code")) == code
 
 
-def to_parsed_listing(obj: JsonObject, platform: str, url: str) -> ParsedListing:
+def to_parsed_listing(
+    obj: JsonObject, platform: str, url: str, reviews: Sequence[ParsedReview] = ()
+) -> ParsedListing:
     metrics = obj.get("accommodationMetrics") or {}
     guests = (obj.get("capacity") or {}).get("guests") or {}
     rating = obj.get("rateAndReview") or {}
@@ -78,6 +85,7 @@ def to_parsed_listing(obj: JsonObject, platform: str, url: str) -> ParsedListing
         amenities=tuple(_amenities(obj.get("amenitiesV2") or [])),
         distance_claims=tuple(_distance_claims(obj.get("nearbyCentersV2") or [])),
         calendar=tuple(_calendar(obj.get("calendar") or [])),
+        reviews=tuple(reviews),
     )
 
 
@@ -172,3 +180,58 @@ def _calendar(days: list[Any]) -> list[ParsedCalendarDay]:
             )
         )
     return parsed
+
+
+_DAYS_AGO = re.compile(r"(\d+)\s*روز\s*پیش")
+_JALALI_MONTH = re.compile(r"^(" + "|".join(MONTH_NAMES) + r")\s+(\d{4})$")
+
+
+def is_review_list(obj: JsonObject) -> bool:
+    reviews = obj.get("reviews")
+    return (
+        isinstance(reviews, list)
+        and bool(reviews)
+        and isinstance(reviews[0], dict)
+        and "comment" in reviews[0]
+    )
+
+
+def parse_reviews(
+    containers: Iterable[JsonObject], place_id: str, fetched_on: date
+) -> list[ParsedReview]:
+    """Reviews of one stay (matched by ``placeId``); names of reviewers and hosts are not kept."""
+    reviews: dict[str, ParsedReview] = {}
+    for container in containers:
+        for record in container.get("reviews") or []:
+            if not isinstance(record, dict) or record.get("placeId") != place_id:
+                continue
+            if record.get("id") is None:
+                continue
+            stayed_on, precision = _stay_date(record.get("subTitles") or [], fetched_on)
+            response = record.get("response")
+            reviews.setdefault(
+                str(record["id"]),
+                ParsedReview(
+                    review_id=str(record["id"]),
+                    rating=_rating(record.get("rating")),
+                    text=_text(record.get("comment")),
+                    stayed_on=stayed_on,
+                    stayed_precision=precision,
+                    host_replied=isinstance(response, dict) and bool(_text(response.get("body"))),
+                ),
+            )
+    return list(reviews.values())
+
+
+def _stay_date(
+    subtitles: Sequence[Any], fetched_on: date
+) -> tuple[date | None, DatePrecision | None]:
+    """ "اقامت 23 روز پیش" is relative to the page's fetch; "مرداد 1404" names a Jalali month."""
+    for subtitle in subtitles:
+        text = to_latin_digits(normalize_persian(str(subtitle)))
+        if (days := _DAYS_AGO.search(text)) is not None:
+            return fetched_on - timedelta(days=int(days.group(1))), DatePrecision.DAY
+        if (month := _JALALI_MONTH.match(text)) is not None:
+            jalali = JalaliDate(int(month.group(2)), MONTH_NAMES.index(month.group(1)) + 1, 1)
+            return jalali.to_gregorian(), DatePrecision.MONTH
+    return None, None

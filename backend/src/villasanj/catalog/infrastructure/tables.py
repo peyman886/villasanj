@@ -6,6 +6,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Float,
+    Index,
     Integer,
     MetaData,
     PrimaryKeyConstraint,
@@ -124,5 +125,24 @@ photo_embedding = Table(
     Column("vector", ARRAY(REAL), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     PrimaryKeyConstraint("sha256", "model_id", name="pk_photo_embedding"),
+    schema=SCHEMA,
+)
+
+review = Table(
+    "review",
+    metadata,
+    Column("platform", Text, nullable=False),
+    Column("review_id", Text, nullable=False),
+    Column("external_id", Text, nullable=False),
+    Column("rating", Float),
+    Column("text", Text),
+    Column("text_norm", Text),
+    Column("stayed_on", Date),
+    Column("stayed_precision", Text),
+    Column("host_replied", Boolean, nullable=False),
+    Column("snapshot_id", Uuid, nullable=False),
+    Column("observed_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("platform", "review_id", name="pk_review"),
+    Index("ix_review_listing", "platform", "external_id"),
     schema=SCHEMA,
 )

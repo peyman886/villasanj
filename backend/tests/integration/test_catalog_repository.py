@@ -9,8 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.fakes.llm import NOW
 from tests.unit.catalog.test_listing import parsed
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
+from villasanj.catalog.domain.review import ListingReview
 from villasanj.catalog.infrastructure.repositories import PgListingRepository
-from villasanj.ingestion.domain.parsed import Availability, ParsedCalendarDay, ParsedRateCard
+from villasanj.ingestion.domain.parsed import (
+    Availability,
+    DatePrecision,
+    ParsedCalendarDay,
+    ParsedRateCard,
+    ParsedReview,
+)
 from villasanj.shared.domain.money import Money
 from villasanj.shared.domain.stay import DateRange
 
@@ -129,3 +136,27 @@ async def test_listings_and_calendars_read_back_as_stored(engine: AsyncEngine) -
     assert await repo.calendars(platform, DateRange(nights[0], nights[2])) == {
         stored.id: calendar[:2]
     }
+
+
+async def test_reviews_upsert_newest_first_and_read_back(engine: AsyncEngine) -> None:
+    platform = f"reviews-{id(engine)}"
+    repo = PgListingRepository(engine)
+    stored = Listing.from_parsed(
+        parsed(platform=platform), "00000000-0000-0000-0000-000000000f02", NOW
+    )
+    await repo.save(stored, [])
+    old = ParsedReview("R1", 3.0, "قدیمی", date(2026, 7, 1), DatePrecision.MONTH, False)
+    new = ParsedReview("R1", 4.0, "جدید", date(2026, 7, 1), DatePrecision.MONTH, True)
+    newer_snapshot, older_snapshot = (
+        "00000000-0000-0000-0000-000000000f03",
+        "00000000-0000-0000-0000-000000000f04",
+    )
+    await repo.save_reviews([ListingReview.from_parsed(stored, new, newer_snapshot, NOW)])
+    await repo.save_reviews(
+        [ListingReview.from_parsed(stored, old, older_snapshot, NOW - timedelta(days=1))]
+    )
+    await repo.save_reviews([])
+    (review,) = await repo.reviews(stored.id)
+    assert (review.rating, review.text, review.host_replied) == (4.0, "جدید", True)
+    assert review.stayed_precision is DatePrecision.MONTH
+    assert review.provenance.snapshot_id == newer_snapshot

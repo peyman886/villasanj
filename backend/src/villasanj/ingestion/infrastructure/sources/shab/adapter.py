@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -19,12 +19,14 @@ from villasanj.ingestion.application.errors import PageStructureChanged
 from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest
 from villasanj.ingestion.domain.parsed import (
     Availability,
+    DatePrecision,
     ParsedAmenity,
     ParsedCalendar,
     ParsedCalendarDay,
     ParsedDistanceClaim,
     ParsedListing,
     ParsedRateCard,
+    ParsedReview,
     TravelMode,
 )
 from villasanj.ingestion.domain.policy import SourceProfile
@@ -189,7 +191,36 @@ def _to_parsed_listing(house: Json, url: str) -> ParsedListing:
         amenities=tuple(_amenities(house.get("features") or {})),
         distance_claims=tuple(_distances(house.get("distances") or {})),
         calendar=(),  # served separately: see parse_calendar
+        reviews=tuple(_reviews(house.get("reviews") or [])),
     )
+
+
+def _reviews(records: list[Any]) -> list[ParsedReview]:
+    """The latest reviews embedded in the house page (reviewer and host names are not kept)."""
+    reviews = []
+    for record in records:
+        if not isinstance(record, dict) or not record.get("review_id"):
+            continue
+        checkout = _iso_date(record.get("checkout_date"))
+        reply = record.get("host_reply")
+        reviews.append(
+            ParsedReview(
+                review_id=str(record["review_id"]),
+                rating=_rating(record.get("point_average")),
+                text=_text(record.get("comment")),
+                stayed_on=checkout,
+                stayed_precision=DatePrecision.DAY if checkout else None,
+                host_replied=isinstance(reply, dict) and bool(_text(reply.get("comment"))),
+            )
+        )
+    return reviews
+
+
+def _iso_date(value: Any) -> date | None:
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
 
 
 def _text(value: Any) -> str | None:

@@ -1,6 +1,6 @@
 """parse_listing on a trimmed real stay page. Expected values were read from the fixture by hand."""
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -10,10 +10,12 @@ from villasanj.ingestion.application.errors import PageStructureChanged
 from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest
 from villasanj.ingestion.domain.parsed import (
     Availability,
+    DatePrecision,
     ParsedAmenity,
     ParsedCalendarDay,
     ParsedDistanceClaim,
     ParsedRateCard,
+    ParsedReview,
     TravelMode,
 )
 from villasanj.ingestion.infrastructure.sources.jabama.adapter import (
@@ -183,3 +185,37 @@ def test_removed_listing_is_not_a_structure_change() -> None:
         fetcher=page.fetcher,
     )
     assert JabamaAdapter().parse_listing(removed) is None
+
+
+def test_reviews_of_this_stay_with_relative_and_jalali_month_dates() -> None:
+    page = stay_page(name="stay_with_reviews.html")
+    listing = JabamaAdapter().parse_listing(page)
+    assert listing is not None
+    by_id = {r.review_id: r for r in listing.reviews}
+    assert set(by_id) == {"9000001", "9000002", "9000003"}  # 9000004 belongs to another stay
+    recent = by_id["9000001"]
+    assert recent == ParsedReview(
+        review_id="9000001",
+        rating=4.8,
+        text="نظر آزمایشی: منظره عالی بود.",
+        stayed_on=NOW.date() - timedelta(days=23),  # "اقامت 23 روز پیش", relative to the fetch
+        stayed_precision=DatePrecision.DAY,
+        host_replied=True,
+    )
+    month = by_id["9000002"]
+    assert (month.stayed_on, month.stayed_precision) == (date(2025, 7, 23), DatePrecision.MONTH)
+    assert not month.host_replied
+    unknown = by_id["9000003"]  # "سفر خانوادگی" says nothing about when
+    assert (unknown.stayed_on, unknown.stayed_precision, unknown.rating, unknown.text) == (
+        None,
+        None,
+        None,
+        None,
+    )
+    assert not unknown.host_replied
+
+
+def test_stay_pages_without_reviews_have_none() -> None:
+    listing = JabamaAdapter().parse_listing(stay_page())
+    assert listing is not None
+    assert listing.reviews == ()

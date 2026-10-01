@@ -14,9 +14,11 @@ from villasanj.ingestion.application.errors import PageStructureChanged
 from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest
 from villasanj.ingestion.domain.parsed import (
     Availability,
+    DatePrecision,
     ParsedCalendarDay,
     ParsedDistanceClaim,
     ParsedRateCard,
+    ParsedReview,
     TravelMode,
 )
 from villasanj.ingestion.domain.region import Place, Region
@@ -157,3 +159,26 @@ def test_calendar_house_id_falls_back_to_the_url() -> None:
     calendar = ShabAdapter().parse_calendar(fetched("calendar_direct.json", PageKind.CALENDAR, url))
     assert calendar is not None
     assert calendar.external_id == "2085"
+
+
+def test_embedded_reviews_keep_rating_text_stay_date_and_reply_but_no_names() -> None:
+    parsed = ShabAdapter().parse_listing(house("house_with_reviews.html"))
+    assert parsed is not None
+    first, second, third = parsed.reviews
+    assert first == ParsedReview(
+        review_id="RAA1",
+        rating=4.6,
+        text="نظر آزمایشی: تمیز و آرام بود.",
+        stayed_on=date(2026, 8, 22),
+        stayed_precision=DatePrecision.DAY,
+        host_replied=True,
+    )
+    assert (second.text, second.rating, second.host_replied) == (None, 5.0, False)
+    assert (third.rating, third.stayed_on, third.stayed_precision) == (None, None, None)
+    assert not third.host_replied  # a blank reply is no reply
+
+
+def test_pages_without_reviews_have_none() -> None:
+    parsed = ShabAdapter().parse_listing(house())
+    assert parsed is not None
+    assert parsed.reviews == ()

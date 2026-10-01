@@ -24,7 +24,9 @@ from villasanj.ingestion.infrastructure.sources.jabama.flight import (
     iter_objects,
 )
 from villasanj.ingestion.infrastructure.sources.jabama.listing import (
+    is_review_list,
     is_stay_object,
+    parse_reviews,
     to_parsed_listing,
 )
 from villasanj.shared.domain.errors import InvalidGeoPoint
@@ -97,11 +99,14 @@ class JabamaAdapter:
         code = page.request.context_value(LISTING_CODE) or _code_from_url(page.final_url)
         if code is None:
             raise PageStructureChanged(f"cannot tell the listing code of {page.final_url}")
-        html = page.body.decode("utf-8", errors="replace")
-        stay = next(iter_objects(flight_text(html), is_stay_object(code)), None)
+        flight = flight_text(page.body.decode("utf-8", errors="replace"))
+        stay = next(iter_objects(flight, is_stay_object(code)), None)
         if stay is None:
             raise PageStructureChanged(f"no stay object for code {code} on {page.final_url}")
-        return to_parsed_listing(stay, SLUG, page.final_url)
+        reviews = parse_reviews(
+            iter_objects(flight, is_review_list), str(stay.get("id")), page.fetched_at.date()
+        )
+        return to_parsed_listing(stay, SLUG, page.final_url, reviews)
 
     def parse_calendar(self, page: FetchedPage) -> ParsedCalendar | None:
         return None  # embedded in the stay page, parsed by parse_listing

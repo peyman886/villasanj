@@ -9,6 +9,7 @@ from typing import Protocol
 import structlog
 
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
+from villasanj.catalog.domain.review import ListingReview
 from villasanj.ingestion.application.errors import PageStructureChanged
 from villasanj.ingestion.application.ports import SnapshotRepository, SourceAdapter
 from villasanj.ingestion.domain.pages import FetchedPage, PageKind, Snapshot
@@ -26,6 +27,10 @@ class ListingRepository(Protocol):
         """Append calendar observations (idempotent)."""
         ...
 
+    async def save_reviews(self, reviews: Sequence[ListingReview]) -> None:
+        """Upsert reviews; an observation from an older snapshot never replaces a newer one."""
+        ...
+
     async def record_failure(self, snapshot_id: str, platform: str, reason: str) -> None: ...
 
     async def count(self, platform: str) -> int: ...
@@ -39,6 +44,7 @@ class IngestReport:
     superseded: int = 0
     not_listing: int = 0
     calendars: int = 0
+    reviews: int = 0  # review observations read (one review appears in every snapshot showing it)
     failed: int = 0
 
 
@@ -84,6 +90,13 @@ class IngestListingSnapshots:
             CalendarObservation.from_parsed(listing.id, day, snapshot.id, snapshot.fetched_at)
             for day in parsed.calendar
         ]
+        reviews = [
+            ListingReview.from_parsed(listing, review, snapshot.id, snapshot.fetched_at)
+            for review in parsed.reviews
+        ]
+        if reviews:
+            await self._listings.save_reviews(reviews)
+        report = replace(report, reviews=report.reviews + len(reviews))
         if await self._listings.save(listing, calendar):
             return replace(report, saved=report.saved + 1)
         return replace(report, superseded=report.superseded + 1)
