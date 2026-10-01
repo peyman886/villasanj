@@ -38,6 +38,7 @@ from villasanj.ingestion.domain.parsed import (
     ParsedRateCard,
     TravelMode,
 )
+from villasanj.shared.application.blobs import BlobStore
 from villasanj.shared.application.clock import Clock
 from villasanj.shared.domain.geo import GeoPoint
 from villasanj.shared.domain.money import Money
@@ -577,3 +578,25 @@ class PgPhotoStatsQuery:
             )
             for r in rows
         ]
+
+
+class StoredPhotoBytes:
+    """A listing's stored photo images in page order (what the matcher saw)."""
+
+    def __init__(self, engine: AsyncEngine, blobs: BlobStore) -> None:
+        self._engine = engine
+        self._blobs = blobs
+
+    async def photos(self, listing_id: ListingId, limit: int) -> list[bytes]:
+        query = (
+            select(photo.c.sha256)
+            .where(
+                photo.c.platform == listing_id.platform,
+                photo.c.external_id == listing_id.external_id,
+            )
+            .order_by(photo.c.position)
+            .limit(limit)
+        )
+        async with self._engine.connect() as conn:
+            keys = [row.sha256 for row in (await conn.execute(query)).all()]
+        return [await self._blobs.get(key) for key in keys]

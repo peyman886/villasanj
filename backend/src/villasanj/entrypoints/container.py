@@ -17,11 +17,14 @@ from villasanj.catalog.infrastructure.repositories import (
     PgEmbeddingStore,
     PgListingRepository,
     PgPhotoRepository,
+    StoredPhotoBytes,
 )
 from villasanj.discovery.application.hypotheses import BuildHypothesisReport
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
+from villasanj.entity_resolution.application.judge import JudgePairs
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
 from villasanj.entity_resolution.application.matching import MatchListings
+from villasanj.entity_resolution.infrastructure.grid import PillowGridRenderer
 from villasanj.entity_resolution.infrastructure.photo_index import NumpyPhotoIndex
 from villasanj.entity_resolution.infrastructure.repositories import PgCandidateStore, PgLabelStore
 from villasanj.ingestion.application.crawl import CrawlPlatform, SnapshotReplayFetcher
@@ -157,6 +160,14 @@ class Container:
 
     def evaluate_matcher(self) -> EvaluateMatcher:
         return EvaluateMatcher(self.candidates(), self.labels())
+
+    def judge(self) -> JudgePairs:
+        return JudgePairs(
+            self.listings,
+            StoredPhotoBytes(self.engine, self.blobs),
+            PillowGridRenderer(),
+            self.llm.client,
+        )
 
     def quotes(self) -> QuoteStays:
         return QuoteStays(self.listings, load_fee_policies(self.settings.fees_path))

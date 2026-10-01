@@ -26,6 +26,7 @@ from villasanj.catalog.infrastructure.repositories import (
 )
 from villasanj.discovery.application.hypotheses import render_markdown
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
+from villasanj.entity_resolution.application.judge import JudgeInput
 from villasanj.entity_resolution.application.labeling import QueueExists
 from villasanj.entity_resolution.domain.evaluation import Interval
 from villasanj.entrypoints.api.app import create_app
@@ -608,6 +609,50 @@ def er_hypotheses(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(render_markdown(report), encoding="utf-8")
         typer.echo(f"pairs={report.pairs} report={path}")
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@er_app.command("judge")
+def er_judge(
+    low: Annotated[float, typer.Option(help="Lowest rule score of the gray zone.")],
+    high: Annotated[float, typer.Option(help="Highest rule score of the gray zone.")],
+    limit: Annotated[int, typer.Option(min=1, help="At most this many pairs.")] = 500,
+    dry_run: Annotated[
+        bool, typer.Option(help="Price the requests (the only mode for now).")
+    ] = True,
+) -> None:
+    """Price LLM-judging the gray zone of the current candidates (zero calls).
+
+    Live judging waits for the M5 bake-off on the gold set (model, thresholds, and whether the
+    judge ships at all are decided there), so only --dry-run is accepted.
+    """
+
+    async def run(container: Container) -> bool:
+        if not dry_run:
+            typer.echo(
+                "live judging is not enabled before the M5 bake-off; use --dry-run", err=True
+            )
+            return False
+        candidates = [
+            c
+            for c in await container.candidates().current()
+            if c.blocked
+            and c.key.cross_platform
+            and c.score is not None
+            and c.evidence is not None
+            and low <= c.score.value <= high
+        ]
+        candidates.sort(key=lambda c: (-(c.score.value if c.score else 0.0), c.key))
+        inputs = [JudgeInput(c.key, c.evidence) for c in candidates[:limit] if c.evidence]
+        report = await container.llm.dry_run.estimate(await container.judge().requests(inputs))
+        typer.echo(
+            f"gray zone [{low:g}, {high:g}]: {len(candidates)} pairs, priced {len(inputs)}: "
+            f"calls={report.calls} cache_hits={report.cache_hits} "
+            f"expected=${report.expected_usd:.4f} worst_case=${report.worst_case_usd:.4f}"
+        )
         return True
 
     if not asyncio.run(_with_container(run)):
