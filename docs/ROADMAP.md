@@ -224,6 +224,12 @@ prefilter would save little). The labelling UI shows every photo straight from t
 Waiting for: the photo crawl → `make match` → `villasanj er queue --name gold-v1` → **owner labels
 ≥ 300 pairs** → `make eval` → `make eval-hypotheses` → owner review (criterion 5).
 
+Rehearsal (2026-10-02, **not a result**): `make match` on the photos downloaded so far finished in
+2 min 46 s (4,379 new embeddings; 153,923 candidate pairs, 28,059 from the narrow blocks). It
+proves the path end to end and front-loads the embeddings (stored once per image), so after the
+crawl only the remaining photos are processed. The candidates are replaced by the post-crawl run
+before gold-v1 is built.
+
 ---
 
 ## M4 — Coverage: permission-gated adapters and wider region — partly in progress (parallel to M3)
@@ -420,6 +426,7 @@ result.
 | Review summaries: cited pros/cons, single opinions labelled by code, verifier + one retry + drop; `enrichment summarize [--dry-run]`; `reasoning_effort = "low"` measured (ADR-0005 amendment) (`6106916`) | M10 crit. 1–2 (infrastructure) | ✅ built; live on 2 listings, $0.0188 in total | villa-level summaries over merged reviews (M5); storing and showing them; the owner's blind review of 20 villas (crit. 3) |
 | Feature vocabulary shared with search intents; rule-based description claims (verbatim spans, negation, shared facilities); `config/features.toml` amenity mapping; `enrichment features` report: jabama pool 123 agree / 2 disagree, parking 523 / 11 (`c9a9ff1`) | M9 (deterministic stage of claim extraction) | ✅ built; 3 rule errors found by reading the report are tests now | the 60-description eval (crit. 1), the LLM residue, photo tags and coastline evidence, cross-platform checks (M5) |
 | `llm spend`: ledger totals per task and model and the remaining cap (`be4ef79`) | M11 crit. 3 (and every milestone report) | ✅ built; $0.0247 of $30 on 2026-10-02 | nothing |
+| Ranking: reasons for every exclusion, cautions for unknowns, confirmed requested features first, then a named-contribution score; ambiguous budget basis returns the counts per reading. `SearchListings`: query → intent → dates → places → batch offers → feature evidence → ranking; `discovery search` (`b45991d`, `a897f3f`) | M8 crit. 4 (score breakdown), ambiguity questions | ✅ built at listing level; live run on real data, $0.0004 per query | canonical villas (M5) replace listings; the retrieval/ranking eval (crit. 2) tunes the weights; OSRM drive time (crit. 3) needs an OSM extract |
 
 Still blocked or waiting:
 - **M3:** photo crawl (jabama, ~11 h left on 2026-10-01 17:00 UTC) → `make match` → gold-v1 → owner labels → eval → H1–H3 → review.
