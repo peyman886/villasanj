@@ -58,6 +58,9 @@ def _snapshot_request(row: Any) -> PageRequest:
     )
 
 
+_ENQUEUE_BATCH = 1000  # rows per INSERT (14 columns each)
+
+
 class PgSnapshotRepository:
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
@@ -164,14 +167,18 @@ class PgFrontierRepository:
             }
             for r in {r.key: r for r in requests}.values()
         ]
-        statement = (
-            insert(frontier)
-            .values(rows)
-            .on_conflict_do_nothing(index_elements=[frontier.c.request_key])
-            .returning(frontier.c.id)
-        )
+        added = 0
         async with self._engine.begin() as conn:
-            return len((await conn.execute(statement)).all())
+            # One statement per batch: Postgres accepts at most 65,535 bind parameters.
+            for start in range(0, len(rows), _ENQUEUE_BATCH):
+                statement = (
+                    insert(frontier)
+                    .values(rows[start : start + _ENQUEUE_BATCH])
+                    .on_conflict_do_nothing(index_elements=[frontier.c.request_key])
+                    .returning(frontier.c.id)
+                )
+                added += len((await conn.execute(statement)).all())
+        return added
 
     async def claim(
         self, platform: str, now: datetime, kinds: Sequence[PageKind] | None = None

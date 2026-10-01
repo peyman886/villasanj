@@ -37,6 +37,13 @@ async def test_enqueue_deduplicates_and_claims_in_order(engine: AsyncEngine) -> 
     await frontier.complete(claimed, "00000000-0000-0000-0000-000000000001")
 
 
+async def test_enqueue_handles_more_rows_than_one_statement_can_bind(engine: AsyncEngine) -> None:
+    frontier = PgFrontierRepository(engine, FixedClock())
+    many = [unique(f"bulk-{n}") for n in range(5_000)]  # 5,000 x 14 columns > 65,535 parameters
+    assert await frontier.enqueue(many, None) == len(many)
+    assert await frontier.enqueue(many, None) == 0
+
+
 async def test_concurrent_claims_never_hand_out_the_same_item(engine: AsyncEngine) -> None:
     frontier = PgFrontierRepository(engine, FixedClock())
     platform = f"concurrency-{id(engine)}"
