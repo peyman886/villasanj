@@ -1,0 +1,39 @@
+# --- Secrets (never commit) ---
+.env
+.env.*
+!.env.example
+
+# --- Local context not redistributed (third-party page kept only for reference) ---
+/challenge.html
+
+# --- Runtime data (snapshots, photos, model weights, OSM extracts, reports with raw data) ---
+/data/
+/var/
+*.osm.pbf
+*.osrm*
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.turbo/
+
+# --- Tooling / OS ---
+.idea/
+.vscode/
+.DS_Store
+*.log
