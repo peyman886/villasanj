@@ -102,7 +102,7 @@ Acceptance criteria:
 
 Totals: 120 unit/architecture tests, 6 integration tests, 7 frontend tests, 1 live test (opt-in).
 
-## M2 — First vertical slice: jabama → shab
+## M2 — First vertical slice: jabama → shab ✅ (delivered 2026-10-01, awaiting review)
 
 **Audit outcome (2026-10-01, [`docs/sources/README.md`](sources/README.md), ADR-0011):** jajiga,
 otaghak and mihmansho forbid crawling in their Terms → not crawled; permission requests drafted in
@@ -133,6 +133,37 @@ Acceptance criteria:
 7. Scenario capture: for each scenario × {4, 8} guests, observations exist for ≥ 90% of in-region
    listings on both platforms, all taken within one 24 h window (per-listing timestamp spread reported).
 8. Regional inventory of both platforms counted from sitemaps and reported (input to the region decision).
+
+---
+
+### M2 results (2026-10-01)
+
+Live crawl on 2026-10-01 (UTC): jabama 07:51–11:11, shab 08:09–09:31, plus a shab photo sample at
+11:03–11:15. That is 4,491 stored responses, with no retries, give-ups or blocks. Details per host
+are in [`docs/sources/README.md`](sources/README.md).
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | robots.txt, pacing and stop-on-block, unit + integration tested | ✅ 13 PoliteFetcher and 3 crawl-loop unit tests, plus a local-HTTP integration test of the real httpx + protego stack: disallowed paths are never requested (also after a redirect), Crawl-delay is honoured, and the user agent is sent. The integration test found that the first request after robots.txt ignored Crawl-delay. That is fixed, and neither platform publishes a Crawl-delay. A 429 storm now stops the run like a 403 streak does. A blocked platform stays blocked: the next live run refuses to start until the owner passes `--after-block`. |
+| 2 | jabama: every regional listing, parse ≥ 98%, failures quarantined | ✅ 2,952/2,952 stay pages that answered 200 were parsed (**100%**, 0 failures). ⚠️ Coverage gap: the search pages declare 2,800 (Ramsar) and 976 (Tonekabon) results, and we collected 2,772 and 973 unique stays. The missing 31 were never shown on a fetched page; result order shifting during the 3 h crawl is the likely cause, but it is not verified. Also excluded: 8 stays outside the region box, and 2 stays that answered 404 (removed). |
+| 3 | ≥ 6 trimmed fixtures per adapter | ✅ jabama 6 (search, last search page, page without flight data, stay, unpriced new stay, removed stay); shab 6 (sitemap, house, house outside the region, house without data, two calendar payload shapes). ⚠️ No reviews fixture: reviews are not parsed until M10. "Unusual price format": both platforms publish integer prices; their quirks are covered (jabama `0` = not set, shab in toman), and text prices are covered by the normalizer table. |
+| 4 | Normalizer ≥ 60 table-driven cases | ✅ 111 cases: 39 money-text, 11 Persian-text, 28 gazetteer, 33 gazetteer-config. They include «۱۲٫۵ میلیون», «۱،۵۰۰،۰۰۰ تومان», ك/ي, ZWNJ variants and کلاردشت = کلار دشت = Kelardasht. |
+| 5 | `make reparse`: 0 network requests, identical row hashes | ✅ The ingest use case has no Fetcher, and a socket-blocking test proves it. The catalog was truncated and rebuilt twice from snapshots: incremental build, rebuild 1 and rebuild 2 gave identical hashes for 3,552 listings, 278,172 calendar observations, 0 parse failures and 199 photos. |
+| 6 | OCP proof | ✅ with one caveat. The shab commit `9a92fa9` touches 11 files: `sources/shab/**` (2), its contract test (2), 6 fixtures and **one** entry-point line in `pyproject.toml`. It needed one generic core extension first (`f5f9077`: calendars served on their own page, 8 files), which is stated openly. ⚠️ No `FeePolicy` row: fee policies arrive with the pricing engine (M3). |
+| 7 | Scenario capture ≥ 90% of in-region listings, within 24 h | ✅ jabama 2,951/2,951 (100%) for weekend, midweek and holiday, spread 3.2 h. shab 597/597 in-region listings (597/601 = 99.3% including the 4 with bogus coordinates), spread 0.6 h. Calendar observations do not depend on group size; {4, 8} guests change only the price, which M3's pricing engine computes. No direct quotes: neither platform exposes a public quote request that we use. |
+| 8 | Regional inventory | ✅ shab sitemaps list 601 houses (516 Ramsar + 85 Tonekabon). jabama publishes no sitemap, so its inventory comes from search pages: 2,961 unique stays (2,953 in the region box). Together: **3,554 listing pages** for 3,552 parsed listings. |
+
+Also delivered:
+- **Gazetteer v1:** [`config/gazetteer.toml`](../config/gazetteer.toml) has 117 places (6 cities, 111 localities) and 21 aliases, curated from observed names. Of 559 shab locality texts, 401 (72%) resolve to a locality and 42 name a city. The other 116 are streets, squares, sentences or typos, which are deliberately left unresolved. All 27 non-trivial resolutions were reviewed by hand; there is no other ground truth. jabama's neighbourhood field is always empty, so jabama listings are placed by city and coordinates (400 m radius) only.
+- **Photos and pHash:** 199 shab photos (40 listings) were fingerprinted with 0 unreadable. Throughput was 3.7 s per photo at the polite rate; storage 115 MB (593 KB on average). ⚠️ "≤ 800 px" is not met for shab: its smaller renditions are 4:3 crops, which break pHash for portrait photos (distance 20–32; ADR-0008 amendment 5). Photos are fetched on demand, and M3 sets how many per listing.
+- **Data-quality findings for later milestones:** 4 shab listings with impossible coordinates (input for the "contradiction" badge); 541 jabama listings with no reviews; 10 jabama listings that allow extra guests but publish no extra-guest price (unknown, never "free").
+
+LLM spend in M2: **$0** (no LLM calls).
+
+Tech debt carried forward:
+- A second pass over jabama search pages to close the 31-listing gap.
+- 45 thumbnail requests from the crop experiment were not stored as snapshots, because it was a one-off script.
+- The parent city of `khazar-kenar` is a split vote (ramsar 7, tonekabon 1), and `chalkesh` has no parent (tie).
 
 ## M3 — Hypothesis test (review with owner before continuing)
 

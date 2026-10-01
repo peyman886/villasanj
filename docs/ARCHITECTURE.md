@@ -374,7 +374,7 @@ Key domain rules:
 | `MatchJudge` (er.application) | Gray-zone pair → structured verdict. | `LlmMatchJudge` (application strategy over `LLMClient`). |
 | `LLMClient` (shared.application) | `generate(request: LLMRequest[T], ctx: JobContext) → LLMResponse[T]`, multimodal messages, Pydantic-validated output. | `AvalAIProvider` + decorators (`Caching`, `Fallback`, `Retrying`, `CostGoverning`), `FakeLLMProvider` (deterministic, scripted), `OllamaProvider` (future). |
 | `TextEmbedder` (shared.application) | Text → vector. | `AvalAIEmbedder` (default), `LocalSentenceEmbedder` (bge-m3, optional) ([ADR-0006](adr/0006-embeddings-text-and-image.md)). |
-| `Gazetteer` (catalog.application) | Resolve place names/aliases → `Place`. | `PgGazetteer` (seeded from OSM + manual aliases). |
+| `Gazetteer` (catalog.domain) | Resolve place names/aliases → `Place`. | `load_gazetteer` reads `config/gazetteer.toml` (v1: 117 places curated from observed names; OSM not used yet). |
 | `RoutingService` (discovery.application) | Free-flow drive time/distance between points. | `OsrmRoutingService`. |
 | `CoastlineIndex` (enrichment.application) | Distance from a point to the Caspian coastline. | `PostgisCoastlineIndex` (OSM `natural=coastline`). |
 | `SearchIndex` (discovery.application) | Lexical (+ optional dense) scoring over candidates. | `PostgresSearchIndex` (FTS `simple` config on normalized text + `pg_trgm` + pgvector). Swappable for OpenSearch without touching use cases. |

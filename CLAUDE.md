@@ -22,8 +22,11 @@ Context files (local):
 ## Current status
 
 - M0 (design) approved 2026-10-01.
-- **M1 (skeleton & LLM platform) delivered 2026-10-01, awaiting owner review.**
-- M2 in progress: ToS audit done and signed off (jabama + shab); ingestion core next.
+- M1 (skeleton & LLM platform) delivered 2026-10-01.
+- **M2 (first vertical slice: jabama → shab) delivered 2026-10-01, awaiting owner review.** Results
+  table in `docs/ROADMAP.md`. Catalog holds 2,951 jabama + 601 shab listings, 278k calendar
+  observations, 199 fingerprinted shab photos; gazetteer v1 in `config/gazetteer.toml`.
+- Next: M3 (ER baseline, labelling UI, gold set, pricing engine v1, hypothesis report).
 
 ## Working agreement (from the owner)
 
@@ -68,7 +71,8 @@ Context files (local):
 ### Extension recipes (OCP)
 - **New platform:** `ingestion/infrastructure/sources/<slug>/` implementing `SourceAdapter` (pure: no
   I/O), plus trimmed fixtures + contract tests, one entry point in `backend/pyproject.toml`
-  (`villasanj.sources`), and a sourced `FeePolicy` row. Nothing else changes.
+  (`villasanj.sources`), and (from M3, when pricing exists) a sourced `FeePolicy` row. Nothing else
+  changes.
 - **New LLM provider:** a `RawModelProvider` adapter + a branch in `build_provider` + `LLM__PROVIDER`.
   Model names go in `config/llm.toml`.
 - **New embedding / search engine:** an adapter for `ImageEmbedder` / `TextEmbedder` / `SearchIndex`
@@ -127,13 +131,16 @@ make llm-smoke         # live smoke through the stack; spend persisted in ops.ll
 make llm-models        # refresh config/llm-models.json from /v1/models (free)
 make crawl P=jabama [LIVE=1] [MAX=50]   # default replays snapshots; LIVE=1 needs CRAWL__CONTACT
 make crawl-status P=jabama              # frontier counts
-make reparse                            # rebuild catalog from snapshots (zero network)
-make match/eval/eval-hypotheses (M3): not implemented yet
+make reparse                            # rebuild catalog + photo hashes from snapshots (zero network)
+make report                             # scenario coverage + gazetteer resolution (zero network)
+make match/eval/eval-hypotheses (M3): not implemented yet; make seed: nothing to seed until M11
 ```
 
 Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --kind listing`
 (one polite fetch + snapshot), `crawl run <platform> --live --kind photo` (photo hosts only),
-`catalog ingest`, `catalog coverage`, `catalog enqueue-photos`, `catalog fingerprint-photos`.
+`crawl run … --after-block` (only after the owner decides to resume a blocked platform),
+`catalog ingest`, `catalog coverage`, `catalog places`, `catalog enqueue-photos`,
+`catalog fingerprint-photos`.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.
 On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0.1:5433).
@@ -160,6 +167,16 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
   API returns two payload shapes and keys days by Jalali month; jabama's `disabled` nights do not say
   whether they are booked or closed (stored as `unavailable`).
 - **jabama needs `Accept: text/html`** or it serves a page shell without listings (HttpxFetcher sets it).
+- **jabama uses `0` for "not set"** (weekend/holiday/extra-guest prices, rating): parse to `None`
+  (unknown), never to free or zero-rated. Its neighbourhood field is always empty.
+- **shab photos:** originals are 538×424 to 1600×1200 (~593 KB). The thumbnails are 4:3 crops that
+  break pHash for portrait photos, so keep originals as the matching evidence (ADR-0008 amendment 5).
+- **`s3gw.shab.ir/robots.txt` answers 403** (an S3 `AccessDenied`, no such object). RFC 9309 says
+  4xx = no restrictions, and the owner was told. A 403/429 streak on *content* stops the run, and
+  the platform stays blocked until `--after-block`.
+- **Gazetteer edits:** `config/gazetteer.toml` is curated, precision first. Add only real place
+  names seen in data; never alias roads/streets or guess typo merges. `make report` shows the
+  resolution rate and the top unresolved texts.
 - **Never commit the probe/recon by-products**: raw responses live in `var/blobs` and `data/audit`
   (git-ignored); fixtures are trimmed and scrubbed (no host or reviewer names).
 
@@ -174,6 +191,7 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
 
 - `docs/ARCHITECTURE.md`: contexts, layers, diagrams, domain model, schema, ports, assumptions.
 - `docs/ROADMAP.md`: milestones M0–M11 with acceptance criteria and LLM caps.
-- `docs/adr/`: decisions 0001–0010.
+- `docs/adr/`: decisions 0001–0011.
+- `docs/sources/README.md`: robots/ToS audit, crawl-time observations, inventory, photo experiment.
 - `docs/research-review.md`: critique of the research report.
 - `docs/reference/avalai-models-2026-10-01.csv`: model/pricing snapshot used for cost estimates.

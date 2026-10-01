@@ -80,12 +80,36 @@ with attribution and deep links.
 
 | Host | robots.txt | Notes |
 |---|---|---|
-| `www.jabama.com` | no rules | Listings, calendars and prices are embedded in Next.js flight data; full pages need `Accept: text/html`. |
+| `www.jabama.com` | no rules, no Crawl-delay | Listings, calendars and prices are embedded in Next.js flight data; full pages need `Accept: text/html`. The neighbourhood field was empty on all 300 sampled stay pages. |
 | `cdn.jabama.com` | `User-Agent: *` (no rules) | Photos only as 1632×1224 originals. |
 | `gw.jabama.com` | not requested | API gateway seen during reconnaissance; not needed, so never crawled. |
-| `www.shab.ir` | as audited above | House pages embed listing data in `__NEXT_DATA__`. |
+| `www.shab.ir` | as audited above, no Crawl-delay | House pages embed listing data in `__NEXT_DATA__`. |
 | `api.shab.ir` | **404** (RFC 9309: no restrictions) | Calendar endpoint keyed by Jalali dates. |
-| `s3gw.shab.ir` | checked by the crawler on first photo request | Photos at 749 px. |
+| `s3gw.shab.ir` | **403**, S3 error `AccessDenied` with `BucketName=robots.txt` | An object-storage gateway with no robots.txt object, not a site policy. RFC 9309 treats any 4xx as "unavailable", meaning no restrictions, and the crawler applied that. The owner can choose a stricter rule (treat a 403 robots.txt as "stop"). Originals range from 538×424 to 1600×1200 (199-photo sample, average 593 KB). |
+
+### Live crawl, 2026-10-01 (UTC)
+
+| | jabama | shab |
+|---|---|---|
+| Window | 07:51–11:11 (pages); one photo probe | 08:09–09:31 (pages, calendars); 11:03–11:15 (photo sample) |
+| Requests stored as snapshots | 3,081: 121 search, 2,954 stay (2,952 × 200, 2 × 404), 5 robots, 1 photo | 1,410: 4 sitemaps, 602 houses, 598 calendars, 199 photos, 7 robots (3 × 200, 2 × 404, 2 × 403) |
+| Not stored | — | 45 thumbnail requests for the crop experiment below (same polite fetcher) |
+| Retries / give-ups / blocks | 0 / 0 / 0 | 0 / 0 / 0 |
+| Regional inventory | Search pages declare 2,800 (Ramsar) and 976 (Tonekabon) results. We collected 2,772 and 973 unique stays (784 in both), 2,961 in total; 8 lie outside the region box, and 2 returned 404 by the time we fetched them. | City sitemaps list 516 (Ramsar) + 85 (Tonekabon) = 601 houses. All were fetched; 4 publish coordinates outside the region (Tehran, Gilan, a placeholder), so their calendars were not requested. |
+
+The 31 stays missing against the declared jabama counts (28 + 3) were not on any page we fetched.
+The likely reason is that the result order shifted during a 3-hour crawl, but this is **not verified**.
+A second pass over the 121 search pages would find them.
+
+### Photo renditions (shab, measured)
+
+shab publishes `thumbnail_path` (400×300) and sometimes `hq_thumbnail_path` (800×600) next to the
+original. On 45 pairs fetched politely, the pHash distance between thumbnail and original was 0–2
+for 4:3 originals (n = 16) and 0–4 for near-4:3 originals (n = 13). For portrait originals (n = 16)
+it was **20–32**: the thumbnails are landscape crops, so to pHash they look like a different photo.
+Portrait photos are 19% of the sample. Decision: originals are kept as the matching evidence. Every
+thumbnail size would hide those matches, and the 800 px variant saves only ~40% (352 KB vs 593 KB
+on average). Crop-robust embeddings in M3 are the second line of defence.
 
 ## Consequences for the plan
 

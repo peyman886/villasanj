@@ -226,16 +226,20 @@ def catalog_enqueue_photos(
 
 @catalog_app.command("fingerprint-photos")
 def catalog_fingerprint_photos(
-    platform: Annotated[str, typer.Argument(help="Platform slug.")],
+    platforms: Annotated[
+        list[str] | None, typer.Argument(help="Platforms to fingerprint; default: all registered.")
+    ] = None,
 ) -> None:
     """Compute perceptual hashes for stored photo snapshots (zero network requests)."""
 
     async def run(container: Container) -> bool:
-        report = await container.fingerprint_photos().run(platform)
-        typer.echo(
-            f"{platform}: snapshots={report.snapshots} fingerprinted={report.fingerprinted} "
-            f"unreadable={report.unreadable} unattributed={report.unattributed}"
-        )
+        fingerprint = container.fingerprint_photos()
+        for platform in platforms or sorted(container.crawl.adapters):
+            report = await fingerprint.run(platform)
+            typer.echo(
+                f"{platform}: snapshots={report.snapshots} fingerprinted={report.fingerprinted} "
+                f"unreadable={report.unreadable} unattributed={report.unattributed}"
+            )
         return True
 
     asyncio.run(_with_container(run))

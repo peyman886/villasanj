@@ -78,3 +78,17 @@ requests. At 1 request per 3 s that is ≈ 6 h per platform, plus photos from CD
    host keeps its own pacing.
 4. **Hosts without robots.txt.** `api.shab.ir/robots.txt` answers 404, which RFC 9309 treats as "no
    restrictions". The 404 response itself is stored as a snapshot.
+5. **Correction to item 3 (measured 2026-10-01 on a 199-photo shab sample).** shab originals are not
+   749 px: they range from 538×424 to 1600×1200 (average 593 KB). The published thumbnails are 4:3
+   crops, and pHash no longer matches for portrait originals (distance 20–32; details in
+   `docs/sources/README.md`). Originals therefore stay the matching evidence, and the "≤ 800 px" rule
+   is **not met for shab**. All shab photos would be ~11k files, ~6.6 GB and ~11 h at the polite
+   rate, so shab photos are fetched on demand too (first N per listing), the same as jabama. M3
+   decides N from blocking recall.
+6. **robots.txt answering 403.** `s3gw.shab.ir` (photo object storage) answers `/robots.txt` with an
+   S3 `AccessDenied` error, because there is no such object. RFC 9309 treats every 4xx as
+   "unavailable", meaning no restrictions, and the crawler follows that. This is recorded so the owner
+   can choose a stricter local rule.
+7. **Crawl-delay after robots.txt.** The first request after reading robots.txt waited only the 3 s
+   floor, not the site's Crawl-delay. Fixed in M2 and covered by a local-HTTP integration test.
+   Neither platform publishes a Crawl-delay, so the real crawls were not affected.
