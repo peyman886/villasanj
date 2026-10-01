@@ -43,3 +43,5 @@ frontend/next-env.d.ts
 
 # playwright-cli by-products (snapshots, console logs)
 .playwright-cli/
+frontend/test-results/
+frontend/playwright-report/

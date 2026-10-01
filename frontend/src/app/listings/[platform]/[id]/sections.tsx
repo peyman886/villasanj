@@ -395,7 +395,7 @@ function NightCell({ night, listing, now }: { night: CalendarNight; listing: Lis
       now={now}
       className={cn(
         "block w-full rounded-md border p-1 text-center no-underline sm:p-1.5",
-        CELL_TONE[night.availability] ?? "border-stone-200 bg-stone-100 text-stone-500",
+        CELL_TONE[night.availability] ?? "border-stone-200 bg-stone-100 text-stone-700",
       )}
     >
       <span className="block font-medium tabular-nums">{faDayOfMonth(night.night)}</span>
@@ -458,7 +458,7 @@ export function CalendarSection({
                 {week.map((cell, index) => (
                   <td key={cell?.day ?? `empty-${index}`} className="p-0 align-top">
                     {cell === null ? null : cell.night === null ? (
-                      <div className="rounded-md border border-dashed border-stone-200 p-1 text-center text-stone-400 sm:p-1.5">
+                      <div className="rounded-md border border-dashed border-stone-300 p-1 text-center text-stone-600 sm:p-1.5">
                         <span className="block tabular-nums">{faDayOfMonth(cell.day)}</span>
                         <span className="block text-[0.7rem] leading-tight">بی‌داده</span>
                       </div>

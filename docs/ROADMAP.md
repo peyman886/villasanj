@@ -264,7 +264,7 @@ results and the re-prioritisation review are not done and nothing provisional is
 | Regional coverage per platform (criterion 2) | ✅ built | `catalog inventory`. A second discovery pass was run before gold-v1 exists, so no label is affected. jabama search pages again (119 pages): **34 new stays**, catalog 2,951 → 2,985, 0 parse failures. shab sitemaps again: 0 new houses (601). Their coverage photos were queued too. |
 | Photo pipeline, shab (2026-10-01 16:46 UTC) | ✅ complete | 3,004 selected → 3,004 downloaded (100%), 3,004 fingerprinted, 2,962 distinct images embedded, 1.09 GB. jabama is still crawling (`catalog photo-report`). |
 
-Not started on purpose: M5–M11. M3's review can reorder them, so building them now risks waste.
+M5–M11: only parts that do not depend on M3's outputs were built, all provisional; see "Work done ahead of its milestone" below. M3's review can still reorder them.
 
 
 ## M5 — Full entity resolution

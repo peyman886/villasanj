@@ -4,3 +4,5 @@ package-lock.json
 next-env.d.ts
 src/lib/api/openapi.json
 src/lib/api/schema.d.ts
+test-results
+playwright-report
