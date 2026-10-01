@@ -30,6 +30,12 @@ Context files (local):
   queue, labelling UI at `/label`, evaluation and the H1–H3 report. Waiting for: the coverage
   photo crawl (5 per listing), then `make match`, `er queue --name gold-v1`, the **owner's labels**
   (≥ 300 pairs, `docs/er-labeling-protocol.md`), then `make eval` and `make eval-hypotheses`.
+- **Photo crawl paused cleanly on 2026-10-01 ~13:55 UTC (owner closed the laptop).** Checkpoint is the
+  Postgres frontier: jabama 2,467 photos done / 12,200 pending, shab 2,706 done / 298 pending; all 5,174
+  photo snapshots verified against their blobs; abandoned claims released; interrupted runs marked
+  `interrupted`. Resume (continues from the frontier, nothing is refetched):
+  `make up`, then in two shells `cd backend && uv run villasanj crawl run jabama --live --kind photo
+  --max-requests 15000` and `… crawl run shab --live --kind photo --max-requests 3000`.
 
 ## Working agreement (from the owner)
 
