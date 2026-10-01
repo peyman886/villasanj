@@ -40,3 +40,6 @@ out/
 
 # Next.js generated type stub
 frontend/next-env.d.ts
+
+# playwright-cli by-products (snapshots, console logs)
+.playwright-cli/
