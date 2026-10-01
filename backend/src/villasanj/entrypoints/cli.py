@@ -25,6 +25,7 @@ from villasanj.catalog.infrastructure.repositories import (
     PgPlaceNameQuery,
 )
 from villasanj.discovery.application.hypotheses import render_markdown
+from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
 from villasanj.entity_resolution.application.labeling import QueueExists
@@ -58,12 +59,14 @@ catalog_app = typer.Typer(no_args_is_help=True, help="Build the catalog from sto
 pricing_app = typer.Typer(no_args_is_help=True, help="All-in quotes from stored observations.")
 er_app = typer.Typer(no_args_is_help=True, help="Entity resolution: candidates, gold set, eval.")
 api_app = typer.Typer(no_args_is_help=True, help="HTTP API tooling.")
+enrichment_app = typer.Typer(no_args_is_help=True, help="Listing claims and their truth check.")
 app.add_typer(llm_app, name="llm")
 app.add_typer(crawl_app, name="crawl")
 app.add_typer(catalog_app, name="catalog")
 app.add_typer(pricing_app, name="pricing")
 app.add_typer(er_app, name="er")
 app.add_typer(api_app, name="api")
+app.add_typer(enrichment_app, name="enrichment")
 
 DEFAULT_SMOKE_BUDGET_USD = "0.05"
 
@@ -491,6 +494,30 @@ def catalog_places() -> None:
             )
             for name, count in r.top_unresolved:
                 typer.echo(f"    unresolved locality text ({count}): {name}")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@enrichment_app.command("claims")
+def enrichment_claims() -> None:
+    """How many published distance claims the parser understands, per platform (zero network)."""
+
+    async def run(container: Container) -> bool:
+        measure = MeasureClaimParsing(container.listings)
+        for platform in sorted(container.crawl.adapters):
+            r = await measure.run(platform)
+            targets = " ".join(f"{k}={v}" for k, v in r.by_target.items()) or "-"
+            modes = " ".join(f"{k}={v}" for k, v in r.by_mode.items()) or "-"
+            typer.echo(
+                f"{platform:<7} listings={r.listings} with_claims={r.with_claims} "
+                f"claims={r.claims} parsed={r.parsed} coverage={r.coverage:.1%}"
+            )
+            typer.echo(f"    targets[{targets}] modes[{modes}]")
+            for text, count in r.top_unparsed:
+                typer.echo(f"    unparsed wording ({count}): {text}")
+            for text, count in r.top_other_targets:
+                typer.echo(f"    target without a category ({count}): {text}")
         return True
 
     asyncio.run(_with_container(run))
