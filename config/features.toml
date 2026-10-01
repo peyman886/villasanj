@@ -1,0 +1,18 @@
+# Platform amenity codes that state a villa feature (enrichment/domain/features.py).
+# An amenity listed with present=false says "no"; a feature absent from the list says nothing.
+# Precision first: a code is mapped only when it means exactly the feature. Not mapped:
+# jabama "room-mountain-forest-view" («منظره به کوه/جنگل», mountain or forest: not proof of a forest).
+
+[jabama]
+swimming-pool = "pool"
+room-sea-view = "sea_view"
+parking = "parking"
+
+[shab]
+pool = "pool"
+hot_tub = "jacuzzi"          # labelled «جکوزی» on the page
+fireplace = "fireplace"
+charcoal_barbecue = "barbecue"
+gas_barbecue = "barbecue"
+grill = "barbecue"           # «منقل»
+parking = "parking"

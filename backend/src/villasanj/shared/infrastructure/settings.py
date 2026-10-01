@@ -94,6 +94,10 @@ class Settings(BaseSettings):
         return self.config_dir / "gazetteer.toml"
 
     @property
+    def features_path(self) -> Path:
+        return self.config_dir / "features.toml"
+
+    @property
     def holidays_path(self) -> Path:
         return self.config_dir / "holidays.toml"
 

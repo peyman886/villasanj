@@ -37,6 +37,8 @@ from villasanj.discovery.domain.dates import (
     resolve,
 )
 from villasanj.enrichment.application.claims import MeasureClaimParsing
+from villasanj.enrichment.application.features import MeasureFeatureClaims
+from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
 from villasanj.entity_resolution.application.labeling import QueueExists
@@ -554,6 +556,31 @@ def enrichment_claims() -> None:
                 typer.echo(f"    unparsed wording ({count}): {text}")
             for text, count in r.top_other_targets:
                 typer.echo(f"    target without a category ({count}): {text}")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@enrichment_app.command("features")
+def enrichment_features() -> None:
+    """Feature claims in descriptions against each listing's own amenity list (zero network)."""
+
+    async def run(container: Container) -> bool:
+        measure = MeasureFeatureClaims(
+            container.listings, load_amenity_map(container.settings.features_path)
+        )
+        for platform in sorted(container.crawl.adapters):
+            r = await measure.run(platform)
+            typer.echo(f"{platform:<7} listings={r.listings} with_description={r.with_description}")
+            for row in r.rows:
+                claims = " ".join(f"{k}={v}" for k, v in sorted(row.claims.items())) or "-"
+                agreement = " ".join(f"{k}={v}" for k, v in sorted(row.agreement.items())) or "-"
+                typer.echo(
+                    f"  {row.feature:<10} amenity_yes={row.amenity_yes} "
+                    f"amenity_no={row.amenity_no} claims[{claims}] vs_amenities[{agreement}]"
+                )
+                for d in row.disagreements:
+                    typer.echo(f"      {d.listing} {d.claim.polarity}: …{d.context}…")
         return True
 
     asyncio.run(_with_container(run))
