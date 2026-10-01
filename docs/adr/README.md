@@ -21,3 +21,4 @@ ADR supersedes it. Measured evidence (dates, numbers, sources) goes inline.
 All ADRs were accepted with the Milestone 0 approval (2026-10-01). Later refinements are
 appended as dated *Amendment* sections inside the ADR.
 | [0012](0012-image-matching-evidence.md) | Image matching evidence: local DINOv2 + pHash, chosen by measurement | Accepted |
+| [0013](0013-geo-evidence-osm-coastline-and-osrm.md) | Geo evidence: OSM coastline in PostGIS and free-flow OSRM drive times | Accepted |

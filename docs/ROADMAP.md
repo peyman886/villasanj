@@ -430,14 +430,15 @@ result.
 | `ExplainChoice`: facts and comparison built by code, Persian prose around slots, verifier + ≥ 2 facts, one retry, template fallback; availability shown with its observation age; prompt v3 after three live runs (`4e0d586`) | M10 crit. 1, 2, 4 (infrastructure) | ✅ built; live on real searches, $0.0005–0.0009 each, 2.9 s | villa-level facts (M5); fallback rate over a real query set; the owner's review |
 | Search API `POST /search` and `/search` page: chips of the query as understood, date caveats, budget question with counts per reading, explanation with a provenance card on every value, result cards with cautions and score breakdown linking to the listing page (`e183dcd`) | M8 scope (chips, ambiguity questions with counts), crit. 4; M10 crit. 2 | ✅ built at listing level; playwright-cli check at 1280/375 px | editable chips; villa results (M5); E2E tests with M7 |
 | Query-understanding eval harness; `discovery eval-understanding`; a 12-case **draft** set written by the agent (`ee59207`) | M8 crit. 1 (harness) | ✅ built. Draft only: 100% slots, 0 invented numbers; **latency p50 4.1 s / p95 8.4 s uncached at 22:06 UTC (target ≤ 3 s, not met on this sample; 1.5–2 s at 18:00 UTC)** | the 50-query gold set with owner-written or owner-reviewed intents; the model bake-off; a fix for latency |
+| Geo evidence (ADR-0013): OSM snapshot iran-260930 clipped to the Tehran–Caspian box; coastline in PostGIS; coast distance with its blur range for 3,583 listings; OSRM free-flow drive times from Azadi Square for 100% of 3,586 listings (median 261 min); `enrichment truth-sea`: 170/1,909 jabama and 11/175 shab listings with a sea claim have one contradicted, after three accusatory rule errors were fixed (`1825c48`) | M8 crit. 3 (listing level); M9 crit. 3, crit. 4 (H4, sea claims, listing level) | ✅ done at listing level | villa ranges (M5); other claim targets need OSM POIs; INCONSISTENT_ACROSS_PLATFORMS needs M5 |
 
 Still blocked or waiting:
 - **M3:** photo crawl (jabama, ~11 h left on 2026-10-01 17:00 UTC) → `make match` → gold-v1 → owner labels → eval → H1–H3 → review.
 - **M4:** new adapters (no written permission); wider region (H1).
 - **M5:** Splink / supervised model, judge bake-off, ablations, human review queue for UNSURE, clustering on real data — all need the gold set.
 - **M6 crit. 3:** direct-quote comparison: no public quote source found on either platform.
-- **M8:** the `UnderstandQuery` LLM step and its 50-query eval, OSRM drive times, retrieval and ranking (ranking needs canonical villas from M5).
-- **M9:** real truth-check verdicts need coastline/POI distances (OSM data, an external download: ask the owner first); claim extraction from descriptions and photo tags not started.
+- **M8:** the 50-query eval set needs the owner's review before its result counts; the latency target is not met yet; retrieval eval (crit. 2) and villa-level ranking need M5.
+- **M9:** sea claims are judged (ADR-0013); other targets need OSM POIs; the 60-description claim eval and the 300-photo tag eval need hand labels; photo tags (SigLIP) not started.
 - **M10–M11:** not started beyond the pieces above.
 
 ---
