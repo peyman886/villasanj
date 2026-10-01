@@ -15,12 +15,17 @@ from typing import Any
 
 from villasanj.ingestion.application.errors import PageStructureChanged
 from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest
+from villasanj.ingestion.domain.parsed import ParsedListing
 from villasanj.ingestion.domain.policy import SourceProfile
 from villasanj.ingestion.domain.region import Region
 from villasanj.ingestion.infrastructure.sources.jabama.flight import (
     JsonObject,
     flight_text,
     iter_objects,
+)
+from villasanj.ingestion.infrastructure.sources.jabama.listing import (
+    is_stay_object,
+    to_parsed_listing,
 )
 from villasanj.shared.domain.errors import InvalidGeoPoint
 from villasanj.shared.domain.geo import GeoPoint
@@ -86,6 +91,18 @@ class JabamaAdapter:
         next_page = self._next_page(html)
         return [r for r in requests if r is not None] + ([next_page] if next_page else [])
 
+    def parse_listing(self, page: FetchedPage) -> ParsedListing | None:
+        if page.request.kind is not PageKind.LISTING or not page.ok:
+            return None
+        code = page.request.context_value(LISTING_CODE) or _code_from_url(page.final_url)
+        if code is None:
+            raise PageStructureChanged(f"cannot tell the listing code of {page.final_url}")
+        html = page.body.decode("utf-8", errors="replace")
+        stay = next(iter_objects(flight_text(html), is_stay_object(code)), None)
+        if stay is None:
+            raise PageStructureChanged(f"no stay object for code {code} on {page.final_url}")
+        return to_parsed_listing(stay, SLUG, page.final_url)
+
     @staticmethod
     def _stay_request(obj: JsonObject) -> PageRequest | None:
         stay_type = str(obj.get("type") or "")
@@ -105,6 +122,14 @@ class JabamaAdapter:
         if not url.startswith(f"{BASE_URL}/"):
             return None
         return PageRequest(SLUG, PageKind.SEARCH, url)
+
+
+_CODE_IN_URL = re.compile(r"/stay/[a-z]+-(\d+)")
+
+
+def _code_from_url(url: str) -> str | None:
+    match = _CODE_IN_URL.search(url)
+    return match.group(1) if match else None
 
 
 def _in(region: Region, obj: JsonObject) -> bool:

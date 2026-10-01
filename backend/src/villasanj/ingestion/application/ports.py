@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest, Snapshot
+from villasanj.ingestion.domain.parsed import ParsedListing
 from villasanj.ingestion.domain.policy import SourceProfile
 from villasanj.ingestion.domain.region import Region
 from villasanj.shared.application.blobs import BlobRef
@@ -49,6 +50,13 @@ class SourceAdapter(Protocol):
 
     def discover(self, page: FetchedPage, region: Region) -> Sequence[PageRequest]:
         """Follow-up requests found in a fetched page (pagination, listings, calendars)."""
+        ...
+
+    def parse_listing(self, page: FetchedPage) -> ParsedListing | None:
+        """The listing on a listing page; ``None`` for other kinds or unusable pages.
+
+        Raises ``PageStructureChanged`` when a listing page no longer has the expected shape.
+        """
         ...
 
 

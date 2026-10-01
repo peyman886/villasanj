@@ -6,7 +6,7 @@ JOB ?= llm-smoke
 
 .DEFAULT_GOAL := help
 .PHONY: help setup build up down logs ps health migrate test test-integration test-live lint fmt \
-	typecheck ci dry-run llm-smoke llm-models seed crawl reparse match eval eval-hypotheses
+	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-status reparse match eval eval-hypotheses
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -82,10 +82,22 @@ llm-smoke: ## One tiny live call per task and fallback model; spend recorded in 
 llm-models: ## Refresh config/llm-models.json from AvalAI /v1/models (free call)
 	cd backend && uv run villasanj llm refresh-models
 
-# ---------------------------------------------------------------- pipeline (later milestones)
+# ---------------------------------------------------------------- pipeline
 
-seed crawl reparse: ## Available from M2 (ingestion)
-	@echo "make $@: not implemented yet (planned for M2, see docs/ROADMAP.md)"; exit 1
+P ?= jabama
+MAX ?= 50
+
+crawl: ## Crawl a platform: make crawl P=jabama [LIVE=1] [MAX=50] (default: offline replay)
+	cd backend && uv run villasanj crawl run $(P) --max-requests $(MAX) $(if $(LIVE),--live,)
+
+crawl-status: ## Frontier counts: make crawl-status P=jabama
+	cd backend && uv run villasanj crawl status $(P)
+
+reparse: ## Rebuild the catalog from stored snapshots (zero network requests)
+	cd backend && uv run villasanj catalog ingest
+
+seed: ## Available later in M2 (gazetteer, scenarios)
+	@echo "make $@: not implemented yet (see docs/ROADMAP.md)"; exit 1
 
 match eval eval-hypotheses: ## Available from M3 (entity resolution)
 	@echo "make $@: not implemented yet (planned for M3, see docs/ROADMAP.md)"; exit 1

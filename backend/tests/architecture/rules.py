@@ -65,20 +65,22 @@ def _imports(module: Module) -> Iterator[tuple[int, str]]:
             yield node.lineno, node.module
 
 
+_DOMAIN_MODULE = re.compile(rf"^{ROOT_PACKAGE}\.\w+\.domain(\.|$)")
+
+
 def domain_purity_violations(module: Module) -> list[str]:
-    """Domain code may import only the stdlib, the shared kernel and its own context's domain."""
+    """Domain code may import only the stdlib and domain layers.
+
+    Which contexts' domains are reachable is governed by the import-linter context DAG.
+    """
     if module.layer != "domain":
         return []
-    allowed_prefixes = (
-        f"{ROOT_PACKAGE}.shared.domain",
-        f"{ROOT_PACKAGE}.{module.context}.domain",
-    )
     violations = []
     for line, imported in _imports(module):
         top = imported.split(".")[0]
         if top == "__future__" or top in sys.stdlib_module_names:
             continue
-        if imported.startswith(allowed_prefixes):
+        if _DOMAIN_MODULE.match(imported):
             continue
         violations.append(f"{module.path}:{line} domain imports {imported}")
     return violations

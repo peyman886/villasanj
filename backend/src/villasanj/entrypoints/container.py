@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from villasanj.catalog.application.ingest import IngestListingSnapshots
+from villasanj.catalog.infrastructure.repositories import PgListingRepository
 from villasanj.ingestion.application.crawl import CrawlPlatform, SnapshotReplayFetcher
 from villasanj.ingestion.application.polite_fetcher import PoliteFetcher
 from villasanj.ingestion.application.ports import Fetcher, SourceAdapter
@@ -81,8 +83,14 @@ class Container:
     ledger: PgLLMLedger
     llm: LLMStack
     crawl: CrawlStack
+    listings: PgListingRepository
     health: CheckHealth
     http_fetchers: list[HttpxFetcher] = field(default_factory=list)
+
+    def catalog_ingest(self) -> IngestListingSnapshots:
+        return IngestListingSnapshots(
+            self.crawl.adapters, self.crawl.snapshots, self.blobs, self.listings
+        )
 
     def adapter(self, platform: str) -> SourceAdapter:
         try:
@@ -206,5 +214,6 @@ def build_container(settings: Settings | None = None) -> Container:
         ledger=ledger,
         llm=llm,
         crawl=crawl,
+        listings=PgListingRepository(engine),
         health=health,
     )

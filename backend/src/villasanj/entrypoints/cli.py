@@ -25,8 +25,10 @@ from villasanj.shared.infrastructure.settings import Settings
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 llm_app = typer.Typer(no_args_is_help=True, help="LLM gateway operations.")
 crawl_app = typer.Typer(no_args_is_help=True, help="Polite crawling (ADR-0008, ADR-0011).")
+catalog_app = typer.Typer(no_args_is_help=True, help="Build the catalog from stored snapshots.")
 app.add_typer(llm_app, name="llm")
 app.add_typer(crawl_app, name="crawl")
+app.add_typer(catalog_app, name="catalog")
 
 DEFAULT_SMOKE_BUDGET_USD = "0.05"
 
@@ -163,6 +165,29 @@ def crawl_status(platform: Annotated[str, typer.Argument(help="Platform slug.")]
     async def run(container: Container) -> bool:
         counts = await container.crawl.frontier.counts(platform)
         typer.echo(" ".join(f"{status}={count}" for status, count in sorted(counts.items())))
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@catalog_app.command("ingest")
+def catalog_ingest(
+    platforms: Annotated[
+        list[str] | None, typer.Argument(help="Platforms to (re)parse; default: all registered.")
+    ] = None,
+) -> None:
+    """(Re)build listings and calendar observations from snapshots. Zero network requests."""
+
+    async def run(container: Container) -> bool:
+        ingest = container.catalog_ingest()
+        for platform in platforms or sorted(container.crawl.adapters):
+            report = await ingest.run(platform)
+            total = await container.listings.count(platform)
+            typer.echo(
+                f"{platform}: snapshots={report.snapshots} saved={report.saved} "
+                f"superseded={report.superseded} not_listing={report.not_listing} "
+                f"failed={report.failed} listings_in_catalog={total}"
+            )
         return True
 
     asyncio.run(_with_container(run))
