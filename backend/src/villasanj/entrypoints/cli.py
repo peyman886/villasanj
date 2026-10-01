@@ -25,9 +25,11 @@ from villasanj.catalog.infrastructure.repositories import (
     PgPlaceNameQuery,
 )
 from villasanj.discovery.application.hypotheses import render_markdown
+from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.domain.dates import (
     DateExpression,
     HolidayKind,
+    InvalidDateExpression,
     NextHoliday,
     Nowruz,
     Weekend,
@@ -567,6 +569,56 @@ def discovery_holidays(
         return True
 
     asyncio.run(_with_container(run))
+
+
+@discovery_app.command("understand")
+def discovery_understand(
+    queries: Annotated[list[str], typer.Argument(help="Persian search queries.")],
+    dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "0.05",
+) -> None:
+    """Turn queries into verified search intents and resolve their dates (M8 groundwork)."""
+
+    async def run(container: Container) -> bool:
+        understand = UnderstandQuery(container.llm.client, queries)
+        if dry_run:
+            report = await container.llm.dry_run.estimate(understand.plan())
+            typer.echo(
+                f"calls={report.calls} cache_hits={report.cache_hits} "
+                f"expected=${report.expected_usd:.6f} worst_case=${report.worst_case_usd:.6f} "
+                "(a retry adds at most one call per query)"
+            )
+            return True
+        today = iran_today(container.clock.now())
+        calendar = await container.holiday_calendar().run(today)
+        ctx = await container.jobs.start("query_understanding", Decimal(budget_usd), {})
+        for query in queries:
+            result = await understand.run(query, ctx)
+            typer.echo(f"query: {query}")
+            typer.echo(f"  intent: {result.intent.model_dump_json(exclude_none=True)}")
+            typer.echo(
+                f"  retried={result.retried} dropped={','.join(result.dropped) or '-'} "
+                f"models={','.join(result.models)} guests={result.intent.guests}"
+            )
+            expression = result.intent.dates.expression() if result.intent.dates else None
+            if expression is not None:
+                try:
+                    r = resolve(expression, today, calendar, result.intent.nights)
+                except InvalidDateExpression as error:
+                    typer.echo(f"  dates: not resolvable ({error})")
+                else:
+                    caveats = ",".join(sorted(r.caveats)) or "-"
+                    typer.echo(
+                        f"  dates: {r.window.check_in}..{r.window.check_out} "
+                        f"flexible={r.flexible} caveats={caveats} | {describe_fa(r.window)}"
+                    )
+        await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
+        spent = await container.ledger.spent_usd(ctx.job_id)
+        typer.echo(f"job={ctx.job_id} spent=${spent:.6f}")
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
 
 
 @catalog_app.command("embed-photos")

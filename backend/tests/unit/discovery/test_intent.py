@@ -7,6 +7,7 @@ from villasanj.discovery.application.intent import (
     DateSpec,
     DriveLimit,
     SearchIntent,
+    drop_violations,
     verify_intent,
 )
 from villasanj.discovery.domain.dates import (
@@ -74,6 +75,11 @@ def test_invented_numbers_and_places_are_caught() -> None:
         (ViolationCode.NUMBER_NOT_IN_SOURCE, "3000000"),
         (ViolationCode.SPAN_NOT_IN_SOURCE, "کلارآباد"),
     ]
+    kept, dropped = drop_violations(
+        intent.model_copy(update={"places": ["کلارآباد", "دریا"]}), query
+    )
+    assert dropped == ("nights", "guest_parts", "budget", "places")
+    assert kept == SearchIntent(places=["دریا"])
     honest = SearchIntent(party="couple")
     assert verify_intent(honest, query) == []
     assert honest.guests == 2

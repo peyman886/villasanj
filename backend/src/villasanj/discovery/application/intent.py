@@ -28,10 +28,14 @@ from villasanj.discovery.domain.dates import (
     Weekday,
     Weekend,
 )
-from villasanj.shared.domain.persian_numbers import unmentioned
+from villasanj.shared.domain.persian_numbers import number_mentions
 from villasanj.shared.domain.slots import Violation, ViolationCode, verify_span
 
 WeekdayName = Literal["saturday", "sunday", "monday", "tuesday", "wednesday", "thursday", "friday"]
+# What a query can ask the villa to have (provisional: M9's evidence decides what can be checked).
+Feature = Literal[
+    "pool", "jacuzzi", "near_sea", "sea_view", "forest", "fireplace", "parking", "barbecue"
+]
 _WEEKDAYS: dict[str, int] = {
     "monday": 0,
     "tuesday": 1,
@@ -122,7 +126,8 @@ class SearchIntent(BaseModel):
     bedrooms_min: int | None = Field(default=None, ge=1, le=20)
     budget: Budget | None = None
     max_drive: DriveLimit | None = None  # from Tehran
-    places: list[str] = Field(default_factory=list, max_length=5)  # verbatim names
+    places: list[str] = Field(default_factory=list, max_length=5)  # destinations, verbatim
+    features: list[Feature] = Field(default_factory=list, max_length=8)
 
     @property
     def guests(self) -> int | None:
@@ -131,28 +136,53 @@ class SearchIntent(BaseModel):
             return sum(self.guest_parts)
         return _PARTY[self.party] if self.party else None
 
-    def stated_numbers(self) -> list[Decimal]:
-        """Every number the intent claims the query said."""
-        values: list[float | int | None] = [
-            self.nights,
-            *self.guest_parts,
-            self.bedrooms_min,
-            self.budget.max_toman if self.budget else None,
-            self.max_drive.value if self.max_drive else None,
-        ]
-        if self.dates is not None:
-            values.extend([self.dates.day, self.dates.year])
-        return [Decimal(str(v)) for v in values if v is not None]
+
+def field_violations(intent: SearchIntent, query: str) -> dict[str, list[Violation]]:
+    """Each field's broken rules: numbers the query does not say, places not verbatim in it."""
+    said = set(number_mentions(query))
+    problems: dict[str, list[Violation]] = {}
+
+    def check(field: str, *values: float | None) -> None:
+        for value in values:
+            if value is not None and Decimal(str(value)) not in said:
+                detail = f"{Decimal(str(value)).normalize():f}"
+                problems.setdefault(field, []).append(
+                    Violation(ViolationCode.NUMBER_NOT_IN_SOURCE, detail)
+                )
+
+    check("nights", intent.nights)
+    check("guest_parts", *intent.guest_parts)
+    check("bedrooms_min", intent.bedrooms_min)
+    if intent.budget is not None:
+        check("budget", intent.budget.max_toman)
+    if intent.max_drive is not None:
+        check("max_drive", intent.max_drive.value)
+    if intent.dates is not None:
+        check("dates", intent.dates.day, intent.dates.year)
+        if intent.dates.expression() is None:
+            problems.setdefault("dates", []).append(
+                Violation(ViolationCode.INCOMPLETE_DATE, intent.dates.kind)
+            )
+    for place in intent.places:
+        if spans := verify_span(place, query):
+            problems.setdefault("places", []).extend(spans)
+    return problems
 
 
 def verify_intent(intent: SearchIntent, query: str) -> list[Violation]:
-    """Numbers the query does not say, and places that are not verbatim in it."""
-    violations = [
-        Violation(ViolationCode.NUMBER_NOT_IN_SOURCE, f"{value.normalize():f}")
-        for value in unmentioned(intent.stated_numbers(), query)
-    ]
-    for place in intent.places:
-        violations.extend(verify_span(place, query))
-    if intent.dates is not None and intent.dates.expression() is None:
-        violations.append(Violation(ViolationCode.INCOMPLETE_DATE, intent.dates.kind))
-    return violations
+    """Every broken rule (empty: every number was said and every place is verbatim)."""
+    return [v for violations in field_violations(intent, query).values() for v in violations]
+
+
+def drop_violations(intent: SearchIntent, query: str) -> tuple[SearchIntent, tuple[str, ...]]:
+    """The intent without the fields that break a rule (places: only the non-verbatim ones)."""
+    problems = field_violations(intent, query)
+    update: dict[str, object] = {}
+    for field in problems:
+        if field == "places":
+            update[field] = [p for p in intent.places if not verify_span(p, query)]
+        elif field == "guest_parts":
+            update[field] = []
+        else:
+            update[field] = None
+    return intent.model_copy(update=update), tuple(problems)
