@@ -224,6 +224,8 @@ prefilter would save little). The labelling UI shows every photo straight from t
 Waiting for: the photo crawl → `make match` → `villasanj er queue --name gold-v1` → **owner labels
 ≥ 300 pairs** → `make eval` → `make eval-hypotheses` → owner review (criterion 5).
 
+Stack (2026-10-02): the `api` and `web` images were rebuilt and only those two containers recreated (the db and the crawl untouched), so `/label`, `/search` and the listing pages run current code on port 3300. A throwaway queue `rehearsal-20261002` (362 pairs from the rehearsal candidates) was opened in `/label` to check the UI end to end and then deleted; no label was recorded.
+
 Rehearsal (2026-10-02, **not a result**): `make match` on the photos downloaded so far finished in
 2 min 46 s (4,379 new embeddings; 153,923 candidate pairs, 28,059 from the narrow blocks). It
 proves the path end to end and front-loads the embeddings (stored once per image), so after the
@@ -433,6 +435,8 @@ result.
 | Geo evidence (ADR-0013): OSM snapshot iran-260930 clipped to the Tehran–Caspian box; coastline in PostGIS; coast distance with its blur range for 3,583 listings; OSRM free-flow drive times from Azadi Square for 100% of 3,586 listings (median 261 min); `enrichment truth-sea`: 170/1,909 jabama and 11/175 shab listings with a sea claim have one contradicted, after three accusatory rule errors were fixed (`1825c48`) | M8 crit. 3 (listing level); M9 crit. 3, crit. 4 (H4, sea claims, listing level) | ✅ done at listing level | villa ranges (M5); other claim targets need OSM POIs; INCONSISTENT_ACROSS_PLATFORMS needs M5 |
 | Geo in search and pages: drive limit (too_far, straddle caution), near_sea from the map (A17), drive and coast facts in explanations, `/listings/{p}/{id}/geo`, geo on search cards with provenance notes (`49d3697`) | M8 crit. 3 (display as a range), crit. 4 | ✅ done at listing level | villa ranges (M5); a coverage note "with N h → X villas" on the search page |
 | Playwright E2E `make test-e2e`: 10 seeded random numbers open their provenance on the listing and search pages; axe: no serious/critical violation (one contrast issue found and fixed); calendar keyboard; no sideways scroll at 375 px (`285db69`) | M7 crit. 3, 4 (listing and search pages) | ✅ 8 passed | the same checks on the canonical villa page (M5), crit. 2 smoke over 50 villas |
+| Editable chips (remove a constraint, search again from the cached understanding; removing never adds a number) and the drive-limit coverage note (results with a 3/4/5/6 h free-flow limit) (`16215b2`) | M8 scope (editable chips), crit. 3 (coverage note) | ✅ done at listing level; E2E covers chip removal | villa counts after M5 |
+| Listing map: MapLibre, static, OSM raster tiles with attribution, the pin and its blur circle (dashed when assumed) (`4facc3d`, ADR-0003 amendment) | M7 scope (map) | ✅ done | a local basemap for the offline demo (M11 crit. 1) |
 
 Still blocked or waiting:
 - **M3:** photo crawl (jabama, ~11 h left on 2026-10-01 17:00 UTC) → `make match` → gold-v1 → owner labels → eval → H1–H3 → review.
