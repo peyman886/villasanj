@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@import "@fontsource-variable/vazirmatn";
+
+@theme {
+  --font-sans: "Vazirmatn Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
