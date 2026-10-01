@@ -21,9 +21,9 @@ hard cap $30). Estimates come from [ADR-0005](adr/0005-llm-model-selection-and-c
 |---|---|---|---|
 | 0 | Understanding & design | $0.05 | ✅ approved 2026-10-01 |
 | 1 | Skeleton & LLM platform | $0.20 | ✅ delivered, awaiting review |
-| 2 | First vertical slice (jajiga → jabama) | $0.50 | report + robots/ToS audit sign-off |
+| 2 | First vertical slice (jabama → shab) | $0.50 | ✅ audit signed off 2026-10-01; report |
 | 3 | Hypothesis test (ER baseline + pricing core + H1–H3) | $0.50 | **mandatory re-prioritisation review** |
-| 4 | Coverage: otaghak + shab, scheduled scenario crawls | $0.50 | report |
+| 4 | Coverage: permission-gated adapters, wider region, scheduled scenario crawls | $0.50 | report |
 | 5 | Full ER | $8.00 | report + precision sign-off |
 | 6 | Pricing complete & offers | $0.50 | report |
 | 7 | API & canonical villa page | $0.50 | report + UX review |
@@ -102,37 +102,37 @@ Acceptance criteria:
 
 Totals: 120 unit/architecture tests, 6 integration tests, 7 frontend tests, 1 live test (opt-in).
 
-## M2 — First vertical slice: jajiga → jabama
+## M2 — First vertical slice: jabama → shab
 
-Scope: robots.txt + ToS audit per platform (`docs/sources/<platform>.md`, with the robots snapshot id);
-`SourceAdapter` port, `PoliteFetcher`, `SnapshotStore`, frontier queue, `CrawlPlatform`,
-`ReparseSnapshots`; jajiga adapter; Catalog normalization (ی/ک, digits, ZWNJ, money units, Jalali dates,
-gazetteer v1 with 100–200 places/aliases for Ramsar–Tonekabon); photo download (≤ 800 px) + pHash;
-scenario capture (calendar + rates + direct quotes when public) for the scenario dates fixed from the
-official calendar; then the jabama adapter.
+**Audit outcome (2026-10-01, [`docs/sources/README.md`](sources/README.md), ADR-0011):** jajiga,
+otaghak and mihmansho forbid crawling in their Terms → not crawled; permission requests drafted in
+[`docs/outreach/`](outreach/permission-request-fa.md). jabama and shab approved by the owner.
 
-**Plan B:** if jabama's robots.txt or ToS forbids crawling, stop and report. The OCP proof then uses
-otaghak or shab.
+Scope: `SourceAdapter` port, `PoliteFetcher`, `SnapshotStore`, frontier queue, `CrawlPlatform`,
+`ReparseSnapshots`; **jabama adapter first**; regional inventory count for both platforms from
+sitemaps; Catalog normalization (ی/ک, digits, ZWNJ, money units, Jalali dates, gazetteer v1 with
+100–200 places/aliases for Ramsar–Tonekabon); photo download (≤ 800 px) + pHash; scenario capture
+(calendar + rates + direct quotes when public) for scenario dates fixed from the official calendar;
+then the **shab adapter as the Open/Closed proof**.
 
 Acceptance criteria:
 1. Crawl is blocked (unit + integration tested) for any URL disallowed by the cached robots.txt;
    per-domain rate ≤ configured (default 1 req / 3 s + jitter, honouring larger `Crawl-delay`); on 403,
    429 storms or captcha markers, the platform is marked `BLOCKED` and the run stops.
-2. jajiga: **every** listing discoverable in the region is crawled, or the coverage gap is reported
+2. jabama: **every** listing discoverable in the region is crawled, or the coverage gap is reported
    with its reason. Listing parse success ≥ 98%, and failures are quarantined with `ParseError` reasons.
-3. Contract tests: ≥ 6 trimmed fixtures per adapter (search page, listing, calendar, reviews, a listing
-   with missing fields, an unusual price format) with exact expected `ParsedPage` outputs.
+3. Contract tests: ≥ 6 trimmed fixtures per adapter (search/sitemap page, listing, calendar, reviews, a
+   listing with missing fields, an unusual price format) with exact expected `ParsedPage` outputs.
 4. Normalizer: ≥ 60 table-driven cases, covering «۱۲٫۵ میلیون», «۱،۵۰۰،۰۰۰ تومان», Arabic digits,
    «ك/ي», ZWNJ variants and place aliases (کلاردشت = کلار دشت = Kelardasht).
 5. `make reparse` rebuilds catalog tables from snapshots with **0 network requests** (a network-deny
    test fixture proves it) and yields identical row hashes on two runs.
-6. **OCP proof:** the jabama PR diff touches only `ingestion/infrastructure/sources/jabama/**`, its
+6. **OCP proof:** the shab PR diff touches only `ingestion/infrastructure/sources/shab/**`, its
    tests/fixtures, one entry-point line in `pyproject.toml`, and a `FeePolicy` data row
    (checked with `git diff --stat` and quoted in the report).
 7. Scenario capture: for each scenario × {4, 8} guests, observations exist for ≥ 90% of in-region
    listings on both platforms, all taken within one 24 h window (per-listing timestamp spread reported).
-
----
+8. Regional inventory of both platforms counted from sitemaps and reported (input to the region decision).
 
 ## M3 — Hypothesis test (review with owner before continuing)
 
@@ -163,21 +163,21 @@ Acceptance criteria:
 
 ---
 
-## M4 — Coverage: otaghak + shab
+## M4 — Coverage: permission-gated adapters and wider region
 
-Scope: two new adapters (robots/ToS audits first); scheduled same-window scenario crawls for all four
-platforms; photo pipeline at scale (20–40k photos); crawl metrics.
+Scope (changed by ADR-0011): adapters for any platform that grants written permission (jajiga,
+otaghak, mihmansho), each recorded in ADR-0011 before the first request; widening the region on jabama
+and shab if M3 shows too few cross-platform pairs; scheduled same-window scenario crawls; photo pipeline
+at scale; crawl metrics.
 
 Acceptance criteria:
-1. Each new adapter meets the M2 criteria 1–3 and 6 (the OCP diff rule applies to each).
-2. The full region is crawled on all permitted platforms: 1,500–3,000 listings total (actual count
-   reported per platform with coverage estimate).
-3. One `make crawl-scenarios` run captures all scenarios for all platforms with a per-listing
+1. Each new adapter meets the M2 criteria 1–3 and 6 (the OCP diff rule applies to each), and its
+   written permission is linked from ADR-0011.
+2. Regional coverage reported per platform (listing count and coverage estimate).
+3. One `make crawl-scenarios` run captures all scenarios for all permitted platforms with a per-listing
    timestamp spread ≤ 6 h (reported).
 4. Photo pipeline: ≥ 99% of referenced photos downloaded or reason logged; pHash for all downloaded
    photos; storage footprint reported.
-
----
 
 ## M5 — Full entity resolution
 

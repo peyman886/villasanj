@@ -16,6 +16,7 @@ ADR supersedes it. Measured evidence (dates, numbers, sources) goes inline.
 | [0008](0008-ethical-crawling.md) | Ethical, reproducible crawling | Accepted |
 | [0009](0009-entity-resolution-strategy.md) | Staged, precision-first entity resolution | Accepted |
 | [0010](0010-persistence-postgres.md) | One Postgres: schema per context, queue, cache and vectors | Accepted |
+| [0011](0011-platform-scope-after-tos-audit.md) | Platform scope after the robots.txt/ToS audit (jabama + shab) | Accepted |
 
 All ADRs were accepted with the Milestone 0 approval (2026-10-01). Later refinements are
 appended as dated *Amendment* sections inside the ADR.

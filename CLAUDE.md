@@ -8,8 +8,9 @@ Persistent project memory for agent sessions. Read this first, then `docs/ARCHIT
 A Torob-style product for Iranian villa rentals, built for the Torob "AI Product Engineer" challenge
 (`challenge.html`: *crawl offers → normalize messy data → rank by user intent → explain the best
 choice*, 5-minute demo). Concept: **«ویلاسنج: یک ویلا، همه‌ی حقیقت»**. Each real villa gets one
-canonical page that aggregates its listings on jajiga, jabama, otaghak and shab (region
-Ramsar–Tonekabon, 1.5–3k listings): all-in offers per stay + group size, merged calendar, aggregated
+canonical page that aggregates its listings across platforms (region Ramsar–Tonekabon). **Crawled
+platforms: jabama and shab only** (ADR-0011); jajiga, otaghak and mihmansho forbid crawling in their
+ToS and are excluded unless written permission arrives: all-in offers per stay + group size, merged calendar, aggregated
 reviews, and a truth check of listing claims.
 
 Context files (local):
@@ -22,7 +23,7 @@ Context files (local):
 
 - M0 (design) approved 2026-10-01.
 - **M1 (skeleton & LLM platform) delivered 2026-10-01, awaiting owner review.**
-- Next: M2 (first vertical slice: jajiga → jabama). See `docs/ROADMAP.md`.
+- M2 in progress: ToS audit done and signed off (jabama + shab); ingestion core next.
 
 ## Working agreement (from the owner)
 
