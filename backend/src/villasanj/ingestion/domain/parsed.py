@@ -97,3 +97,12 @@ class ParsedListing:
     amenities: tuple[ParsedAmenity, ...] = field(default=())
     distance_claims: tuple[ParsedDistanceClaim, ...] = field(default=())
     calendar: tuple[ParsedCalendarDay, ...] = field(default=())
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedCalendar:
+    """Calendar published on its own page (some platforms serve it separately from the listing)."""
+
+    platform: str
+    external_id: str
+    days: tuple[ParsedCalendarDay, ...]

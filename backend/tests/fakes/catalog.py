@@ -30,6 +30,11 @@ class InMemoryListingRepository:
         self.listings[listing.id] = listing
         return True
 
+    async def save_calendar(self, calendar: Sequence[CalendarObservation]) -> None:
+        for observation in calendar:
+            key = (observation.listing_id, observation.night, observation.snapshot_id)
+            self.calendar.setdefault(key, observation)
+
     async def record_failure(self, snapshot_id: str, platform: str, reason: str) -> None:
         self.failures[snapshot_id] = reason
 

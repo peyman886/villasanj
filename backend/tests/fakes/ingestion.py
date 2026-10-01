@@ -14,7 +14,7 @@ from villasanj.ingestion.application.ports import (
     FrontierStatus,
 )
 from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest, Snapshot
-from villasanj.ingestion.domain.parsed import ParsedListing
+from villasanj.ingestion.domain.parsed import ParsedCalendar, ParsedListing
 from villasanj.ingestion.domain.policy import CrawlPolicy, SourceProfile
 from villasanj.ingestion.domain.region import Place, Region
 from villasanj.shared.application.blobs import BlobRef
@@ -252,4 +252,7 @@ class LinkFollowingAdapter:
         return [request(path) for path in text.removeprefix("links:").split(",") if path]
 
     def parse_listing(self, page: FetchedPage) -> ParsedListing | None:
+        return None
+
+    def parse_calendar(self, page: FetchedPage) -> ParsedCalendar | None:
         return None

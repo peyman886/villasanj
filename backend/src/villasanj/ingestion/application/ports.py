@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest, Snapshot
-from villasanj.ingestion.domain.parsed import ParsedListing
+from villasanj.ingestion.domain.parsed import ParsedCalendar, ParsedListing
 from villasanj.ingestion.domain.policy import SourceProfile
 from villasanj.ingestion.domain.region import Region
 from villasanj.shared.application.blobs import BlobRef
@@ -57,6 +57,10 @@ class SourceAdapter(Protocol):
 
         Raises ``PageStructureChanged`` when a listing page no longer has the expected shape.
         """
+        ...
+
+    def parse_calendar(self, page: FetchedPage) -> ParsedCalendar | None:
+        """A calendar served on its own page; ``None`` when the platform embeds it elsewhere."""
         ...
 
 

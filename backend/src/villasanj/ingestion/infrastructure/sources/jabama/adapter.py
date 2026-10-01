@@ -15,7 +15,7 @@ from typing import Any
 
 from villasanj.ingestion.application.errors import PageStructureChanged
 from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest
-from villasanj.ingestion.domain.parsed import ParsedListing
+from villasanj.ingestion.domain.parsed import ParsedCalendar, ParsedListing
 from villasanj.ingestion.domain.policy import SourceProfile
 from villasanj.ingestion.domain.region import Region
 from villasanj.ingestion.infrastructure.sources.jabama.flight import (
@@ -102,6 +102,9 @@ class JabamaAdapter:
         if stay is None:
             raise PageStructureChanged(f"no stay object for code {code} on {page.final_url}")
         return to_parsed_listing(stay, SLUG, page.final_url)
+
+    def parse_calendar(self, page: FetchedPage) -> ParsedCalendar | None:
+        return None  # embedded in the stay page, parsed by parse_listing
 
     @staticmethod
     def _stay_request(obj: JsonObject) -> PageRequest | None:

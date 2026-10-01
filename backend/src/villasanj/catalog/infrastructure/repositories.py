@@ -8,7 +8,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from villasanj.catalog.domain.listing import CalendarObservation, Listing
 from villasanj.catalog.infrastructure.tables import calendar_observation, listing, parse_failure
@@ -100,14 +100,24 @@ class PgListingRepository:
         ).returning(listing.c.external_id)
         async with self._engine.begin() as conn:
             updated = (await conn.execute(upsert)).first() is not None
-            rows = [_calendar_row(o) for o in calendar]
-            for start in range(0, len(rows), _CALENDAR_BATCH):
-                await conn.execute(
-                    insert(calendar_observation)
-                    .values(rows[start : start + _CALENDAR_BATCH])
-                    .on_conflict_do_nothing()
-                )
+            await self._append_calendar(conn, calendar)
         return updated
+
+    async def save_calendar(self, calendar: Sequence[CalendarObservation]) -> None:
+        async with self._engine.begin() as conn:
+            await self._append_calendar(conn, calendar)
+
+    @staticmethod
+    async def _append_calendar(
+        conn: AsyncConnection, calendar: Sequence[CalendarObservation]
+    ) -> None:
+        rows = [_calendar_row(o) for o in calendar]
+        for start in range(0, len(rows), _CALENDAR_BATCH):
+            await conn.execute(
+                insert(calendar_observation)
+                .values(rows[start : start + _CALENDAR_BATCH])
+                .on_conflict_do_nothing()
+            )
 
     async def record_failure(self, snapshot_id: str, platform: str, reason: str) -> None:
         async with self._engine.begin() as conn:

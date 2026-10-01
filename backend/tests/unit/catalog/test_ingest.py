@@ -1,7 +1,7 @@
 """IngestListingSnapshots: builds the catalog from stored snapshots with zero network access."""
 
 import socket
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 
@@ -10,12 +10,18 @@ from tests.fakes.ingestion import InMemoryBlobStore, InMemorySnapshotRepository
 from tests.fakes.llm import NOW
 from villasanj.catalog.application.ingest import IngestListingSnapshots
 from villasanj.catalog.domain.listing import ListingId
-from villasanj.ingestion.domain.pages import PageKind, PageRequest
+from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest
+from villasanj.ingestion.domain.parsed import (
+    Availability,
+    ParsedCalendar,
+    ParsedCalendarDay,
+)
 from villasanj.ingestion.infrastructure.sources.jabama.adapter import (
     LISTING_CODE,
     SLUG,
     JabamaAdapter,
 )
+from villasanj.shared.domain.money import Money
 
 URL = "https://www.jabama.com/stay/villa-800749"
 CONTEXT = ((LISTING_CODE, "800749"),)
@@ -95,3 +101,30 @@ async def test_non_listing_snapshots_are_ignored() -> None:
     await store_fixture(world.snapshots, world.blobs, search, "jabama/search_page.html")
     report = await world.ingest.run(SLUG)
     assert report.snapshots == 0  # only listing snapshots are read
+
+
+class StandaloneCalendarAdapter(JabamaAdapter):
+    """A platform whose calendar lives on its own page (the generic capability under test)."""
+
+    def parse_calendar(self, page: FetchedPage) -> ParsedCalendar | None:
+        day = ParsedCalendarDay(
+            date(2026, 10, 8), Availability.AVAILABLE, Money.from_toman(1), None, 2, None
+        )
+        return ParsedCalendar(SLUG, "800749", (day,))
+
+
+async def test_calendar_pages_append_observations() -> None:
+    world = World()
+    world.ingest = IngestListingSnapshots(
+        {SLUG: StandaloneCalendarAdapter()}, world.snapshots, world.blobs, world.listings
+    )
+    calendar = PageRequest(SLUG, PageKind.CALENDAR, "https://api.example.test/calendar/800749")
+    snapshot = await store_fixture(
+        world.snapshots, world.blobs, calendar, "jabama/search_last_page.html"
+    )
+    report = await world.ingest.run(SLUG)
+    assert (report.calendars, report.saved) == (1, 0)
+    observation = world.listings.calendar[
+        (ListingId(SLUG, "800749"), date(2026, 10, 8), snapshot.id)
+    ]
+    assert observation.min_nights == 2
