@@ -124,7 +124,16 @@ class PoliteFetcher:
             return cached.rules
         rules = await self._fetch_rules(request, origin)
         self._robots[origin] = _CachedRules(rules, self._clock.now())
+        self._apply_crawl_delay(request.host, rules)
         return rules
+
+    def _apply_crawl_delay(self, host: str, rules: RobotsRules) -> None:
+        """The robots.txt request was paced before its Crawl-delay was known; honour it now."""
+        crawl_delay = rules.crawl_delay(self._policy.robots_token)
+        slot = self._next_slot.get(host)
+        if crawl_delay and slot is not None:
+            earliest = self._clock.now() + timedelta(seconds=crawl_delay)
+            self._next_slot[host] = max(slot, earliest)
 
     async def _fetch_rules(self, request: PageRequest, origin: str) -> RobotsRules:
         robots = PageRequest(request.platform, PageKind.ROBOTS, f"{origin}/robots.txt")

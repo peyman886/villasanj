@@ -86,7 +86,7 @@ async def test_site_crawl_delay_wins_when_larger(clock: SteppingClock) -> None:
     fetcher = polite(network, clock)
     await fetcher.fetch(request("/a"))
     await fetcher.fetch(request("/b"))
-    assert clock.sleeps[-1] == 10
+    assert clock.sleeps == [10, 10]  # also right after robots.txt itself was read
 
 
 async def test_robots_is_cached_then_refreshed_after_ttl(clock: SteppingClock) -> None:
