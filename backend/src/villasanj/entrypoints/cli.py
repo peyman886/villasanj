@@ -24,6 +24,7 @@ from villasanj.catalog.infrastructure.repositories import (
     PgPhotoStatsQuery,
     PgPlaceNameQuery,
 )
+from villasanj.discovery.application.explanation import ExplainChoice, build_slots
 from villasanj.discovery.application.hypotheses import render_markdown
 from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.domain.dates import (
@@ -38,6 +39,7 @@ from villasanj.discovery.domain.dates import (
 )
 from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.enrichment.application.features import MeasureFeatureClaims
+from villasanj.enrichment.domain.features import Feature
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
@@ -634,9 +636,10 @@ def enrichment_summarize(
 def discovery_search(
     query: Annotated[str, typer.Argument(help="A Persian search query.")],
     top: Annotated[int, typer.Option(min=1, help="How many results to print.")] = 10,
+    explain: Annotated[bool, typer.Option(help="Explain the first result (one more call).")] = True,
     budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "0.02",
 ) -> None:
-    """Query to ranked listings with reasons (one LLM call; M8 groundwork, listing level)."""
+    """Query to ranked listings with reasons, and why the first fits (M8/M10 groundwork)."""
 
     async def run(container: Container) -> bool:
         ctx = await container.jobs.start("search", Decimal(budget_usd), {})
@@ -670,6 +673,24 @@ def discovery_search(
                 f"  {r.confirmed}/{len(intent.features)} {r.score:.3f} {r.candidate.id:<16} "
                 f"{price:<24} [{parts}] cautions={cautions} | {listing.title_norm[:40]}"
             )
+        if explain and ranking.results and result.dates is not None:
+            first = ranking.results[0]
+            second = ranking.results[1] if len(ranking.results) > 1 else None
+            listing = result.listings[first.candidate.id]
+            adapter = container.crawl.adapters.get(listing.id.platform)
+            slots = build_slots(
+                first,
+                second,
+                result.offers[first.candidate.id],
+                listing,
+                adapter.profile.display_name if adapter else listing.id.platform,
+                result.dates.window,
+                intent.guests,
+                [Feature(f) for f in intent.features],
+                container.clock.now(),
+            )
+            why = await ExplainChoice(container.llm.client).explain(query, slots, ctx)
+            typer.echo(f"why ({why.source}, retried={why.retried}): {why.rendered.text}")
         spent = await container.ledger.spent_usd(ctx.job_id)
         typer.echo(f"job={ctx.job_id} spent=${spent:.6f}")
         return True

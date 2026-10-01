@@ -80,6 +80,7 @@ class ViolationCode(StrEnum):
     SPAN_NOT_IN_SOURCE = "span_not_in_source"
     NUMBER_NOT_IN_SOURCE = "number_not_in_source"  # structured output with a number nobody said
     INCOMPLETE_DATE = "incomplete_date"  # a date expression missing a part it needs
+    TOO_FEW_FACTS = "too_few_facts"  # an explanation that does not rest on the facts given
 
 
 @dataclass(frozen=True, slots=True)
