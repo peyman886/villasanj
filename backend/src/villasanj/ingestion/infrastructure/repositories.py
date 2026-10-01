@@ -266,5 +266,26 @@ class PgCrawlRunRepository:
             await conn.execute(
                 update(crawl_run)
                 .where(crawl_run.c.id == uuid.UUID(report.run_id))
-                .values(status="finished", report=asdict(report), finished_at=self._clock.now())
+                .values(
+                    status="blocked" if report.stop_reason.startswith("blocked") else "finished",
+                    report=asdict(report),
+                    finished_at=self._clock.now(),
+                )
             )
+
+    async def last_block(self, platform: str) -> str | None:
+        query = (
+            select(crawl_run.c.status, crawl_run.c.report)
+            .where(
+                crawl_run.c.platform == platform,
+                crawl_run.c.live.is_(True),
+                crawl_run.c.finished_at.is_not(None),
+            )
+            .order_by(crawl_run.c.started_at.desc())
+            .limit(1)
+        )
+        async with self._engine.connect() as conn:
+            row = (await conn.execute(query)).first()
+        if row is None or row.status != "blocked":
+            return None
+        return str(row.report["stop_reason"])

@@ -234,6 +234,12 @@ class InMemoryCrawlRunRepository:
     async def finish(self, report: CrawlReport) -> None:
         self.finished.append(report)
 
+    async def last_block(self, platform: str) -> str | None:
+        live = [r for r in self.finished if r.platform == platform and r.live]
+        if live and live[-1].stop_reason.startswith("blocked"):
+            return live[-1].stop_reason
+        return None
+
 
 def request(path: str, kind: PageKind = PageKind.LISTING, host: str = HOST) -> PageRequest:
     return PageRequest(platform=PLATFORM, kind=kind, url=f"https://{host}{path}")

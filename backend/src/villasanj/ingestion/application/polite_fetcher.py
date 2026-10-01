@@ -2,7 +2,8 @@
 
 Guarantees: host allow-list per platform; robots.txt per RFC 9309 (cached, re-checked on every
 redirect hop); one request in flight per host with at least ``min_delay`` (or the site's
-Crawl-delay, whichever is larger) plus jitter between requests; stop on block signals.
+Crawl-delay, whichever is larger) plus jitter between requests; stop on block signals (a
+bot-challenge marker, or a streak of 403/429 refusals).
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ type RobotsSink = Callable[[FetchedPage], Awaitable[object]]
 
 HTTP_FORBIDDEN = 403
 HTTP_TOO_MANY_REQUESTS = 429
+HTTP_REFUSALS = (HTTP_FORBIDDEN, HTTP_TOO_MANY_REQUESTS)
 HTTP_CLIENT_ERROR = range(400, 500)
 HTTP_SERVER_ERROR_MIN = 500
 MARKER_SCAN_BYTES = 200_000
@@ -70,7 +72,7 @@ class PoliteFetcher:
         self._robots: dict[str, _CachedRules] = {}
         self._host_locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._next_slot: dict[str, datetime] = {}
-        self._forbidden_streak: defaultdict[str, int] = defaultdict(int)
+        self._refusal_streak: defaultdict[str, int] = defaultdict(int)
 
     async def fetch(self, request: PageRequest) -> FetchedPage:
         current = request
@@ -91,7 +93,7 @@ class PoliteFetcher:
             raise CrawlDisallowed(f"robots.txt disallows {request.url}")
         page = await self._paced(request, rules.crawl_delay(self._policy.robots_token))
         self._check_block(request.platform, page)
-        if page.status == HTTP_TOO_MANY_REQUESTS or page.status >= HTTP_SERVER_ERROR_MIN:
+        if page.status >= HTTP_SERVER_ERROR_MIN:
             raise TransientFetchError(f"http-{page.status}", _retry_after(page))
         return page
 
@@ -155,14 +157,14 @@ class PoliteFetcher:
         if self._has_block_marker(page):
             log.warning("crawl.blocked", platform=platform, url=page.final_url, reason="marker")
             raise SourceBlocked(f"{platform}: bot-challenge marker on {page.final_url}")
-        if page.status == HTTP_FORBIDDEN:
-            self._forbidden_streak[platform] += 1
-            if self._forbidden_streak[platform] >= self._policy.forbidden_threshold:
-                raise SourceBlocked(
-                    f"{platform}: {self._forbidden_streak[platform]} consecutive 403s"
-                )
-            raise TransientFetchError("http-403")
-        self._forbidden_streak[platform] = 0
+        if page.status in HTTP_REFUSALS:
+            self._refusal_streak[platform] += 1
+            streak = self._refusal_streak[platform]
+            if streak >= self._policy.refusal_threshold:
+                log.warning("crawl.blocked", platform=platform, reason=f"http-{page.status}")
+                raise SourceBlocked(f"{platform}: {streak} consecutive refusals (403/429)")
+            raise TransientFetchError(f"http-{page.status}", _retry_after(page))
+        self._refusal_streak[platform] = 0
 
     def _has_block_marker(self, page: FetchedPage) -> bool:
         if "html" not in (page.header("content-type") or "").lower():

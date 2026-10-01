@@ -24,7 +24,7 @@ from villasanj.ingestion.application.crawl import (
     CrawlPlatform,
     SnapshotReplayFetcher,
 )
-from villasanj.ingestion.application.errors import TransientFetchError
+from villasanj.ingestion.application.errors import SourceBlocked, TransientFetchError
 from villasanj.ingestion.application.polite_fetcher import PoliteFetcher
 from villasanj.ingestion.application.ports import Fetcher, FrontierStatus
 from villasanj.ingestion.infrastructure.http import ProtegoRobotsParser
@@ -104,6 +104,20 @@ async def test_blocking_stops_the_run_and_keeps_the_item(world: World) -> None:
     assert report.stop_reason.startswith("blocked")
     assert world.frontier.status_of(f"{BASE}/a") is FrontierStatus.PENDING
     assert f"{BASE}/b" not in world.network.urls()
+
+
+async def test_a_blocked_platform_stays_blocked_until_the_owner_decides(world: World) -> None:
+    challenge = page(request("/seed"), body=b'<i class="h-captcha"></i>')
+    world.network.on(f"{BASE}/seed", challenge, page(request("/seed")))
+    crawl = world.crawl()
+    await crawl.run(REGION, max_requests=10, live=True)
+    calls = len(world.network.calls)
+    with pytest.raises(SourceBlocked, match="ask the owner"):
+        await crawl.run(REGION, max_requests=10, live=True)
+    assert len(world.network.calls) == calls  # refused before any request
+    await crawl.run(REGION, max_requests=10, live=False)  # replay is unaffected
+    resumed = await crawl.run(REGION, max_requests=10, live=True, after_block=True)
+    assert resumed.stop_reason == "frontier-empty"
 
 
 async def test_transient_errors_back_off_then_give_up(world: World) -> None:

@@ -65,8 +65,20 @@ class CrawlPlatform:
         max_requests: int,
         live: bool,
         kinds: Sequence[PageKind] | None = None,
+        after_block: bool = False,
     ) -> CrawlReport:
-        """Process the frontier; ``kinds`` restricts the run (e.g. photos on a CDN host)."""
+        """Process the frontier; ``kinds`` restricts the run (e.g. photos on a CDN host).
+
+        A platform that blocked the last live run stays blocked until the owner decides otherwise
+        (``after_block=True``): no request is made until then.
+        """
+        if live and not after_block:
+            reason = await self._runs.last_block(self.platform)
+            if reason is not None:
+                raise SourceBlocked(
+                    f"{self.platform} blocked the last live run ({reason}); "
+                    "ask the owner before crawling it again"
+                )
         run_id = await self._runs.start(self.platform, live)
         report = CrawlReport(run_id=run_id, platform=self.platform, live=live)
         if not kinds or PageKind.SEARCH in kinds or PageKind.SITEMAP in kinds:

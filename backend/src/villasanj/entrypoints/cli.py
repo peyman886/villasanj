@@ -15,7 +15,7 @@ from villasanj.catalog.application.places import MeasurePlaceResolution
 from villasanj.catalog.infrastructure.gazetteer_file import load_gazetteer
 from villasanj.catalog.infrastructure.repositories import PgCoverageQuery, PgPlaceNameQuery
 from villasanj.entrypoints.container import Container, build_container
-from villasanj.ingestion.application.errors import CrawlError
+from villasanj.ingestion.application.errors import CrawlError, SourceBlocked
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.application.llm.smoke import LLMSmokeCheck
@@ -148,13 +148,20 @@ def crawl_run(
     kinds: Annotated[
         list[PageKind] | None, typer.Option("--kind", help="Only these page kinds (repeatable).")
     ] = None,
+    after_block: Annotated[
+        bool, typer.Option(help="The owner decided to crawl again after a block.")
+    ] = False,
 ) -> None:
     """Crawl a platform's frontier for the configured region."""
 
     async def run(container: Container) -> bool:
-        report = await container.crawler(platform, live).run(
-            container.crawl.region, max_requests, live, kinds
-        )
+        try:
+            report = await container.crawler(platform, live).run(
+                container.crawl.region, max_requests, live, kinds, after_block
+            )
+        except SourceBlocked as error:
+            typer.echo(str(error), err=True)
+            return False
         typer.echo(
             f"run={report.run_id} fetched={report.fetched} skipped={report.skipped} "
             f"retried={report.retried} gave_up={report.gave_up} discovered={report.discovered} "

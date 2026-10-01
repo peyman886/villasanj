@@ -10,7 +10,7 @@ from villasanj.shared.domain.errors import DomainError
 DEFAULT_MIN_DELAY_SECONDS = 3.0
 DEFAULT_JITTER_SECONDS = 1.0
 DEFAULT_MAX_REDIRECTS = 5
-DEFAULT_FORBIDDEN_THRESHOLD = 3
+DEFAULT_REFUSAL_THRESHOLD = 3  # consecutive 403/429 responses that mean "stop"
 DEFAULT_ROBOTS_TTL = timedelta(hours=24)
 # Strong signals of a bot wall. We stop on them; we never try to get around them. Extend the list
 # when a real challenge page is observed (false positives only make us stop early, never pass).
@@ -37,7 +37,7 @@ class CrawlPolicy:
     min_delay_seconds: float = DEFAULT_MIN_DELAY_SECONDS
     jitter_seconds: float = DEFAULT_JITTER_SECONDS
     max_redirects: int = DEFAULT_MAX_REDIRECTS
-    forbidden_threshold: int = DEFAULT_FORBIDDEN_THRESHOLD
+    refusal_threshold: int = DEFAULT_REFUSAL_THRESHOLD
     robots_ttl: timedelta = DEFAULT_ROBOTS_TTL
     block_markers: tuple[str, ...] = DEFAULT_BLOCK_MARKERS
 

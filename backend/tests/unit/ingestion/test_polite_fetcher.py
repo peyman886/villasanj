@@ -154,7 +154,19 @@ async def test_consecutive_403s_mean_blocked(clock: SteppingClock) -> None:
     for path in ("/a", "/b"):
         with pytest.raises(TransientFetchError):
             await fetcher.fetch(request(path))
-    with pytest.raises(SourceBlocked, match="consecutive 403"):
+    with pytest.raises(SourceBlocked, match="consecutive refusals"):
+        await fetcher.fetch(request("/c"))
+
+
+async def test_a_429_storm_means_blocked(clock: SteppingClock) -> None:
+    network = ScriptedFetcher(clock)
+    for path in ("/a", "/b", "/c"):
+        network.on(f"{BASE}{path}", page(request(path), status=429))
+    fetcher = polite(network, clock)
+    for path in ("/a", "/b"):
+        with pytest.raises(TransientFetchError, match="http-429"):
+            await fetcher.fetch(request(path))
+    with pytest.raises(SourceBlocked, match="consecutive refusals"):
         await fetcher.fetch(request("/c"))
 
 

@@ -7,7 +7,7 @@ from datetime import timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from tests.fakes.ingestion import page, request
+from tests.fakes.ingestion import SteppingClock, page, request
 from tests.fakes.llm import NOW, FixedClock
 from villasanj.ingestion.application.ports import CrawlReport, FrontierStatus
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
@@ -92,3 +92,25 @@ async def test_crawl_runs_record_their_report(engine: AsyncEngine) -> None:
     runs = PgCrawlRunRepository(engine, FixedClock())
     run_id = await runs.start("example", live=False)
     await runs.finish(CrawlReport(run_id=run_id, platform="example", live=False, fetched=3))
+
+
+async def test_a_blocked_live_run_is_remembered_until_a_later_run_finishes(
+    engine: AsyncEngine,
+) -> None:
+    platform = f"blocked-{id(engine)}"
+    clock = SteppingClock()
+    runs = PgCrawlRunRepository(engine, clock)
+    assert await runs.last_block(platform) is None
+    blocked = await runs.start(platform, live=True)
+    await runs.finish(
+        CrawlReport(run_id=blocked, platform=platform, live=True, stop_reason="blocked: 3 x 403")
+    )
+    assert await runs.last_block(platform) == "blocked: 3 x 403"
+    clock.advance(60)
+    offline = await runs.start(platform, live=False)
+    await runs.finish(CrawlReport(run_id=offline, platform=platform, live=False))
+    assert await runs.last_block(platform) == "blocked: 3 x 403"  # replays do not clear it
+    clock.advance(60)
+    resumed = await runs.start(platform, live=True)
+    await runs.finish(CrawlReport(run_id=resumed, platform=platform, live=True))
+    assert await runs.last_block(platform) is None
