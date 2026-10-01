@@ -23,6 +23,7 @@ from villasanj.catalog.infrastructure.repositories import (
 from villasanj.discovery.application.dates import BuildHolidayCalendar
 from villasanj.discovery.application.hypotheses import BuildHypothesisReport
 from villasanj.discovery.infrastructure.holidays import load_holiday_sources
+from villasanj.enrichment.application.review_summary import SummarizeReviews
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
 from villasanj.entity_resolution.application.judge import JudgePairs
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
@@ -185,6 +186,9 @@ class Container:
 
     def hypothesis_report(self) -> BuildHypothesisReport:
         return BuildHypothesisReport(self.candidates(), self.listings, self.quotes())
+
+    def review_summaries(self) -> SummarizeReviews:
+        return SummarizeReviews(self.llm.client, self.listings)
 
     def holiday_calendar(self) -> BuildHolidayCalendar:
         return BuildHolidayCalendar(

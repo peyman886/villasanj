@@ -124,3 +124,23 @@ summary and explanation calls spend ~1–2k reasoning tokens, those three lines 
 grow by roughly $2–5 in total. This still fits the $30 cap, but it must be measured. Action: the M5
 judge bake-off and the M10 summary review compare `reasoning_effort` settings (default vs low) per
 task, and the setting goes into `config/llm.toml` with the measured quality/cost trade-off.
+
+## Amendment (review summaries, 2026-10-02): `reasoning_effort = "low"` for `review_summary`
+
+Measured on the same two jabama listings (6 reviews with text each), prompt v1, ledger rows in
+`ops.llm_call`:
+
+| Setting | Reasoning tokens | Output tokens | Cost (2 listings) | Latency | Notes |
+|---|---|---|---|---|---|
+| default | 675–1,141 | 934–1,485 | $0.0153 | ~6 s | one call hit the 1,500-token cap (`truncated`) and was re-run by the retry layer |
+| `low` | 0 | 246–413 | $0.0035 | ~2.7 s | no truncation |
+
+The points and their citations were essentially the same (same pros and cons, one extra
+well-cited point with `low`). `config/llm.toml` now sets `reasoning_effort = "low"` for
+`review_summary`. Provisional: two listings are a small sample. M10 criterion 3 (the owner's
+blind review of 20 villas) is the real quality gate and may reverse this. The judge and the
+explanation keep the default until their own bake-offs.
+
+Lesson for estimates: the dry-run's "worst case" assumes one attempt per request, so a truncated
+reasoning call plus its retry can exceed it. Tasks on thinking models need a measured
+`expected_output_tokens` before a batch is priced.

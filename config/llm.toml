@@ -78,6 +78,7 @@ max_output_tokens = 1500
 expected_output_tokens = 500
 temperature = 0.2
 concurrency = 4
+reasoning_effort = "low"
 
 [tasks.explanation]
 model = "gemini-3.8-flash"

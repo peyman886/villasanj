@@ -537,6 +537,50 @@ def enrichment_claims() -> None:
     asyncio.run(_with_container(run))
 
 
+@enrichment_app.command("summarize")
+def enrichment_summarize(
+    platform: Annotated[str, typer.Argument(help="Platform slug.")],
+    external_ids: Annotated[list[str], typer.Argument(help="Listing ids on that platform.")],
+    dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "0.05",
+) -> None:
+    """Pros and cons of a listing's reviews, each point citing its reviews (M10 groundwork)."""
+
+    async def run(container: Container) -> bool:
+        summaries = container.review_summaries()
+        listing_ids = [ListingId(platform, e) for e in external_ids]
+        if dry_run:
+            report = await container.llm.dry_run.estimate(await summaries.requests(listing_ids))
+            typer.echo(
+                f"listings={len(listing_ids)} calls={report.calls} "
+                f"cache_hits={report.cache_hits} expected=${report.expected_usd:.6f} "
+                f"worst_case=${report.worst_case_usd:.6f} (a retry adds at most one call each)"
+            )
+            return True
+        ctx = await container.jobs.start("review_summary", Decimal(budget_usd), {})
+        for listing_id in listing_ids:
+            summary = await summaries.for_listing(listing_id, ctx)
+            typer.echo(f"listing {listing_id}:")
+            if summary is None:
+                typer.echo("  too few reviews with text: no summary")
+                continue
+            typer.echo(
+                f"  reviews={summary.reviews_given} retried={summary.retried} "
+                f"dropped={summary.dropped} models={','.join(summary.models)}"
+            )
+            for side, points in (("+", summary.pros), ("-", summary.cons)):
+                for point in points:
+                    cited = ",".join(r.review_id for r in point.reviews)
+                    single = " (one opinion)" if point.single_opinion else ""
+                    typer.echo(f"  {side} {point.text}{single} [{cited}]")
+        await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
+        typer.echo(f"job={ctx.job_id} spent=${await container.ledger.spent_usd(ctx.job_id):.6f}")
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
 @discovery_app.command("holidays")
 def discovery_holidays(
     days: Annotated[int, typer.Option(help="How many days ahead to list.")] = 120,
