@@ -17,7 +17,7 @@ from villasanj.shared.application.llm.types import (
 )
 
 # A prompt change needs a new version, so answers cached for the old prompt are not reused.
-PINNED = {"2": "cc03b10e2754a18940569b46416681b3314e8b9aa6b6e1ed12f6ad56f763dc62"}
+PINNED = {"3": "6472f1a32629739c387bfa7a057b4fcb592492e6237f7d6bbb5faebf900bc5e1"}
 CTX = JobContext("job", Decimal(1))
 QUERY = "ویلا برای ۴ نفر آخر هفته زیر ۵ میلیون در رامسر"
 

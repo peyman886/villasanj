@@ -136,8 +136,8 @@ def _phrase(tokens: list[str], start: int) -> _Phrase | None:
         current = (current or Decimal(0)) + value
         last_part, scale = value, None
         index += 1
-        while index < len(tokens) and tokens[index] in _SCALES:
-            scale = _SCALES[tokens[index]]
+        while index < len(tokens) and (word_scale := _scale(tokens[index])) is not None:
+            scale = word_scale
             total += current * scale
             current, last_part = Decimal(0), Decimal(scale)
             index += 1
@@ -148,6 +148,17 @@ def _phrase(tokens: list[str], start: int) -> _Phrase | None:
     if index == start:
         return None
     return _Phrase(start, index, total + (current or 0), scale)
+
+
+# Colloquial and adjective forms: «۱۰ میلیونه» ("it is ten million"), «ویلای ۵ میلیونی».
+_SCALE_SUFFIXES = ("", "ه", "ی", "یه")
+
+
+def _scale(token: str) -> int | None:
+    for word, value in _SCALES.items():
+        if token.startswith(word) and token[len(word) :] in _SCALE_SUFFIXES:
+            return value
+    return None
 
 
 def _atom(tokens: list[str], index: int) -> Decimal | None:

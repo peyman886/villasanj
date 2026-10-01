@@ -34,6 +34,10 @@ def d(*values: str | int) -> list[Decimal]:
         ("دو و نیم ساعت", d("2.5")),
         ("نیم ساعت", d("0.5")),
         ("یه ویلا", d(1)),
+        # Found by the M8 draft eval: colloquial and adjective forms of scale words.
+        ("بودجه کلاً ۱۰ میلیونه", d(10_000_000)),
+        ("ویلای ۵ میلیونی", d(5_000_000)),
+        ("۸۰۰ هزاری", d(800_000)),
     ],
 )
 def test_mentions(text: str, expected: list[Decimal]) -> None:

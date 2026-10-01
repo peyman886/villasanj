@@ -29,7 +29,7 @@ from villasanj.shared.application.llm.types import (
 from villasanj.shared.domain.slots import Violation
 
 QUERY_PROMPT_ID = "query_understanding"
-QUERY_PROMPT_VERSION = "2"  # bump whenever SYSTEM_PROMPT or RETRY_TEMPLATE changes (a test pins it)
+QUERY_PROMPT_VERSION = "3"  # bump whenever SYSTEM_PROMPT or RETRY_TEMPLATE changes (a test pins it)
 
 SYSTEM_PROMPT = """\
 You turn a Persian villa-rental search query (Iran, northern provinces) into a JSON search intent.
@@ -40,8 +40,10 @@ Numbers
   «زیر ۵ میلیون» is budget.max_toman 5000000; «دو ساعت و نیم» is max_drive {value 2.5, unit hours};
   «۹۰ دقیقه» is max_drive {value 90, unit minutes}; «سه شب» is nights 3.
 - Never compute, convert or add up numbers. List each group part as said: «۴ بزرگسال و ۲ بچه» is
-  guest_parts [4, 2]. A group size said only in words is party: alone is "solo", a couple
-  («من و همسرم», «زوج») is "couple".
+  guest_parts [4, 2]. Two numbers side by side are a choice, not parts: «دو سه نفر» (two or three
+  people) is guest_parts [3], the larger one.
+- A group size said only in words is party: alone is "solo", a couple («من و همسرم», «زوج») is
+  "couple".
 - budget.basis is per_night for «شبی» or «هر شب», whole_stay when the query says the total, else
   unknown.
 
@@ -54,12 +56,15 @@ Dates: name the expression, never write a date you computed.
 - Jalali months: فروردین 1, اردیبهشت 2, خرداد 3, تیر 4, مرداد 5, شهریور 6, مهر 7, آبان 8, آذر 9,
   دی 10, بهمن 11, اسفند 12.
 
-Places: names of the destination (city, village, area) exactly as written in the query. The origin
-of a drive limit («از تهران») is not a place, and neither is «دریا» or «جنگل».
+max_drive is only a driving limit from Tehran. A time from another city («از رشت») or a time to
+somewhere such as the beach («۴۵ دقیقه تا ساحل») is not max_drive: leave it out.
+
+Places: names of the destination (city, village, area) exactly as written in the query. The start
+of a drive («از تهران», «از رشت») is not a place, and neither is «دریا» or «جنگل».
 
 Features the villa should have, as codes: pool «استخر», jacuzzi «جکوزی», near_sea «نزدیک دریا» or
 «ساحلی», sea_view «ویو دریا», forest «جنگلی», fireplace «شومینه», parking «پارکینگ»,
-barbecue «باربیکیو»."""
+barbecue «باربیکیو». near_sea only when the query asks to be near the sea or the beach."""
 
 RETRY_TEMPLATE = """\
 Your answer broke these rules:
