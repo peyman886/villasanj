@@ -36,7 +36,12 @@ Context files (local):
 - **M4 partly started in parallel** (owner's instruction): only parts independent of M3's final
   outputs. Done: scenario capture tool (built, not run while M3 is open), crawl metrics, photo
   report, inventory, a second discovery pass. Blocked: new adapters (no permission). Waiting for
-  M3: wider region. M5–M11 not started (M3's review may reorder them). See ROADMAP M4.
+  M3: wider region. See ROADMAP M4.
+- **Built ahead of M5–M10, provisional until the M3 review** (owner's instruction; ROADMAP section
+  "Work done ahead of its milestone"): offers with provenance and staleness (M6); the ADR-0007
+  slot verifier (M10); reviews per listing with a Bayesian prior (M10); constrained clustering and
+  `er.villa*` schema, **not run** (M5); listing API + typed TS client (M7); the gray-zone judge,
+  **dry-run only** (M5). Never run clustering or live judging before the gold set exists.
 
 ## Working agreement (from the owner)
 
@@ -149,6 +154,7 @@ make eval-hypotheses [THRESHOLD=..]     # reports/hypotheses-<date>.md (H1-H3)
 make test-ml                            # opt-in test with the real image model (pinned weights)
 make crawl-scenarios [LIVE=1]           # same-window re-capture of all calendars (plan only by default)
 make crawl-metrics                      # traffic per host with measured pacing, queue, runs
+make openapi / openapi-check           # regenerate / verify the OpenAPI schema and TS types
 make seed                               # nothing to seed until M11
 ```
 
@@ -158,7 +164,8 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `catalog ingest`, `catalog coverage`, `catalog places`, `catalog enqueue-photos`,
 `catalog fingerprint-photos`, `catalog embed-photos`, `pricing quote <platform> <id>`,
 `er match`, `er queue --name <q>`, `er evaluate`, `er hypotheses`, `crawl capture [--live]`,
-`crawl requeue <platform> --kind <k>`, `crawl metrics`, `catalog photo-report`, `catalog inventory`.
+`crawl requeue <platform> --kind <k>`, `crawl metrics`, `catalog photo-report`, `catalog inventory`,
+`catalog reviews`, `pricing offers`, `er judge --low --high --dry-run`, `api openapi`.
 Labelling UI: `http://localhost:3300/label` (stack) or `npm run dev` with `API_URL` set.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.

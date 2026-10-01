@@ -396,6 +396,32 @@ Acceptance criteria:
 
 ---
 
+## Work done ahead of its milestone (while M3 waits for the photo crawl and labels)
+
+The owner asked to use the waiting time for work that does **not** depend on M3's final outputs
+(gold-v1, threshold calibration, precision/recall, H1–H3) or on final entity resolution. Everything
+below is deterministic logic, schemas, interfaces, APIs or tests, built ahead of its milestone and
+**provisional until the M3 review confirms the priorities**. Nothing here was run as a final ER
+result.
+
+| Built (commit) | Milestone, criterion | Status | Depends on M3/ER for |
+|---|---|---|---|
+| Quote provenance on every component, OfferKind EXACT/RANGE/OPEN, offers with staleness, distribution report (`90a5e5d`) | M6 crit. 1, 2, 4 | ✅ done, per listing | nothing; villa-level offers group listings after M5 |
+| Slot renderer and verifier (`6483aa7`) | M10 crit. 1 (ADR-0007) | ✅ done | nothing |
+| Reviews parsed from stored pages (14.4k), Bayesian rating prior (`0ceee65`) | M10 prerequisite | ✅ done, per listing | cross-platform aggregation per villa (M5) |
+| Constrained clustering, stable villa ids, B-cubed, `er.villa*` schema with DB constraint (`985aa50`) | M5 crit. 3 (B-cubed), 5 | ✅ built, **not run** | final match decisions (gold set) |
+| Listing read API with required provenance, OpenAPI → typed TS client, drift check (`4b82fef`) | M7 crit. 1 | ✅ done, listing level | villa endpoints (M5) |
+| Gray-zone LLM judge: grids, verdict schema, pinned prompt, dry-run pricing (`175a7bf`) | M5 crit. 4 (infrastructure) | ✅ built, **dry-run only** | the bake-off, model choice and thresholds (gold set) |
+
+Still blocked or waiting:
+- **M3:** photo crawl (jabama, ~11 h left on 2026-10-01 17:00 UTC) → `make match` → gold-v1 → owner labels → eval → H1–H3 → review.
+- **M4:** new adapters (no written permission); wider region (H1).
+- **M5:** Splink / supervised model, judge bake-off, ablations, human review queue for UNSURE, clustering on real data — all need the gold set.
+- **M6 crit. 3:** direct-quote comparison: no public quote source found on either platform.
+- **M8–M11:** not started beyond the pieces above.
+
+---
+
 ## Out of scope for the demo (explicit)
 
 Learning-to-rank from clicks, price history / "book now or wait", price alerts, image search, host
