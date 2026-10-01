@@ -255,7 +255,8 @@ results and the re-prioritisation review are not done and nothing provisional is
 | Same-window scenario capture (criterion 3) | ✅ built, **not run** | `make crawl-scenarios` plans the capture (currently jabama 2.9 h, shab 0.6 h, in parallel; LIVE=1 runs it). Running it now would change the catalog under the M3 gold set, so it runs after M3 or for the M11 final crawl. |
 | Crawl metrics | ✅ built | `make crawl-metrics`: traffic per host with measured pacing (every host: min interval ≥ 3.05 s, median ~3.7 s). |
 | Photo pipeline report (criterion 4) | ✅ built; final numbers after the crawl | `catalog photo-report`: selected / downloaded / failed with reasons / coverage / hashed / embedded / storage. "≥ 99% of referenced photos" is read as ≥ 99% of the photos the policy selects (5 per listing, ADR-0012). The full 66k would be ~50 h of polite crawling for little ER gain. |
-| Regional coverage per platform (criterion 2) | ✅ built | `catalog inventory`. A second discovery pass was run before gold-v1 exists, so no label is affected: jabama search pages again, and shab sitemaps again (0 new houses). |
+| Regional coverage per platform (criterion 2) | ✅ built | `catalog inventory`. A second discovery pass was run before gold-v1 exists, so no label is affected. jabama search pages again (119 pages): **34 new stays**, catalog 2,951 → 2,985, 0 parse failures. shab sitemaps again: 0 new houses (601). Their coverage photos were queued too. |
+| Photo pipeline, shab (2026-10-01 16:46 UTC) | ✅ complete | 3,004 selected → 3,004 downloaded (100%), 3,004 fingerprinted, 2,962 distinct images embedded, 1.09 GB. jabama is still crawling (`catalog photo-report`). |
 
 Not started on purpose: M5–M11. M3's review can reorder them, so building them now risks waste.
 
