@@ -313,6 +313,12 @@ class PgPhotoRepository:
         async with self._engine.begin() as conn:
             await conn.execute(upsert)
 
+    async def fingerprinted(self, platform: str) -> set[str]:
+        query = select(photo.c.snapshot_id).where(photo.c.platform == platform)
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        return {str(row.snapshot_id) for row in rows}
+
     async def photos(self, platforms: Sequence[str]) -> list[ListingPhoto]:
         query = (
             select(photo)

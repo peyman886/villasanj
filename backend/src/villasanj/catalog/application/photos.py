@@ -34,6 +34,10 @@ class PhotoUrlSource(Protocol):
 class PhotoRepository(Protocol):
     async def save(self, photo: ListingPhoto) -> None: ...
 
+    async def fingerprinted(self, platform: str) -> set[str]:
+        """Snapshot ids whose photo is already fingerprinted."""
+        ...
+
 
 class PhotoReader(Protocol):
     async def photos(self, platforms: Sequence[str]) -> list[ListingPhoto]:
@@ -45,6 +49,7 @@ class PhotoReader(Protocol):
 class FingerprintReport:
     platform: str
     snapshots: int = 0
+    already_done: int = 0
     fingerprinted: int = 0
     unreadable: int = 0
     unattributed: int = 0
@@ -83,10 +88,15 @@ class FingerprintPhotos:
         self._hasher = hasher
         self._photos = photos
 
-    async def run(self, platform: str) -> FingerprintReport:
+    async def run(self, platform: str, force: bool = False) -> FingerprintReport:
+        """Fingerprint new photo snapshots; ``force`` recomputes all (after a hasher change)."""
         report = FingerprintReport(platform=platform)
+        done = set() if force else await self._photos.fingerprinted(platform)
         for snapshot in await self._snapshots.list_for(platform, [PageKind.PHOTO]):
             report = replace(report, snapshots=report.snapshots + 1)
+            if snapshot.id in done:
+                report = replace(report, already_done=report.already_done + 1)
+                continue
             code = snapshot.request.context_value(LISTING_CODE)
             position = snapshot.request.context_value(PHOTO_POSITION)
             if code is None or position is None or snapshot.status != HTTP_OK:

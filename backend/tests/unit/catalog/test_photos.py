@@ -95,6 +95,9 @@ class _Photos:
     async def save(self, photo: ListingPhoto) -> None:
         self.saved.append(photo)
 
+    async def fingerprinted(self, platform: str) -> set[str]:
+        return {p.snapshot_id for p in self.saved if p.listing_id.platform == platform}
+
 
 async def test_enqueue_creates_attributed_photo_requests_once() -> None:
     frontier = InMemoryFrontierRepository()
@@ -124,3 +127,9 @@ async def test_fingerprinting_stored_photos(readable: bool) -> None:
     assert (report.fingerprinted, report.unreadable) == ((1, 0) if readable else (0, 1))
     if readable:
         assert photos.saved[0].listing_id == ListingId("example", "42")
+        again = await FingerprintPhotos(snapshots, blobs, ImagehashHasher(), photos).run("example")
+        assert (again.already_done, again.fingerprinted) == (1, 0)  # never hashed twice
+        forced = await FingerprintPhotos(snapshots, blobs, ImagehashHasher(), photos).run(
+            "example", force=True
+        )
+        assert forced.fingerprinted == 1

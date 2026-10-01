@@ -242,15 +242,17 @@ def catalog_fingerprint_photos(
     platforms: Annotated[
         list[str] | None, typer.Argument(help="Platforms to fingerprint; default: all registered.")
     ] = None,
+    force: Annotated[bool, typer.Option(help="Recompute photos already fingerprinted.")] = False,
 ) -> None:
-    """Compute perceptual hashes for stored photo snapshots (zero network requests)."""
+    """Compute perceptual hashes for new photo snapshots (zero network requests)."""
 
     async def run(container: Container) -> bool:
         fingerprint = container.fingerprint_photos()
         for platform in platforms or sorted(container.crawl.adapters):
-            report = await fingerprint.run(platform)
+            report = await fingerprint.run(platform, force)
             typer.echo(
-                f"{platform}: snapshots={report.snapshots} fingerprinted={report.fingerprinted} "
+                f"{platform}: snapshots={report.snapshots} already_done={report.already_done} "
+                f"fingerprinted={report.fingerprinted} "
                 f"unreadable={report.unreadable} unattributed={report.unattributed}"
             )
         return True

@@ -48,6 +48,7 @@ async def test_photo_urls_and_fingerprints(engine: AsyncEngine) -> None:
     )
     await photos.save(photo)
     await photos.save(photo)  # idempotent
+    assert await photos.fingerprinted(platform) == {SNAPSHOT}
 
 
 async def test_coverage_counts_listings_with_every_scenario_night(engine: AsyncEngine) -> None:
