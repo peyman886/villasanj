@@ -173,7 +173,8 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `discovery understand [--dry-run] <query>...` (query → verified intent + resolved dates; live calls),
 `enrichment summarize <platform> <id>... [--dry-run]` (cited pros/cons of a listing's reviews; live calls),
 `enrichment features` (description claims vs amenity lists), `llm spend` (ledger totals and the cap),
-`discovery search <query>` (query → ranked listings with reasons; one LLM call).
+`discovery search <query>` (query → ranked listings with reasons; one LLM call),
+`discovery eval-understanding <cases.jsonl> [--dry-run]` (M8 crit. 1 harness). Search page: `/search`.
 Labelling UI: `http://localhost:3300/label` (stack) or `npm run dev` with `API_URL` set.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.
