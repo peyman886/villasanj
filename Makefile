@@ -90,6 +90,7 @@ llm-models: ## Refresh config/llm-models.json from AvalAI /v1/models (free call)
 
 P ?= jabama
 MAX ?= 50
+QUEUE ?= gold-v1
 
 crawl: ## Crawl a platform: make crawl P=jabama [LIVE=1] [MAX=50] (default: offline replay)
 	cd backend && uv run villasanj crawl run $(P) --max-requests $(MAX) $(if $(LIVE),--live,)
@@ -106,5 +107,12 @@ report: ## Catalog numbers: scenario coverage and gazetteer resolution (zero net
 seed: ## Not needed yet: reference data is versioned config; demo dataset seed comes in M11
 	@echo "make $@: nothing to seed. Region, scenarios and gazetteer live in config/*.toml and are read at use; a demo dataset seed is planned for M11 (docs/ROADMAP.md)."; exit 1
 
-match eval eval-hypotheses: ## Available from M3 (entity resolution)
-	@echo "make $@: not implemented yet (planned for M3, see docs/ROADMAP.md)"; exit 1
+match: ## Fingerprint + embed new photos, then blocking, evidence and scores for all pairs
+	cd backend && uv run villasanj catalog fingerprint-photos && uv run villasanj catalog embed-photos \
+		&& uv run villasanj er match
+
+eval: ## Matcher precision/recall against the owner's labels: make eval [QUEUE=gold-v1]
+	cd backend && uv run villasanj er evaluate --queue $(QUEUE)
+
+eval-hypotheses: ## H1-H3 report into reports/ (needs labels, or THRESHOLD=<score> for a provisional run)
+	cd backend && uv run villasanj er hypotheses --queue $(QUEUE) $(if $(THRESHOLD),--threshold $(THRESHOLD),)

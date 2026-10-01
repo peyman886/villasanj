@@ -17,6 +17,7 @@ from villasanj.catalog.infrastructure.repositories import (
     PgListingRepository,
     PgPhotoRepository,
 )
+from villasanj.discovery.application.hypotheses import BuildHypothesisReport
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
 from villasanj.entity_resolution.application.matching import MatchListings
@@ -35,6 +36,8 @@ from villasanj.ingestion.infrastructure.repositories import (
     PgFrontierRepository,
     PgSnapshotRepository,
 )
+from villasanj.pricing.application.quotes import QuoteStays
+from villasanj.pricing.infrastructure.fees_file import load_fee_policies
 from villasanj.shared.application.clock import Clock
 from villasanj.shared.application.errors import ConfigurationError
 from villasanj.shared.application.health import CheckHealth
@@ -152,6 +155,12 @@ class Container:
 
     def evaluate_matcher(self) -> EvaluateMatcher:
         return EvaluateMatcher(self.candidates(), self.labels())
+
+    def quotes(self) -> QuoteStays:
+        return QuoteStays(self.listings, load_fee_policies(self.settings.fees_path))
+
+    def hypothesis_report(self) -> BuildHypothesisReport:
+        return BuildHypothesisReport(self.candidates(), self.listings, self.quotes())
 
     def adapter(self, platform: str) -> SourceAdapter:
         try:

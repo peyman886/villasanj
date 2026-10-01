@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -15,15 +17,14 @@ from villasanj.catalog.application.places import MeasurePlaceResolution
 from villasanj.catalog.domain.listing import ListingId
 from villasanj.catalog.infrastructure.gazetteer_file import load_gazetteer
 from villasanj.catalog.infrastructure.repositories import PgCoverageQuery, PgPlaceNameQuery
+from villasanj.discovery.application.hypotheses import render_markdown
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.labeling import QueueExists
 from villasanj.entity_resolution.domain.evaluation import Interval
 from villasanj.entrypoints.container import Container, build_container
 from villasanj.ingestion.application.errors import CrawlError, SourceBlocked
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
-from villasanj.pricing.application.quotes import QuoteStays
 from villasanj.pricing.domain.quote import Quote, StayRequest
-from villasanj.pricing.infrastructure.fees_file import load_fee_policies
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.application.llm.smoke import LLMSmokeCheck
 from villasanj.shared.domain.money import MoneyRange
@@ -35,6 +36,8 @@ from villasanj.shared.infrastructure.llm.models_snapshot import (
 )
 from villasanj.shared.infrastructure.scenarios import load_scenarios
 from villasanj.shared.infrastructure.settings import Settings
+
+HYPOTHESIS_WINDOW_DAYS = 75  # jabama shows ~76 days of calendar
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 llm_app = typer.Typer(no_args_is_help=True, help="LLM gateway operations.")
@@ -375,6 +378,50 @@ def er_evaluate(
     asyncio.run(_with_container(run))
 
 
+@er_app.command("hypotheses")
+def er_hypotheses(
+    queue: Annotated[str, typer.Option(help="Gold-set queue for the operating point.")] = "gold-v1",
+    labeler: Annotated[str, typer.Option(help="Whose labels.")] = "owner",
+    threshold: Annotated[
+        float | None, typer.Option(help="Override the operating point (marked provisional).")
+    ] = None,
+    out: Annotated[Path, typer.Option(help="Markdown report path.")] = Path("../reports"),
+) -> None:
+    """H1-H3 report from the current matches, pricing and calendars (zero network)."""
+
+    async def run(container: Container) -> bool:
+        evaluation = await container.evaluate_matcher().run(queue, labeler)
+        point = evaluation.operating_point
+        notes = []
+        if threshold is not None:
+            chosen = threshold
+            notes.append(f"Threshold {threshold:g} was set by hand, not chosen from the gold set.")
+        elif point is not None:
+            chosen = point.threshold
+        else:
+            typer.echo("no operating point yet (label the gold set, or pass --threshold)", err=True)
+            return False
+        latest = await container.candidates().latest_run()
+        start = (latest.created_at if latest else datetime.now(UTC)).date()
+        report = await container.hypothesis_report().run(
+            sorted(container.crawl.adapters),
+            chosen,
+            load_scenarios(container.settings.scenarios_path),
+            DateRange(start, start + timedelta(days=HYPOTHESIS_WINDOW_DAYS)),
+            precision=point.precision if point and threshold is None else None,
+            recall=point.recall if point and threshold is None else None,
+        )
+        report = replace(report, notes=tuple(notes))
+        path = out / f"hypotheses-{start.isoformat()}.md" if out.suffix != ".md" else out
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(render_markdown(report), encoding="utf-8")
+        typer.echo(f"pairs={report.pairs} report={path}")
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
 def _interval(interval: Interval) -> str:
     if interval.estimate is None:
         return "n/a"
@@ -421,7 +468,7 @@ def pricing_quote(
     """Quote one listing for a stay, or for every scenario x group size (zero network)."""
 
     async def run(container: Container) -> bool:
-        quotes = QuoteStays(container.listings, load_fee_policies(container.settings.fees_path))
+        quotes = container.quotes()
         listing_id = ListingId(platform, external_id)
         if check_in and check_out:
             request = StayRequest(DateRange(check_in.date(), check_out.date()), GuestCount(guests))
