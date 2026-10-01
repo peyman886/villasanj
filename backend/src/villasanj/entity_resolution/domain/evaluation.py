@@ -8,7 +8,7 @@ size; with equal weights this is the ordinary Wilson interval.
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Hashable, Iterable, Sequence
 from dataclasses import dataclass
 
 from villasanj.entity_resolution.domain.labels import Label
@@ -119,3 +119,29 @@ def blocking_recall(pairs: Sequence[LabelledScore]) -> Interval:
     return weighted_proportion(
         [p.weight for p in matches if p.blocked], [p.weight for p in matches if not p.blocked]
     )
+
+
+@dataclass(frozen=True, slots=True)
+class BCubed:
+    precision: float
+    recall: float
+    f1: float
+    elements: int
+
+
+def bcubed(
+    predicted: Iterable[frozenset[Hashable]], gold: Iterable[frozenset[Hashable]]
+) -> BCubed | None:
+    """B-cubed P/R/F1 over the elements both clusterings cover (ADR-0009; M5 criterion 3)."""
+    predicted_of = {e: group for group in predicted for e in group}
+    gold_of = {e: group for group in gold for e in group}
+    shared = predicted_of.keys() & gold_of.keys()
+    if not shared:
+        return None
+    precision = recall = 0.0
+    for element in shared:
+        both = len(predicted_of[element] & gold_of[element])
+        precision += both / len(predicted_of[element])
+        recall += both / len(gold_of[element])
+    p, r = precision / len(shared), recall / len(shared)
+    return BCubed(p, r, 2 * p * r / (p + r) if p + r else 0.0, len(shared))

@@ -1,10 +1,13 @@
 """SQLAlchemy Core tables for the ``er`` schema."""
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     DateTime,
     Float,
+    ForeignKey,
+    Identity,
     Integer,
     MetaData,
     PrimaryKeyConstraint,
@@ -79,5 +82,37 @@ label = Table(
     Column("labeled_at", DateTime(timezone=True), nullable=False),
     Column("seconds", Float),
     PrimaryKeyConstraint(*PAIR, "labeler", name="pk_label"),
+    schema=SCHEMA,
+)
+
+villa = Table(
+    "villa",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("run_id", Uuid, nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    schema=SCHEMA,
+)
+
+villa_member = Table(
+    "villa_member",
+    metadata,
+    Column("villa_id", Text, ForeignKey("er.villa.id", ondelete="CASCADE"), nullable=False),
+    Column("platform", Text, nullable=False),
+    Column("external_id", Text, nullable=False),
+    PrimaryKeyConstraint("platform", "external_id", name="pk_villa_member"),
+    UniqueConstraint("villa_id", "platform", name="uq_villa_member_one_per_platform"),
+    schema=SCHEMA,
+)
+
+villa_event = Table(
+    "villa_event",
+    metadata,
+    Column("id", BigInteger, Identity(), primary_key=True),
+    Column("run_id", Uuid, nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("villa_id", Text, nullable=False),
+    Column("previous_ids", ARRAY(Text), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
     schema=SCHEMA,
 )

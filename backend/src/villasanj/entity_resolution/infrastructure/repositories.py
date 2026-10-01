@@ -13,11 +13,20 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from villasanj.catalog.domain.listing import ListingId
 from villasanj.entity_resolution.application.ports import MatchRun, ScoredCandidate
+from villasanj.entity_resolution.domain.clustering import CanonicalVilla, VillaEvent
 from villasanj.entity_resolution.domain.evidence import PairEvidence, PhotoEvidence
 from villasanj.entity_resolution.domain.labels import Label, PairLabel, QueueItem
 from villasanj.entity_resolution.domain.pairs import BlockingSource, PairKey
 from villasanj.entity_resolution.domain.scoring import Contribution, Score
-from villasanj.entity_resolution.infrastructure.tables import candidate, label, queue_item, run
+from villasanj.entity_resolution.infrastructure.tables import (
+    candidate,
+    label,
+    queue_item,
+    run,
+    villa,
+    villa_event,
+    villa_member,
+)
 from villasanj.shared.application.clock import Clock
 
 _BATCH = 2000
@@ -169,3 +178,71 @@ class PgLabelStore:
             PairLabel(_pair_key(r), Label(r.label), r.labeler, r.labeled_at, r.seconds)
             for r in rows
         ]
+
+
+class PgVillaStore:
+    def __init__(self, engine: AsyncEngine, clock: Clock) -> None:
+        self._engine = engine
+        self._clock = clock
+
+    async def current(self) -> dict[str, frozenset[ListingId]]:
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(select(villa_member))).all()
+        members: dict[str, set[ListingId]] = {}
+        for row in rows:
+            members.setdefault(row.villa_id, set()).add(ListingId(row.platform, row.external_id))
+        return {villa_id: frozenset(group) for villa_id, group in members.items()}
+
+    async def replace(
+        self, run_id: str, villas: Sequence[CanonicalVilla], events: Sequence[VillaEvent]
+    ) -> None:
+        now = self._clock.now()
+        run_uuid = uuid.UUID(run_id)
+        members = [
+            {"villa_id": v.id, "platform": m.platform, "external_id": m.external_id}
+            for v in villas
+            for m in sorted(v.members)
+        ]
+        async with self._engine.begin() as conn:
+            await conn.execute(delete(villa))  # members cascade
+            if villas:
+                await conn.execute(
+                    insert(villa).values(
+                        [{"id": v.id, "run_id": run_uuid, "updated_at": now} for v in villas]
+                    )
+                )
+            for start in range(0, len(members), _BATCH):
+                await conn.execute(insert(villa_member).values(members[start : start + _BATCH]))
+            if events:
+                await conn.execute(
+                    insert(villa_event).values(
+                        [
+                            {
+                                "run_id": run_uuid,
+                                "kind": e.kind.value,
+                                "villa_id": e.villa_id,
+                                "previous_ids": list(e.previous_ids),
+                                "created_at": now,
+                            }
+                            for e in events
+                        ]
+                    )
+                )
+
+    async def villa_of(self, listing: ListingId) -> CanonicalVilla | None:
+        owner = (
+            select(villa_member.c.villa_id)
+            .where(
+                villa_member.c.platform == listing.platform,
+                villa_member.c.external_id == listing.external_id,
+            )
+            .scalar_subquery()
+        )
+        query = select(villa_member).where(villa_member.c.villa_id == owner)
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        if not rows:
+            return None
+        return CanonicalVilla(
+            rows[0].villa_id, frozenset(ListingId(r.platform, r.external_id) for r in rows)
+        )

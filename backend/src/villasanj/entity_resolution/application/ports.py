@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Protocol
 
 from villasanj.catalog.domain.listing import ListingId
+from villasanj.entity_resolution.domain.clustering import CanonicalVilla, VillaEvent
 from villasanj.entity_resolution.domain.evidence import PairEvidence, PhotoSimilarity
 from villasanj.entity_resolution.domain.labels import PairLabel, QueueItem
 from villasanj.entity_resolution.domain.pairs import BlockingSource, PairKey
@@ -84,3 +85,17 @@ class LabelStore(Protocol):
         ...
 
     async def labels(self, labeler: str) -> list[PairLabel]: ...
+
+
+class VillaStore(Protocol):
+    async def current(self) -> dict[str, frozenset[ListingId]]:
+        """Villa id -> member listings, as last stored (input to id reconciliation)."""
+        ...
+
+    async def replace(
+        self, run_id: str, villas: Sequence[CanonicalVilla], events: Sequence[VillaEvent]
+    ) -> None:
+        """Store a reconciled clustering atomically and append its id history."""
+        ...
+
+    async def villa_of(self, listing: ListingId) -> CanonicalVilla | None: ...
