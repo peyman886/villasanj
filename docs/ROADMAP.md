@@ -19,8 +19,8 @@ hard cap $30). Estimates come from [ADR-0005](adr/0005-llm-model-selection-and-c
 
 | M | Name | LLM cap | Checkpoint with owner |
 |---|---|---|---|
-| 0 | Understanding & design | $0.05 | ✅ this review |
-| 1 | Skeleton & LLM platform | $0.20 | report |
+| 0 | Understanding & design | $0.05 | ✅ approved 2026-10-01 |
+| 1 | Skeleton & LLM platform | $0.20 | ✅ delivered, awaiting review |
 | 2 | First vertical slice (jajiga → jabama) | $0.50 | report + robots/ToS audit sign-off |
 | 3 | Hypothesis test (ER baseline + pricing core + H1–H3) | $0.50 | **mandatory re-prioritisation review** |
 | 4 | Coverage: otaghak + shab, scheduled scenario crawls | $0.50 | report |
@@ -34,7 +34,7 @@ hard cap $30). Estimates come from [ADR-0005](adr/0005-llm-model-selection-and-c
 
 ---
 
-## M0 — Understanding & design ✅ (this milestone)
+## M0 — Understanding & design ✅ (approved 2026-10-01)
 
 Deliverables: `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, ADR-0001…0010,
 `docs/research-review.md`, `docs/reference/avalai-models-2026-10-01.csv`, `.gitignore`, `.env.example`.
@@ -48,7 +48,7 @@ Acceptance:
 
 ---
 
-## M1 — Skeleton & LLM platform
+## M1 — Skeleton & LLM platform ✅ (delivered 2026-10-01, awaiting review)
 
 Scope: monorepo layout; `docker compose` (profiles `core`, `pipeline`, `routing`); custom Postgres image
 (PostGIS + pgvector, arm64); Alembic baseline; `Makefile` (`setup up down logs test test-integration
@@ -86,6 +86,21 @@ Acceptance criteria:
    the result is recorded in ADR-0005 (validates assumption A2).
 
 ---
+
+### M1 results (2026-10-01)
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Clean clone → `make setup && make up` healthy ≤ 180 s; `make health` | ✅ Fresh clone without `.env`: setup 17 s (warm Docker/npm/uv caches), up 29 s, `web=ok db=ok blob=ok llm=fake-ok`. With `.env`: `llm=avalai-ok`. A cold machine also needs image and package downloads. |
+| 2 | `make lint` = 0 findings | ✅ ruff, mypy `--strict` (103 files), import-linter (2 contracts kept), tsc strict, eslint, prettier |
+| 3 | Architecture test with deliberately failing fixtures | ✅ domain purity, no foreign infrastructure imports, no platform names in core, no invisible characters (each rule has a fixture that must fail) |
+| 4 | Kernel tests; domain coverage ≥ 95% | ✅ 98% branch coverage; Jalali conversion checked on every day 1925–2125 (73k days) against jdatetime, plus property tests |
+| 5 | LLM stack unit tests (zero network) | ✅ cache hit, validation retry with feedback, `LLMOutputInvalid` without content leaks, fallback on 5xx/4xx, no fallback on auth errors, `BudgetExceeded` before calling (job and project), concurrent budget reservation, dry-run with 0 calls |
+| 6 | Opt-in live test, spend < $0.05, tier logged | ✅ all 7 routes + fallback valid; $0.0025 per run; headers show 1000 RPM (tier 3) |
+| 7 | Secret hygiene | ✅ tests for repr/logs/errors; gitleaks + exact-match `.env` scanner in pre-commit; `.env` normalised to `KEY=value`; images contain no `.env` |
+| 8 | Ledger vs AvalAI dashboard | ⏳ needs the owner: compare the dashboard with the spend listed in the M1 report |
+
+Totals: 120 unit/architecture tests, 6 integration tests, 7 frontend tests, 1 live test (opt-in).
 
 ## M2 — First vertical slice: jajiga → jabama
 

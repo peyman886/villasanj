@@ -103,7 +103,7 @@ Rules (checked in CI):
 1. `domain` imports only the stdlib and `shared.domain`. **No** pydantic, sqlalchemy, httpx, openai,
    torch, fastapi. Value objects are `@dataclass(frozen=True, slots=True)`.
 2. `application` imports `domain`, `shared.application` and upstream contexts' domain/application.
-   Pydantic is **allowed here** for DTOs and LLM output schemas. This is a deliberate trade-off: it
+   Pydantic (DTOs, LLM output schemas) and structlog (logging) are **allowed here**. This is a deliberate trade-off: it
    couples use cases to a stable validation library, but otherwise every schema would be written twice.
    Mapping from DTOs to domain objects happens in application code.
 3. `infrastructure` implements ports. It is the only layer allowed to import vendors.
@@ -380,21 +380,25 @@ Key domain rules:
 | `SearchIndex` (discovery.application) | Lexical (+ optional dense) scoring over candidates. | `PostgresSearchIndex` (FTS `simple` config on normalized text + `pg_trgm` + pgvector). Swappable for OpenSearch without touching use cases. |
 | `Clock`, `IdGenerator` (shared.application) | Deterministic tests. | `SystemClock`, `FixedClock`. |
 
-### 6.1 LLM decorator chain
+### 6.1 LLM decorator chain (as built in M1)
 
 ```mermaid
 flowchart LR
-  UC["Use case / LLM strategy"] --> C["CachingLLMClient<br/>key = sha256 of provider, model, prompt_id@version,<br/>messages incl. image hashes, schema hash, params"]
-  C -->|miss| F["FallbackLLMClient<br/>primary, then fallbacks from config<br/>on transport or availability errors"]
-  F --> R["RetryingLLMClient<br/>exp. backoff + jitter, timeout<br/>invalid JSON: retry with validation error"]
-  R --> G["CostGoverningLLMClient<br/>pre-flight worst-case estimate vs job and project budget<br/>records usage + cost per attempt in ledger"]
-  G --> P["AvalAIProvider<br/>OpenAI SDK, base_url from config<br/>json_schema response_format"]
+  UC["Use case / LLM strategy"] --> RC["RoutedLLMClient<br/>task route: primary, then fallbacks<br/>fallback only on transport/availability errors<br/>per-task concurrency limit"]
+  RC --> C["CachingInvoker<br/>key = sha256 of provider, model, prompt_id@version,<br/>messages incl. image hashes, schema, params<br/>cache hit: ledger row with cost 0"]
+  C -->|miss| R["RetryingInvoker<br/>exp. backoff + jitter, honours Retry-After<br/>invalid output: retry with validation feedback"]
+  R --> G["CostGoverningInvoker<br/>worst-case reservation vs job and project budget<br/>ledger row per attempt, incl. failed ones"]
+  G --> S["StructuredOutputInvoker<br/>Pydantic validation, finish_reason=length is an error,<br/>estimates usage when the provider reports none"]
+  S --> P["AvalAIProvider<br/>OpenAI SDK (httpx2), strict json_schema"]
 ```
+
+Routing sits **above** the cache because cache keys are per model: a fallback answer is cached under
+the fallback model and never served for the primary.
 
 Dry-run is a **planning** feature, not a fake provider. Each LLM-using use case implements
 `plan() → list[LLMRequest]`. `--dry-run` subtracts cache hits, estimates tokens and cost from the
 calibrated per-model estimator and the pricing snapshot, prints the report, and exits without calling
-the provider.
+the provider (`make dry-run JOB=llm-smoke`).
 
 ### 6.2 Extension recipes (the OCP test)
 
@@ -482,15 +486,21 @@ Main tables (columns abbreviated; every observed value carries `snapshot_id` + `
 
 ## 8. Runtime topology (docker compose)
 
-| Service | Profile | Notes |
-|---|---|---|
-| `db` | core | Custom image `FROM postgres:17` + PGDG `postgis` + `pgvector` (multi-arch, so arm64 works on M4). |
-| `api` | core | FastAPI (uvicorn). |
-| `web` | core | Next.js (production build in compose; `npm run dev` on host for UI work). |
-| `worker` | pipeline | Typer CLI jobs: crawl, parse, photos, match, price, enrich, project. Includes torch CPU. |
-| `browser` | pipeline | Playwright Chromium; only started when an adapter needs JS rendering. |
-| `osrm` | routing | `osrm-routed` on an MLD graph built from a **clipped** Tehran–Caspian extract. |
-| `osrm-prep` | routing (one-shot) | Download Geofabrik Iran → `osmium extract` bbox → `osrm-extract/partition/customize`. |
+Services without a profile start with `make up`; the others join with their profile.
+
+| Service | Profile | Host port | Notes |
+|---|---|---|---|
+| `db` | — | `127.0.0.1:5433` | Custom image `FROM postgres:17` + PGDG PostGIS 3.6 + pgvector 0.8 (native arm64). |
+| `migrate` | — | — | One-shot `alembic upgrade head`; `api` waits for it to complete. |
+| `api` | — | `127.0.0.1:8800` | FastAPI (uvicorn). `/health/live` for the container healthcheck, `/health` for readiness. |
+| `web` | — | `127.0.0.1:3300` | Next.js standalone build; `/api/health` proxies the API (end-to-end check). |
+| `worker` | pipeline (M2) | — | Typer CLI jobs: crawl, parse, photos, match, price, enrich, project. Includes torch CPU. |
+| `browser` | pipeline (M2) | — | Playwright Chromium; only started when an adapter needs JS rendering. |
+| `osrm` | routing (M8) | — | `osrm-routed` on an MLD graph built from a **clipped** Tehran–Caspian extract. |
+| `osrm-prep` | routing (M8) | — | Download Geofabrik Iran → `osmium extract` bbox → `osrm-extract/partition/customize`. |
+
+Host ports are overridable (`VILLASANJ_DB_PORT`, `VILLASANJ_API_PORT`, `VILLASANJ_WEB_PORT`); the
+defaults avoid 3000/8000, which other local projects commonly use.
 
 Volumes: `pgdata`, `blobs` (snapshots + photos), `models` (weights), `osm`. Memory budget and the
 rationale for having no Redis, OpenSearch, MinIO or local LLM are in
@@ -498,7 +508,7 @@ rationale for having no Redis, OpenSearch, MinIO or local LLM are in
 
 ---
 
-## 9. Repository layout (planned for M1)
+## 9. Repository layout
 
 ```
 villasanj/
@@ -507,8 +517,10 @@ villasanj/
 ├── docker-compose.yml        # profiles: core, pipeline, routing
 ├── .env.example              # no values
 ├── config/                   # llm.toml, sources.toml, scenarios.toml, gazetteer seed (non-secret)
+├── scripts/                  # small repo tools (e.g. the .env secret scanner used by pre-commit)
 ├── backend/
 │   ├── pyproject.toml        # uv, Python 3.12, entry points for sources
+│   ├── alembic.ini, migrations/
 │   ├── src/villasanj/
 │   │   ├── shared/{domain,application,infrastructure}/
 │   │   ├── ingestion/{domain,application,infrastructure/sources/<slug>/}

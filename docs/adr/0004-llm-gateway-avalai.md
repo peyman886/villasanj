@@ -1,6 +1,6 @@
 # ADR-0004 — LLM gateway: AvalAI adapter behind `LLMClient` with a decorator chain
 
-Status: Proposed · Date: 2026-10-01
+Status: Accepted (M0 approval, 2026-10-01) · Date: 2026-10-01
 
 ## Context
 
@@ -122,3 +122,26 @@ git-ignored, and `.env.example` has no values.
 - (+) Spend is attributable per task, per job and per milestone.
 - (−) The cache key includes `prompt_version`: editing a prompt without bumping the version is caught
   by a test that hashes prompt templates.
+
+## Amendment (M1 implementation, 2026-10-01)
+
+Refinements found while building; the decision itself stands.
+
+1. **Chain order.** Implemented as `RoutedLLMClient` (routing, fallback, per-task concurrency) →
+   `CachingInvoker` → `RetryingInvoker` → `CostGoverningInvoker` → `StructuredOutputInvoker` →
+   provider. Cache keys include the model, so routing must sit above the cache. Validation lives
+   below the cost governor so that failed attempts are still charged to the ledger with an accurate
+   status (`invalid_output`, `truncated`).
+2. **Token estimation without tiktoken.** tiktoken downloads its BPE files at first use, which is a
+   hidden network call and breaks offline dry-runs. The estimator is a calibrated heuristic
+   (chars per token and per-image tokens per model, in `config/llm.toml`), re-calibrated from ledger
+   actuals.
+3. **Routing overrides** are done by pointing `LLM__ROUTING_FILE` at another TOML file (e.g. a lean
+   profile) instead of per-field environment overrides.
+4. **OpenAI SDK 3.x uses httpx2.** Adapter tests mock it with `httpx2.MockTransport`.
+5. **Concurrency and budgets.** The governor reserves each call's worst-case cost before calling, so
+   parallel calls cannot jointly overspend a budget (unit-tested).
+6. **Measured (live smoke, 2026-10-01).** On a trivial JSON reply, `gemini-3.8-flash` spent
+   164–255 reasoning tokens (thinking is on by default), while `gemini-3.1-flash-lite` spent none.
+   Gemini also does not appear to bill the JSON schema as input tokens (37 prompt tokens reported), so
+   the estimator over-estimates schema-heavy calls. Both feed the M5/M10 calibration (see ADR-0005).

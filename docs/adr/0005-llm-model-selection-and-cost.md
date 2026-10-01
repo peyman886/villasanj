@@ -1,6 +1,6 @@
 # ADR-0005 — Model per LLM task and total cost estimate
 
-Status: Proposed · Date: 2026-10-01 · Evidence: `docs/reference/avalai-models-2026-10-01.csv`
+Status: Accepted (M0 approval, 2026-10-01) · Date: 2026-10-01 · Evidence: `docs/reference/avalai-models-2026-10-01.csv`
 
 ## Context
 
@@ -101,3 +101,26 @@ data); Gemini images ≈ 1,090 tokens each; ER judge sends 2 composite grids + ~
 - (−) Gemini's flat per-image cost makes naive multi-image prompts expensive. This is mitigated by
   composite grids and local pre-filtering (ADR-0009).
 - (−) `gemini-embedding-001` reports zero usage, so the ledger marks its cost as `estimated`.
+
+## Amendment (M1 live smoke, 2026-10-01)
+
+`make test-live` and `make llm-smoke` each made one structured call per task route plus one per
+distinct fallback model (8 calls). **All returned schema-valid output.** Persisted ledger
+(`ops.llm_call`) for the `make llm-smoke` run:
+
+| Task | Model | In | Out (of which reasoning) | Cost |
+|---|---|---|---|---|
+| query_understanding / claim_extraction / text_normalization / vision_tagging | gemini-3.1-flash-lite | 37–38 | 13–14 (0) | $0.000029–0.000031 each |
+| er_judge | gemini-3.8-flash | 37 | 175 (164) | $0.000684 |
+| review_summary | gemini-3.8-flash | 37 | 227 (208) | $0.000879 |
+| explanation | gemini-3.8-flash | 35 | 264 (255) | $0.001016 |
+| query_understanding (fallback check) | gpt-5.4-mini | 91 | 18 (0) | $0.000149 |
+| **Total** | | | | **$0.002845** |
+
+Rate-limit headers confirm tier 3 (1000 RPM for both Gemini models and for gpt-5.4-mini).
+
+**Consequence for the cost estimate.** `gemini-3.8-flash` thinks by default. If real judge,
+summary and explanation calls spend ~1–2k reasoning tokens, those three lines in the estimate above
+grow by roughly $2–5 in total. This still fits the $30 cap, but it must be measured. Action: the M5
+judge bake-off and the M10 summary review compare `reasoning_effort` settings (default vs low) per
+task, and the setting goes into `config/llm.toml` with the measured quality/cost trade-off.

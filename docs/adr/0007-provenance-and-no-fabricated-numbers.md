@@ -1,6 +1,6 @@
 # ADR-0007 — Provenance everywhere; LLMs never write numbers
 
-Status: Proposed · Date: 2026-10-01
+Status: Accepted (M0 approval, 2026-10-01) · Date: 2026-10-01
 
 ## Context
 

@@ -1,6 +1,6 @@
 # ADR-0001 — Hexagonal modular monolith with six bounded contexts
 
-Status: Proposed · Date: 2026-10-01
+Status: Accepted (M0 approval, 2026-10-01) · Date: 2026-10-01
 
 ## Context
 

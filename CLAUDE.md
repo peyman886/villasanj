@@ -20,8 +20,9 @@ Context files (local):
 
 ## Current status
 
-- **Milestone 0 (design) delivered, awaiting owner approval.** No executable code yet.
-- Next: M1 (skeleton & LLM platform). See `docs/ROADMAP.md`.
+- M0 (design) approved 2026-10-01.
+- **M1 (skeleton & LLM platform) delivered 2026-10-01, awaiting owner review.**
+- Next: M2 (first vertical slice: jajiga → jabama). See `docs/ROADMAP.md`.
 
 ## Working agreement (from the owner)
 
@@ -57,8 +58,8 @@ Context files (local):
   `pricing` and `entity_resolution` are independent. Import upstream **domain/application** only,
   never upstream infrastructure.
 - Layers per context: `domain` (stdlib + `shared.domain` only, frozen dataclasses) ← `application`
-  (use cases, `typing.Protocol` ports, Pydantic DTOs/LLM schemas, prompt templates) ← `infrastructure`
-  (vendors, ORM, HTTP, ML).
+  (use cases, `typing.Protocol` ports, Pydantic DTOs/LLM schemas, structlog, prompt templates) ←
+  `infrastructure` (vendors, ORM, HTTP, ML).
 - No platform slug outside `ingestion/infrastructure/sources/<slug>/`, config and tests.
 - Composition root is hand-written (`entrypoints/container.py`); no DI framework.
 - Abstraction only if it isolates I/O/vendors (testability) or has ≥ 2 real implementations.
@@ -67,7 +68,8 @@ Context files (local):
 - **New platform:** `ingestion/infrastructure/sources/<slug>/` implementing `SourceAdapter` (pure: no
   I/O), plus trimmed fixtures + contract tests, one entry point in `backend/pyproject.toml`
   (`villasanj.sources`), and a sourced `FeePolicy` row. Nothing else changes.
-- **New LLM provider:** a provider adapter + `LLM__PROVIDER`. Model names go in `config/llm.toml`.
+- **New LLM provider:** a `RawModelProvider` adapter + a branch in `build_provider` + `LLM__PROVIDER`.
+  Model names go in `config/llm.toml`.
 - **New embedding / search engine:** an adapter for `ImageEmbedder` / `TextEmbedder` / `SearchIndex`
   + composition-root switch.
 
@@ -75,7 +77,9 @@ Context files (local):
 
 - Only through the `LLMClient` port with an `LLMTask`. **No model name in code**: models are configured
   per task in `config/llm.toml` (primary + fallbacks).
-- Decorator chain: cache → fallback → retry (+ validation retry) → cost governor (budget + ledger) → provider.
+- Chain: RoutedLLMClient (routing/fallback) → cache → retry (+ validation feedback) → cost governor
+  (worst-case reservation + ledger) → structured-output validation → provider. Compose it only in
+  `entrypoints/container.py::build_llm_stack`.
 - Deterministic first (regex, rules, pHash); the LLM handles only the residue.
 - Every LLM-using use case implements `plan()` so `--dry-run` can estimate cost with 0 calls.
 - Bump `prompt_version` whenever a prompt template changes (a test hashes templates).
@@ -103,27 +107,45 @@ Context files (local):
 Apple M4 (10 cores), 16 GB RAM, macOS 26.5.2 arm64; Docker Desktop 29.6.2 with **7.75 GB** for the VM
 (CPU only; no GPU in containers; all images must be linux/arm64); 168 GB free disk; uv 0.11.32,
 Node 26.5, GNU Make **3.81** (no `.ONESHELL` or other ≥ 3.82 features), system Python 3.9.6 (use uv's 3.12).
-`.env` currently has `AVALAI_API_KEY = …` with spaces, to be normalised to `KEY=value` in M1.
+`.env` was normalised to `KEY=value` in M1 (values untouched).
 
-## Commands (planned in M1; not available yet)
+## Commands
 
 ```
-make setup          # uv sync, npm ci, build images, pre-commit install
-make up / down      # docker compose (profile core); make logs
-make health         # end-to-end healthcheck
-make test           # unit + contract + architecture tests (no network, no Docker needed)
-make test-integration  # testcontainers Postgres
-make test-live      # opt-in live LLM tests (live_llm marker, $0.05 cap)
-make lint           # ruff + mypy --strict + import-linter + tsc + eslint
-make fmt            # ruff format + prettier
-make seed           # gazetteer, scenarios, fee policies
-make crawl P=<platform> [LIVE=1]   # default offline (snapshots only)
-make reparse        # rebuild catalog from snapshots (0 network)
-make match          # ER pipeline
-make eval           # ER evaluation report; make eval-hypotheses (H1–H3)
-make dry-run JOB=<job>  # LLM call/cost plan, 0 calls
-make ci             # everything CI runs
+make setup             # uv sync, npm ci, pre-commit install, build images
+make up / down / logs  # core stack: db (5433), migrate, api (8800), web (3300); ports via VILLASANJ_*_PORT
+make health            # end-to-end via web: "web=ok db=ok blob=ok llm=avalai-ok"
+make test              # backend unit + architecture tests (domain coverage >= 95%) + frontend vitest
+make test-integration  # testcontainers Postgres built from infra/docker/postgres
+make test-live         # opt-in real AvalAI calls (live_llm marker, $0.05 cap)
+make lint              # ruff + mypy --strict + import-linter + tsc + eslint + prettier
+make fmt               # ruff format/fix + prettier
+make ci                # lint + test + test-integration
+make dry-run JOB=llm-smoke  # price an LLM job with zero calls (stack must be up)
+make llm-smoke         # live smoke through the stack; spend persisted in ops.llm_call
+make llm-models        # refresh config/llm-models.json from /v1/models (free)
+make seed/crawl/reparse (M2), make match/eval/eval-hypotheses (M3): not implemented yet
 ```
+
+Backend CLI inside the stack: `docker compose exec api villasanj --help`.
+On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0.1:5433).
+
+## Gotchas learned (keep these in mind)
+
+- **Escapes in written files:** the file-writing tool decodes `\uXXXX` into real characters. In Python
+  source, write invisible/special characters as `\N{NAME}` (e.g. `"\N{ZERO WIDTH NON-JOINER}"`). An
+  architecture test rejects invisible characters in `.py` files.
+- **Docker builds:** BuildKit sometimes times out resolving Docker Hub metadata from this network. If a
+  build fails with `DeadlineExceeded`, `docker pull <base-image>` first, then rebuild.
+- **Ports:** another local project (shopping-assistant) uses 3000/8000/6379/6333, which is why
+  Villasanj defaults to 3300/8800/5433.
+- **OpenAI SDK 3.x uses httpx2**; mock it with `httpx2.MockTransport` in tests.
+- **gemini-3.8-flash thinks by default** (~165–255 reasoning tokens even on trivial replies); measure
+  `reasoning_effort` per task before scaling judge/summary/explanation calls (ADR-0005 amendment).
+- `.env.example` must stay value-free; the owner's contact belongs only in `.env`.
+- pre-commit runs from the repo root (`backend/.venv/bin/pre-commit`); it blocks commits on lint/format
+  failures, so run `make fmt` before committing.
+- Research files are excluded from whitespace fixers so the owner's files stay untouched.
 
 ## Tooling preferences (owner's global instructions)
 

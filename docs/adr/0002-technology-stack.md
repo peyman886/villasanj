@@ -1,6 +1,6 @@
 # ADR-0002 — Technology stack (and what we deliberately leave out)
 
-Status: Proposed · Date: 2026-10-01
+Status: Accepted (M0 approval, 2026-10-01) · Date: 2026-10-01
 
 ## Context
 

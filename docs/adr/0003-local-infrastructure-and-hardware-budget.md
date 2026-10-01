@@ -1,6 +1,6 @@
 # ADR-0003 — Local infrastructure on a 16 GB Apple M4
 
-Status: Proposed · Date: 2026-10-01
+Status: Accepted (M0 approval, 2026-10-01) · Date: 2026-10-01
 
 ## Context (measured 2026-10-01)
 
