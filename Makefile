@@ -6,7 +6,7 @@ JOB ?= llm-smoke
 
 .DEFAULT_GOAL := help
 .PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live lint fmt \
-	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-scenarios crawl-status reparse report match eval eval-hypotheses
+	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-scenarios crawl-status crawl-metrics reparse report match eval eval-hypotheses
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -104,8 +104,12 @@ crawl-status: ## Frontier counts: make crawl-status P=jabama
 reparse: ## Rebuild listings, calendars and photo hashes from stored snapshots (zero network)
 	cd backend && uv run villasanj catalog ingest && uv run villasanj catalog fingerprint-photos
 
-report: ## Catalog numbers: scenario coverage and gazetteer resolution (zero network)
-	cd backend && uv run villasanj catalog coverage && uv run villasanj catalog places
+report: ## Catalog numbers: inventory, photo pipeline, scenario coverage, gazetteer (zero network)
+	cd backend && uv run villasanj catalog inventory && uv run villasanj catalog photo-report \
+		&& uv run villasanj catalog coverage && uv run villasanj catalog places
+
+crawl-metrics: ## Traffic per host with measured pacing, queue progress and recent runs (zero network)
+	cd backend && uv run villasanj crawl metrics
 
 seed: ## Not needed yet: reference data is versioned config; demo dataset seed comes in M11
 	@echo "make $@: nothing to seed. Region, scenarios and gazetteer live in config/*.toml and are read at use; a demo dataset seed is planned for M11 (docs/ROADMAP.md)."; exit 1

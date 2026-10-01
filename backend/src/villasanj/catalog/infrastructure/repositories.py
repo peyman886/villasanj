@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from villasanj.catalog.application.coverage import CoverageCounts
 from villasanj.catalog.application.places import PlaceNames
+from villasanj.catalog.application.reports import PhotoCounts
 from villasanj.catalog.domain.listing import (
     CalendarObservation,
     Listing,
@@ -430,3 +431,47 @@ class PgPlaceNameQuery:
         async with self._engine.connect() as conn:
             rows = (await conn.execute(query)).all()
         return [PlaceNames(row.city_fa, row.locality_fa, int(row.listings)) for row in rows]
+
+
+_PHOTO_COUNTS = text(
+    """
+    WITH listings AS (
+        SELECT platform, count(*) AS listings, sum(jsonb_array_length(photos)) AS referenced
+        FROM catalog.listing GROUP BY platform
+    ), photos AS (
+        SELECT platform, count(*) AS fingerprinted, count(DISTINCT sha256) AS distinct_images
+        FROM catalog.photo GROUP BY platform
+    ), embedded AS (
+        SELECT p.platform, count(DISTINCT p.sha256) AS embedded
+        FROM catalog.photo p
+        JOIN catalog.photo_embedding e ON e.sha256 = p.sha256 AND e.model_id = :model
+        GROUP BY p.platform
+    )
+    SELECT l.platform, l.listings, l.referenced, coalesce(p.fingerprinted, 0) AS fingerprinted,
+           coalesce(p.distinct_images, 0) AS distinct_images, coalesce(e.embedded, 0) AS embedded
+    FROM listings l
+    LEFT JOIN photos p USING (platform)
+    LEFT JOIN embedded e USING (platform)
+    ORDER BY l.platform
+    """
+)
+
+
+class PgPhotoStatsQuery:
+    def __init__(self, engine: AsyncEngine) -> None:
+        self._engine = engine
+
+    async def counts(self, model_id: str) -> list[PhotoCounts]:
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(_PHOTO_COUNTS, {"model": model_id})).all()
+        return [
+            PhotoCounts(
+                r.platform,
+                int(r.listings),
+                int(r.referenced or 0),
+                int(r.fingerprinted),
+                int(r.distinct_images),
+                int(r.embedded),
+            )
+            for r in rows
+        ]

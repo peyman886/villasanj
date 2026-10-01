@@ -14,9 +14,14 @@ import typer
 
 from villasanj.catalog.application.coverage import MeasureScenarioCoverage
 from villasanj.catalog.application.places import MeasurePlaceResolution
+from villasanj.catalog.application.reports import PhotoPipelineReport, RegionalInventory
 from villasanj.catalog.domain.listing import ListingId
 from villasanj.catalog.infrastructure.gazetteer_file import load_gazetteer
-from villasanj.catalog.infrastructure.repositories import PgCoverageQuery, PgPlaceNameQuery
+from villasanj.catalog.infrastructure.repositories import (
+    PgCoverageQuery,
+    PgPhotoStatsQuery,
+    PgPlaceNameQuery,
+)
 from villasanj.discovery.application.hypotheses import render_markdown
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.labeling import QueueExists
@@ -25,6 +30,7 @@ from villasanj.entrypoints.container import Container, build_container
 from villasanj.ingestion.application.capture import CAPTURE_KINDS, ScenarioCapture
 from villasanj.ingestion.application.errors import CrawlError, SourceBlocked
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
+from villasanj.ingestion.infrastructure.stats import PgCrawlStatsQuery
 from villasanj.pricing.domain.quote import Quote, StayRequest
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.application.llm.smoke import LLMSmokeCheck
@@ -241,6 +247,41 @@ def crawl_capture(
         raise typer.Exit(code=1)
 
 
+@crawl_app.command("metrics")
+def crawl_metrics(
+    runs: Annotated[int, typer.Option(min=0, help="Latest runs to list.")] = 6,
+) -> None:
+    """Traffic per host (with measured pacing), queue progress and recent runs (zero network)."""
+
+    async def run(container: Container) -> bool:
+        stats = PgCrawlStatsQuery(container.engine)
+        typer.echo("traffic (run requests; robots.txt checks excluded):")
+        for t in await stats.traffic():
+            statuses = " ".join(f"{s}:{n}" for s, n in t.statuses.items())
+            typer.echo(
+                f"  {t.platform:<7} {t.host:<16} responses={t.responses} [{statuses}] "
+                f"stored={t.stored_bytes / 1e6:.0f}MB interval min={t.min_interval_s}s "
+                f"median={t.median_interval_s}s {t.first:%m-%d %H:%M}..{t.last:%H:%M}Z"
+            )
+        typer.echo("queue:")
+        for p in await stats.progress():
+            statuses = " ".join(f"{s}={n}" for s, n in p.statuses.items())
+            reasons = f" reasons={p.reasons}" if p.reasons else ""
+            typer.echo(f"  {p.platform:<7} {p.kind:<9} {statuses}{reasons}")
+        if runs:
+            typer.echo("runs:")
+            for r in await stats.runs(runs):
+                end = f"{r.finished_at:%H:%M}Z" if r.finished_at else "-"
+                typer.echo(
+                    f"  {r.platform:<7} {r.status:<11} {r.started_at:%m-%d %H:%M}Z..{end} "
+                    f"fetched={r.fetched if r.fetched is not None else '-'} "
+                    f"stop={r.stop_reason or '-'}"
+                )
+        return True
+
+    asyncio.run(_with_container(run))
+
+
 @crawl_app.command("status")
 def crawl_status(platform: Annotated[str, typer.Argument(help="Platform slug.")]) -> None:
     """Frontier counts per status."""
@@ -321,6 +362,50 @@ def catalog_coverage() -> None:
 
     async def run(container: Container) -> bool:
         await _echo_coverage(container)
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@catalog_app.command("photo-report")
+def catalog_photo_report() -> None:
+    """Photo pipeline per platform: selected, downloaded, failed, hashed, embedded, stored."""
+
+    async def run(container: Container) -> bool:
+        report = PhotoPipelineReport(
+            PgCrawlStatsQuery(container.engine), PgPhotoStatsQuery(container.engine)
+        )
+        for r in await report.run(container.image_embedder().model_id):
+            failed = sum(r.failed_responses.values())
+            typer.echo(
+                f"{r.platform:<7} listings={r.listings} referenced={r.referenced} "
+                f"selected={r.selected} downloaded={r.downloaded} failed={failed} "
+                f"failed_or_skipped={r.failed_or_skipped} unfinished={r.unfinished} "
+                f"coverage={r.coverage:.1%} fingerprinted={r.fingerprinted} "
+                f"embedded={r.embedded} stored={r.stored_bytes / 1e9:.2f}GB"
+            )
+            if r.reasons:
+                typer.echo(f"    reasons: {r.reasons}")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@catalog_app.command("inventory")
+def catalog_inventory() -> None:
+    """Listings per platform: discovered, fetched, parsed, in the region, with key fields."""
+
+    async def run(container: Container) -> bool:
+        inventory = RegionalInventory(
+            PgCrawlStatsQuery(container.engine), container.listings, container.crawl.region
+        )
+        for r in await inventory.run(sorted(container.crawl.adapters)):
+            responses = " ".join(f"{s}:{n}" for s, n in r.responses.items())
+            typer.echo(
+                f"{r.platform:<7} discovered={r.discovered} responses=[{responses}] "
+                f"parsed={r.parsed} in_region={r.in_region} with_location={r.with_location} "
+                f"with_capacity={r.with_capacity} with_base_price={r.with_base_price}"
+            )
         return True
 
     asyncio.run(_with_container(run))
