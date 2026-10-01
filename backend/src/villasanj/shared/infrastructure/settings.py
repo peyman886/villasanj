@@ -94,6 +94,10 @@ class Settings(BaseSettings):
         return self.config_dir / "gazetteer.toml"
 
     @property
+    def holidays_path(self) -> Path:
+        return self.config_dir / "holidays.toml"
+
+    @property
     def region_path(self) -> Path:
         return self.config_dir / self.crawl.region_file
 

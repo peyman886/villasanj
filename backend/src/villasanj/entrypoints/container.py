@@ -14,12 +14,15 @@ from villasanj.catalog.application.photos import EnqueueListingPhotos, Fingerpri
 from villasanj.catalog.infrastructure.dinov2 import DinoV2Embedder
 from villasanj.catalog.infrastructure.imaging import ImagehashHasher
 from villasanj.catalog.infrastructure.repositories import (
+    PgCalendarFlagQuery,
     PgEmbeddingStore,
     PgListingRepository,
     PgPhotoRepository,
     StoredPhotoBytes,
 )
+from villasanj.discovery.application.dates import BuildHolidayCalendar
 from villasanj.discovery.application.hypotheses import BuildHypothesisReport
+from villasanj.discovery.infrastructure.holidays import load_holiday_sources
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
 from villasanj.entity_resolution.application.judge import JudgePairs
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
@@ -182,6 +185,11 @@ class Container:
 
     def hypothesis_report(self) -> BuildHypothesisReport:
         return BuildHypothesisReport(self.candidates(), self.listings, self.quotes())
+
+    def holiday_calendar(self) -> BuildHolidayCalendar:
+        return BuildHolidayCalendar(
+            PgCalendarFlagQuery(self.engine), load_holiday_sources(self.settings.holidays_path)
+        )
 
     def adapter(self, platform: str) -> SourceAdapter:
         try:

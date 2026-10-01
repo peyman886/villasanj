@@ -78,6 +78,8 @@ class ViolationCode(StrEnum):
     UNKNOWN_REVIEW = "unknown_review"
     SINGLE_OPINION_NOT_LABELLED = "single_opinion_not_labelled"
     SPAN_NOT_IN_SOURCE = "span_not_in_source"
+    NUMBER_NOT_IN_SOURCE = "number_not_in_source"  # structured output with a number nobody said
+    INCOMPLETE_DATE = "incomplete_date"  # a date expression missing a part it needs
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,0 +1,22 @@
+# Fixed solar-calendar official holidays of Iran: they fall on the same Jalali day every year.
+# Lunar (Hijri) holidays move every year and are deliberately NOT listed: Villasanj knows them
+# only where platform calendars flag them (catalog.calendar_observation.is_holiday), and a date
+# that depends on an unobserved lunar holiday is shown with a caveat (discovery/domain/dates.py).
+source = "Iran's official calendar: fixed solar-date public holidays (entered 2026-10-01)"
+
+# Platforms whose calendar flag means a public holiday. shab's "is_peak" also marks high season and
+# did not flag 22 Aban 1405 (2026-11-13), which jabama flags on all 2,986 listings, so it is not used.
+observed_from = ["jabama"]
+
+holidays = [
+  { month = 1, day = 1, name_fa = "نوروز" },
+  { month = 1, day = 2, name_fa = "نوروز" },
+  { month = 1, day = 3, name_fa = "نوروز" },
+  { month = 1, day = 4, name_fa = "نوروز" },
+  { month = 1, day = 12, name_fa = "روز جمهوری اسلامی" },
+  { month = 1, day = 13, name_fa = "روز طبیعت" },
+  { month = 3, day = 14, name_fa = "رحلت امام خمینی" },
+  { month = 3, day = 15, name_fa = "قیام ۱۵ خرداد" },
+  { month = 11, day = 22, name_fa = "پیروزی انقلاب اسلامی" },
+  { month = 12, day = 29, name_fa = "ملی شدن صنعت نفت" },
+]

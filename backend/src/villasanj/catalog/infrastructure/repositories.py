@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from villasanj.catalog.application.coverage import CoverageCounts
 from villasanj.catalog.application.places import PlaceNames
+from villasanj.catalog.application.reading import HolidayFlags
 from villasanj.catalog.application.reports import PhotoCounts
 from villasanj.catalog.domain.listing import (
     CalendarObservation,
@@ -600,3 +601,30 @@ class StoredPhotoBytes:
         async with self._engine.connect() as conn:
             keys = [row.sha256 for row in (await conn.execute(query)).all()]
         return [await self._blobs.get(key) for key in keys]
+
+
+_HOLIDAY_FLAGS = text(
+    """
+    SELECT platform, night,
+           count(DISTINCT external_id) FILTER (WHERE is_holiday) AS flagged,
+           count(DISTINCT external_id) FILTER (WHERE is_holiday IS NOT NULL) AS reported,
+           max(observed_at) AS observed_at
+    FROM catalog.calendar_observation
+    WHERE night >= :start AND night < :end
+    GROUP BY platform, night
+    ORDER BY night, platform
+    """
+)
+
+
+class PgCalendarFlagQuery:
+    def __init__(self, engine: AsyncEngine) -> None:
+        self._engine = engine
+
+    async def holiday_flags(self, start: date, end: date) -> list[HolidayFlags]:
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(_HOLIDAY_FLAGS, {"start": start, "end": end})).all()
+        return [
+            HolidayFlags(r.platform, r.night, int(r.flagged), int(r.reported), r.observed_at)
+            for r in rows
+        ]

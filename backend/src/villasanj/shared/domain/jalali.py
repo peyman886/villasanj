@@ -8,7 +8,7 @@ day numbers, which only shifts the epoch and keeps the algorithm intact.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 from villasanj.shared.domain.errors import InvalidJalaliDate
 
@@ -17,6 +17,8 @@ _BREAKS: tuple[int, ...] = (
     -61, 9, 38, 199, 426, 686, 756, 818, 1111, 1181, 1210,
     1635, 2060, 2097, 2192, 2262, 2324, 2394, 2456, 3178,
 )  # fmt: skip
+# Iran has kept +03:30 all year since daylight saving time was abolished in 2022.
+IRAN_TIME = timezone(timedelta(hours=3, minutes=30), "IRST")
 MIN_JALALI_YEAR = 1  # date.toordinal() requires Gregorian year >= 1
 MAX_JALALI_YEAR = _BREAKS[-1]
 JALALI_EPOCH_OFFSET = 621
@@ -161,3 +163,8 @@ class JalaliDate:
 
     def __str__(self) -> str:
         return f"{self.year:04d}/{self.month:02d}/{self.day:02d}"
+
+
+def iran_today(now: datetime) -> date:
+    """The calendar day in Iran at ``now`` (users' "today" and "tonight" mean this day)."""
+    return now.astimezone(IRAN_TIME).date()

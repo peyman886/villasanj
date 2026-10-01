@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import jdatetime
 import pytest
@@ -6,7 +6,12 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from villasanj.shared.domain.errors import InvalidJalaliDate
-from villasanj.shared.domain.jalali import JalaliDate, is_jalali_leap_year, jalali_month_length
+from villasanj.shared.domain.jalali import (
+    JalaliDate,
+    iran_today,
+    is_jalali_leap_year,
+    jalali_month_length,
+)
 
 # Two full centuries, day by day, against an independent implementation.
 FIRST_DAY = date(1925, 3, 21)  # 1304/01/01
@@ -65,3 +70,8 @@ def test_rejects_nonexistent_dates(y: int, m: int, d: int) -> None:
 
 def test_ordering() -> None:
     assert JalaliDate(1404, 12, 29) < JalaliDate(1405, 1, 1)
+
+
+def test_today_in_iran_turns_at_iran_midnight() -> None:
+    assert iran_today(datetime(2026, 10, 1, 20, 29, tzinfo=UTC)) == date(2026, 10, 1)
+    assert iran_today(datetime(2026, 10, 1, 20, 30, tzinfo=UTC)) == date(2026, 10, 2)

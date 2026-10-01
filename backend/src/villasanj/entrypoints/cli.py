@@ -25,6 +25,15 @@ from villasanj.catalog.infrastructure.repositories import (
     PgPlaceNameQuery,
 )
 from villasanj.discovery.application.hypotheses import render_markdown
+from villasanj.discovery.domain.dates import (
+    DateExpression,
+    HolidayKind,
+    NextHoliday,
+    Nowruz,
+    Weekend,
+    describe_fa,
+    resolve,
+)
 from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
@@ -39,6 +48,7 @@ from villasanj.ingestion.infrastructure.stats import PgCrawlStatsQuery
 from villasanj.pricing.domain.quote import Quote, StayRequest
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.application.llm.smoke import LLMSmokeCheck
+from villasanj.shared.domain.jalali import iran_today
 from villasanj.shared.domain.money import MoneyRange
 from villasanj.shared.domain.stay import DateRange, GuestCount
 from villasanj.shared.infrastructure.llm.models_snapshot import (
@@ -60,6 +70,7 @@ pricing_app = typer.Typer(no_args_is_help=True, help="All-in quotes from stored 
 er_app = typer.Typer(no_args_is_help=True, help="Entity resolution: candidates, gold set, eval.")
 api_app = typer.Typer(no_args_is_help=True, help="HTTP API tooling.")
 enrichment_app = typer.Typer(no_args_is_help=True, help="Listing claims and their truth check.")
+discovery_app = typer.Typer(no_args_is_help=True, help="Search: dates, intent, ranking.")
 app.add_typer(llm_app, name="llm")
 app.add_typer(crawl_app, name="crawl")
 app.add_typer(catalog_app, name="catalog")
@@ -67,6 +78,7 @@ app.add_typer(pricing_app, name="pricing")
 app.add_typer(er_app, name="er")
 app.add_typer(api_app, name="api")
 app.add_typer(enrichment_app, name="enrichment")
+app.add_typer(discovery_app, name="discovery")
 
 DEFAULT_SMOKE_BUDGET_USD = "0.05"
 
@@ -518,6 +530,40 @@ def enrichment_claims() -> None:
                 typer.echo(f"    unparsed wording ({count}): {text}")
             for text, count in r.top_other_targets:
                 typer.echo(f"    target without a category ({count}): {text}")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@discovery_app.command("holidays")
+def discovery_holidays(
+    days: Annotated[int, typer.Option(help="How many days ahead to list.")] = 120,
+) -> None:
+    """Days off the date resolver knows, with sources, and how common expressions resolve."""
+
+    async def run(container: Container) -> bool:
+        today = iran_today(container.clock.now())
+        calendar = await container.holiday_calendar().run(today)
+        horizon = calendar.known_until or "none (no observed platform flags)"
+        typer.echo(f"today={today} lunar holidays known until {horizon}")
+        for offset in range(days):
+            day = today + timedelta(days=offset)
+            for h in calendar.holidays_on(day):
+                if h.kind is not HolidayKind.WEEKLY:
+                    typer.echo(f"  {day} {h.kind:<8} {h.name_fa or '-'} [{h.source}]")
+        expressions: list[tuple[str, DateExpression]] = [
+            ("this weekend", Weekend()),
+            ("next weekend", Weekend(1)),
+            ("next holiday", NextHoliday()),
+            ("Nowruz", Nowruz()),
+        ]
+        for label, expression in expressions:
+            r = resolve(expression, today, calendar)
+            caveats = ",".join(sorted(r.caveats)) or "-"
+            typer.echo(
+                f"  {label:<13} {r.window.check_in}..{r.window.check_out} "
+                f"flexible={r.flexible} caveats={caveats} | {describe_fa(r.window)}"
+            )
         return True
 
     asyncio.run(_with_container(run))

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import date, datetime
 from typing import Protocol
 
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
@@ -23,4 +25,21 @@ class ListingReader(Protocol):
         self, platform: str, stay: DateRange
     ) -> dict[ListingId, list[CalendarObservation]]:
         """The same for every listing of a platform at once (for batch reports)."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class HolidayFlags:
+    """How many of a platform's listings flag a night as a holiday (a national-calendar hint)."""
+
+    platform: str
+    night: date
+    flagged: int  # listings with at least one observation flagging the night
+    reported: int  # listings with an observation that says anything about it
+    observed_at: datetime  # the newest of those observations
+
+
+class CalendarFlagQuery(Protocol):
+    async def holiday_flags(self, start: date, end: date) -> list[HolidayFlags]:
+        """Per platform and night in [start, end), ordered by night then platform."""
         ...

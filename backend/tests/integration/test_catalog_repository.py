@@ -10,7 +10,10 @@ from tests.fakes.llm import NOW
 from tests.unit.catalog.test_listing import parsed
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.catalog.domain.review import ListingReview
-from villasanj.catalog.infrastructure.repositories import PgListingRepository
+from villasanj.catalog.infrastructure.repositories import (
+    PgCalendarFlagQuery,
+    PgListingRepository,
+)
 from villasanj.ingestion.domain.parsed import (
     Availability,
     DatePrecision,
@@ -160,3 +163,38 @@ async def test_reviews_upsert_newest_first_and_read_back(engine: AsyncEngine) ->
     assert (review.rating, review.text, review.host_replied) == (4.0, "جدید", True)
     assert review.stayed_precision is DatePrecision.MONTH
     assert review.provenance.snapshot_id == newer_snapshot
+
+
+async def test_holiday_flags_count_listings_not_observations(engine: AsyncEngine) -> None:
+    platform = f"flags-{id(engine)}"
+    repo = PgListingRepository(engine)
+    holiday, ordinary = date(2031, 3, 21), date(2031, 3, 22)
+    for index, flag in enumerate((True, True, False)):
+        stored = Listing.from_parsed(
+            parsed(platform=platform, external_id=str(index)),
+            f"00000000-0000-0000-0000-00000000070{index}",
+            NOW,
+        )
+        days = [
+            ParsedCalendarDay(holiday, Availability.AVAILABLE, None, None, None, flag),
+            ParsedCalendarDay(ordinary, Availability.AVAILABLE, None, None, None, None),
+        ]
+        snapshots = [
+            f"00000000-0000-0000-0000-00000000071{index}",
+            f"00000000-0000-0000-0000-00000000072{index}",
+        ]
+        calendar = [
+            CalendarObservation.from_parsed(stored.id, day, snapshot, NOW)
+            for snapshot in snapshots  # seen twice: still one listing
+            for day in days
+        ]
+        await repo.save(stored, calendar)
+    rows = [
+        r
+        for r in await PgCalendarFlagQuery(engine).holiday_flags(
+            holiday, ordinary + timedelta(days=1)
+        )
+        if r.platform == platform
+    ]
+    assert [(r.night, r.flagged, r.reported) for r in rows] == [(holiday, 2, 3), (ordinary, 0, 0)]
+    assert rows[0].observed_at == NOW
