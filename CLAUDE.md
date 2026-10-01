@@ -178,7 +178,8 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `enrichment features` (description claims vs amenity lists), `llm spend` (ledger totals and the cap),
 `discovery search <query>` (query → ranked listings with reasons; one LLM call),
 `discovery eval-understanding <cases.jsonl> [--dry-run]` (M8 crit. 1 harness), `enrichment coast`,
-`enrichment truth-sea`, `discovery drive-times` (OSRM up). Search page: `/search`.
+`enrichment truth-sea`, `discovery drive-times` (OSRM up), `enrichment tag-photos` / `photo-queue` /
+`photo-tags-eval` (SigLIP 2 tags, gated by labels at `/label/photos`). Search page: `/search`.
 Labelling UI: `http://localhost:3300/label` (stack) or `npm run dev` with `API_URL` set.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.
