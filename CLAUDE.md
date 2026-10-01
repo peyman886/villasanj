@@ -166,7 +166,8 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `er match`, `er queue --name <q>`, `er evaluate`, `er hypotheses`, `crawl capture [--live]`,
 `crawl requeue <platform> --kind <k>`, `crawl metrics`, `catalog photo-report`, `catalog inventory`,
 `catalog reviews`, `pricing offers`, `er judge --low --high --dry-run`, `api openapi`,
-`enrichment claims` (distance-claim parse coverage), `discovery holidays` (days off with sources).
+`enrichment claims` (distance-claim parse coverage), `discovery holidays` (days off with sources),
+`discovery understand [--dry-run] <query>...` (query → verified intent + resolved dates; live calls).
 Labelling UI: `http://localhost:3300/label` (stack) or `npm run dev` with `API_URL` set.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.
