@@ -245,6 +245,40 @@ class PgFrontierRepository:
         async with self._engine.begin() as conn:
             return len((await conn.execute(statement)).all())
 
+    async def done_by_host(self, platform: str, kinds: Sequence[PageKind]) -> dict[str, int]:
+        host = func.substring(frontier.c.url, r"^[a-z]+://([^/:]+)")
+        query = (
+            select(host.label("host"), func.count().label("items"))
+            .where(
+                frontier.c.platform == platform,
+                frontier.c.kind.in_([k.value for k in kinds]),
+                frontier.c.status == FrontierStatus.DONE.value,
+            )
+            .group_by(host)
+        )
+        async with self._engine.connect() as conn:
+            return {row.host: int(row.items) for row in (await conn.execute(query)).all()}
+
+    async def requeue(self, platform: str, kinds: Sequence[PageKind], now: datetime) -> int:
+        statement = (
+            update(frontier)
+            .where(
+                frontier.c.platform == platform,
+                frontier.c.kind.in_([k.value for k in kinds]),
+                frontier.c.status == FrontierStatus.DONE.value,
+            )
+            .values(
+                status=FrontierStatus.PENDING.value,
+                attempts=0,
+                next_attempt_at=now,
+                last_error=None,
+                updated_at=now,
+            )
+            .returning(frontier.c.id)
+        )
+        async with self._engine.begin() as conn:
+            return len((await conn.execute(statement)).all())
+
     async def counts(self, platform: str) -> dict[FrontierStatus, int]:
         query = (
             select(frontier.c.status, func.count())

@@ -7,66 +7,18 @@ import pytest
 from tests.fakes.ingestion import (
     BASE,
     PLATFORM,
-    POLICY,
-    PROFILE,
     REGION,
-    InMemoryBlobStore,
-    InMemoryCrawlRunRepository,
-    InMemoryFrontierRepository,
-    InMemorySnapshotRepository,
-    LinkFollowingAdapter,
-    ScriptedFetcher,
-    SteppingClock,
+    World,
     page,
     request,
 )
 from villasanj.ingestion.application.crawl import (
     MAX_FETCH_ATTEMPTS,
-    CrawlPlatform,
     SnapshotReplayFetcher,
 )
 from villasanj.ingestion.application.errors import SourceBlocked, TransientFetchError
-from villasanj.ingestion.application.polite_fetcher import PoliteFetcher
-from villasanj.ingestion.application.ports import Fetcher, FrontierStatus
+from villasanj.ingestion.application.ports import FrontierStatus
 from villasanj.ingestion.domain.pages import PageKind
-from villasanj.ingestion.infrastructure.http import ProtegoRobotsParser
-
-
-class World:
-    def __init__(self) -> None:
-        self.clock = SteppingClock()
-        self.network = ScriptedFetcher(self.clock)
-        self.blobs = InMemoryBlobStore()
-        self.snapshots = InMemorySnapshotRepository()
-        self.frontier = InMemoryFrontierRepository()
-        self.runs = InMemoryCrawlRunRepository()
-
-    def polite(self) -> PoliteFetcher:
-        return PoliteFetcher(
-            self.network,
-            ProtegoRobotsParser(),
-            POLICY,
-            {PROFILE.slug: PROFILE},
-            self.clock,
-            self.clock.sleep,
-            jitter=lambda: 0.0,
-        )
-
-    def crawl(self, fetcher: Fetcher | None = None) -> CrawlPlatform:
-        return CrawlPlatform(
-            LinkFollowingAdapter(),
-            fetcher or self.polite(),
-            self.blobs,
-            self.snapshots,
-            self.frontier,
-            self.runs,
-            self.clock,
-        )
-
-
-@pytest.fixture
-def world() -> World:
-    return World()
 
 
 async def test_seed_fetch_discover_store(world: World) -> None:

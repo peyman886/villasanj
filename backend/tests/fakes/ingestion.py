@@ -8,8 +8,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from tests.fakes.llm import NOW
+from villasanj.ingestion.application.crawl import CrawlPlatform
+from villasanj.ingestion.application.polite_fetcher import PoliteFetcher
 from villasanj.ingestion.application.ports import (
     CrawlReport,
+    Fetcher,
     FrontierItem,
     FrontierStatus,
 )
@@ -17,6 +20,7 @@ from villasanj.ingestion.domain.pages import FetchedPage, PageKind, PageRequest,
 from villasanj.ingestion.domain.parsed import ParsedCalendar, ParsedListing
 from villasanj.ingestion.domain.policy import CrawlPolicy, SourceProfile
 from villasanj.ingestion.domain.region import Place, Region
+from villasanj.ingestion.infrastructure.http import ProtegoRobotsParser
 from villasanj.shared.application.blobs import BlobRef
 from villasanj.shared.domain.geo import GeoPoint
 
@@ -216,6 +220,30 @@ class InMemoryFrontierRepository:
     async def release(self, item: FrontierItem) -> None:
         self.rows[item.request.key].status = FrontierStatus.PENDING
 
+    async def done_by_host(self, platform: str, kinds: Sequence[PageKind]) -> dict[str, int]:
+        hosts: dict[str, int] = {}
+        for row in self.rows.values():
+            request = row.item.request
+            if (
+                request.platform == platform
+                and request.kind in kinds
+                and row.status is FrontierStatus.DONE
+            ):
+                hosts[request.host] = hosts.get(request.host, 0) + 1
+        return hosts
+
+    async def requeue(self, platform: str, kinds: Sequence[PageKind], now: datetime) -> int:
+        count = 0
+        for row in self.rows.values():
+            request = row.item.request
+            if (
+                request.platform == platform
+                and request.kind in kinds
+                and row.status is FrontierStatus.DONE
+            ):
+                row.status, row.not_before, count = FrontierStatus.PENDING, now, count + 1
+        return count
+
     async def release_stale(self, platform: str, claimed_before: datetime) -> int:
         stale = [
             row
@@ -281,3 +309,36 @@ class LinkFollowingAdapter:
 
     def parse_calendar(self, page: FetchedPage) -> ParsedCalendar | None:
         return None
+
+
+# A whole crawl over in-memory ports, with a scripted network and a clock that moves on sleep.
+class World:
+    def __init__(self) -> None:
+        self.clock = SteppingClock()
+        self.network = ScriptedFetcher(self.clock)
+        self.blobs = InMemoryBlobStore()
+        self.snapshots = InMemorySnapshotRepository()
+        self.frontier = InMemoryFrontierRepository()
+        self.runs = InMemoryCrawlRunRepository()
+
+    def polite(self) -> PoliteFetcher:
+        return PoliteFetcher(
+            self.network,
+            ProtegoRobotsParser(),
+            POLICY,
+            {PROFILE.slug: PROFILE},
+            self.clock,
+            self.clock.sleep,
+            jitter=lambda: 0.0,
+        )
+
+    def crawl(self, fetcher: Fetcher | None = None) -> CrawlPlatform:
+        return CrawlPlatform(
+            LinkFollowingAdapter(),
+            fetcher or self.polite(),
+            self.blobs,
+            self.snapshots,
+            self.frontier,
+            self.runs,
+            self.clock,
+        )

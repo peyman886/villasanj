@@ -58,6 +58,31 @@ async def test_only_stale_claims_are_released(engine: AsyncEngine) -> None:
     assert again is not None
 
 
+async def test_requeue_brings_back_only_finished_pages_of_the_given_kinds(
+    engine: AsyncEngine,
+) -> None:
+    clock = SteppingClock()
+    frontier = PgFrontierRepository(engine, clock)
+    platform = f"capture-{id(engine)}"
+    pages = [
+        PageRequest(platform, PageKind.LISTING, f"https://www.capture.test/stay/{id(engine)}"),
+        PageRequest(platform, PageKind.CALENDAR, f"https://api.capture.test/cal/{id(engine)}"),
+        PageRequest(platform, PageKind.PHOTO, f"https://cdn.capture.test/{id(engine)}.jpg"),
+    ]
+    await frontier.enqueue(pages, None)
+    while (item := await frontier.claim(platform, clock.now())) is not None:
+        await frontier.complete(item, "00000000-0000-0000-0000-000000000c02")
+    kinds = [PageKind.LISTING, PageKind.CALENDAR]
+    assert await frontier.done_by_host(platform, kinds) == {
+        "www.capture.test": 1,
+        "api.capture.test": 1,
+    }
+    assert await frontier.requeue(platform, kinds, clock.now()) == 2
+    counts = await frontier.counts(platform)
+    assert (counts[FrontierStatus.PENDING], counts[FrontierStatus.DONE]) == (2, 1)
+    assert await frontier.done_by_host(platform, kinds) == {}
+
+
 async def test_concurrent_claims_never_hand_out_the_same_item(engine: AsyncEngine) -> None:
     frontier = PgFrontierRepository(engine, FixedClock())
     platform = f"concurrency-{id(engine)}"

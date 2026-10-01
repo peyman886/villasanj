@@ -22,6 +22,7 @@ from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.labeling import QueueExists
 from villasanj.entity_resolution.domain.evaluation import Interval
 from villasanj.entrypoints.container import Container, build_container
+from villasanj.ingestion.application.capture import CAPTURE_KINDS, ScenarioCapture
 from villasanj.ingestion.application.errors import CrawlError, SourceBlocked
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
 from villasanj.pricing.domain.quote import Quote, StayRequest
@@ -189,6 +190,57 @@ def crawl_run(
         raise typer.Exit(code=1)
 
 
+@crawl_app.command("capture")
+def crawl_capture(
+    live: Annotated[
+        bool, typer.Option(help="Queue and fetch (default: show the plan only).")
+    ] = False,
+    max_requests: Annotated[int, typer.Option(min=1, help="Per platform.")] = 10_000,
+) -> None:
+    """Re-observe calendars and prices of every known listing, all platforms in one window.
+
+    Do not run it while a gold set is being labelled: it changes the catalog under the labels.
+    """
+
+    async def run(container: Container) -> bool:
+        platforms = sorted(container.crawl.adapters)
+        capture = ScenarioCapture(container.crawl.frontier, container.crawl.policy, container.clock)
+        for plan in [await capture.plan(p) for p in platforms]:
+            hosts = " ".join(f"{h}={n}" for h, n in sorted(plan.requests_by_host.items()))
+            hours = plan.estimated.total_seconds() / 3600
+            typer.echo(
+                f"{plan.platform}: requests={plan.requests} ({hosts}) estimated={hours:.1f}h"
+            )
+        if not live:
+            typer.echo("plan only: nothing was queued (add --live to capture)")
+            return True
+        queued = await capture.requeue(platforms)
+        typer.echo("queued: " + " ".join(f"{p}={n}" for p, n in queued.items()))
+        results = await asyncio.gather(
+            *(
+                container.crawler(p, live=True).run(
+                    container.crawl.region, max_requests, True, CAPTURE_KINDS
+                )
+                for p in platforms
+            ),
+            return_exceptions=True,
+        )
+        ok = True
+        for platform, result in zip(platforms, results, strict=True):
+            if isinstance(result, BaseException):
+                typer.echo(f"{platform}: {result}", err=True)
+                ok = False
+                continue
+            typer.echo(f"{platform}: fetched={result.fetched} stop={result.stop_reason}")
+            ok = ok and not result.stop_reason.startswith("blocked")
+            await container.catalog_ingest().run(platform)
+        await _echo_coverage(container)
+        return ok
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
 @crawl_app.command("status")
 def crawl_status(platform: Annotated[str, typer.Argument(help="Platform slug.")]) -> None:
     """Frontier counts per status."""
@@ -268,14 +320,7 @@ def catalog_coverage() -> None:
     """Share of listings whose stored calendars cover every night of each stay scenario."""
 
     async def run(container: Container) -> bool:
-        scenarios = load_scenarios(container.settings.scenarios_path)
-        query = MeasureScenarioCoverage(PgCoverageQuery(container.engine))
-        for row in await query.run(sorted(container.crawl.adapters), scenarios):
-            spread = f"{row.spread.total_seconds() / 3600:.1f}h" if row.spread else "-"
-            typer.echo(
-                f"{row.platform:<8} {row.scenario:<8} covered={row.covered}/{row.listings} "
-                f"({row.ratio:.1%}) observation_spread={spread}"
-            )
+        await _echo_coverage(container)
         return True
 
     asyncio.run(_with_container(run))
@@ -506,6 +551,17 @@ def _render_quote(quote: Quote) -> str:
         f" observed={quote.newest_observation:%Y-%m-%d %H:%M}Z" if quote.newest_observation else ""
     )
     return f"{head}{total} source={quote.source}{caveats}{seen}"
+
+
+async def _echo_coverage(container: Container) -> None:
+    scenarios = load_scenarios(container.settings.scenarios_path)
+    query = MeasureScenarioCoverage(PgCoverageQuery(container.engine))
+    for row in await query.run(sorted(container.crawl.adapters), scenarios):
+        spread = f"{row.spread.total_seconds() / 3600:.1f}h" if row.spread else "-"
+        typer.echo(
+            f"{row.platform:<8} {row.scenario:<8} covered={row.covered}/{row.listings} "
+            f"({row.ratio:.1%}) observation_spread={spread}"
+        )
 
 
 async def _with_container[R](run: Callable[[Container], Awaitable[R]]) -> R:

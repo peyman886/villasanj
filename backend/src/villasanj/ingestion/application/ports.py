@@ -112,6 +112,14 @@ class FrontierRepository(Protocol):
         """Return items left in progress by a crashed run (claimed before the cut-off)."""
         ...
 
+    async def done_by_host(self, platform: str, kinds: Sequence[PageKind]) -> dict[str, int]:
+        """Finished items of these kinds, per host (input to a re-capture estimate)."""
+        ...
+
+    async def requeue(self, platform: str, kinds: Sequence[PageKind], now: datetime) -> int:
+        """Put finished items of these kinds back in the queue, to observe them again."""
+        ...
+
     async def counts(self, platform: str) -> dict[FrontierStatus, int]: ...
 
 
