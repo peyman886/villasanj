@@ -211,7 +211,7 @@ def render_markdown(report: HypothesisReport) -> str:
         )
         + f", in {report.pairs_with_hidden_night} of {report.pairs} pairs.",
         "",
-        "A taken night on jabama does not say whether it is booked or closed by the host "
+        "Some platforms do not say whether a taken night is booked or closed by the host "
         "(stored as unavailable), so a hidden night means *shown free elsewhere*, not *bookable*.",
         "",
     ]
