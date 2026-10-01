@@ -41,7 +41,10 @@ Context files (local):
   "Work done ahead of its milestone"): offers with provenance and staleness (M6); the ADR-0007
   slot verifier (M10); reviews per listing with a Bayesian prior (M10); constrained clustering and
   `er.villa*` schema, **not run** (M5); listing API + typed TS client (M7); the gray-zone judge,
-  **dry-run only** (M5). Never run clustering or live judging before the gold set exists.
+  **dry-run only** (M5); listing page with provenance popovers (M7); distance and feature claims
+  (M9); date resolver, holiday calendar, query understanding, ranking, search API and `/search`
+  page at listing level (M8); review summaries and explanations (M10); `llm spend`.
+  Never run clustering or live judging before the gold set exists.
 
 ## Working agreement (from the owner)
 
