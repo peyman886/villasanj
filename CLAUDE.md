@@ -44,7 +44,16 @@ Context files (local):
   **dry-run only** (M5); listing page with provenance popovers (M7); distance and feature claims
   (M9); date resolver, holiday calendar, query understanding, ranking, search API and `/search`
   page at listing level (M8); review summaries and explanations (M10); `llm spend`.
-  Never run clustering or live judging before the gold set exists.
+  Added 2026-10-02: geo evidence from OSM (coastline + places, OSRM drive times; ADR-0013 and its
+  amendment), the truth check on listing pages and as a search caution, photo tags (SigLIP 2,
+  thresholds wait for labels), `/metrics`, `/how-we-rank`, per-person shares, the explanation
+  eval and bake-off (explanation streamed after results), the blind summary review tool
+  (`/label/summaries`, queue summaries-v1), the 50-listing smoke test, query prompt v4
+  (`unhandled` wishes). Never run clustering or live judging before the gold set exists.
+- Owner reviews pending: ~300 ER pairs (`/label`, gold-v1, after the crawl), ~300 photos
+  (`/label/photos`, photos-v1), 20 summaries (`/label/summaries`), the 50-query draft set
+  (`eval/query-understanding/draft-v1.jsonl`) and the explanation texts
+  (`docs/reference/explanation-bakeoff-2026-10-02.md`). LLM spend so far: ledger `llm spend`.
 
 ## Working agreement (from the owner)
 
