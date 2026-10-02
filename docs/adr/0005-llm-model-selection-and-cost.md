@@ -215,3 +215,14 @@ review found one verifier gap, «در دسترس قرار دارد» stated as a
 variants. `expected_output_tokens` for the task is 120 (was 350) from these measurements. Re-run
 the bake-off at a busier hour and after the owner reviews the texts; a prompt that makes a lite
 model's prose acceptable would meet the target.
+
+
+## Amendment (estimator check, 2026-10-02): review summaries within ±25%
+
+M9 criterion 5 asks that a dry run's estimate for an enrichment job be within ±25% of the ledger.
+The only LLM enrichment job so far is review summaries (claims are rule-based; VLM checks wait
+for photo-tag thresholds). On 24 random jabama listings with ≥ 5 text reviews the estimate was
+$0.0540 against $0.0346 spent (+56%): `expected_output_tokens = 500` against a measured mean of
+292 (reasoning included, low effort). Set to 300 from that sample, then checked on 24 **other**
+listings: estimate $0.0363, spent $0.0352 (+3%). All 48 summaries passed the verifier on the
+first try (0 retries, 0 dropped points).
