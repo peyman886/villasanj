@@ -33,8 +33,11 @@ async def test_the_report_counts_wrong_missing_and_extra_slots() -> None:
     cases = [
         EvalCase("آخر هفته برای ۴ بزرگسال و ۲ بچه", WEEKEND),
         EvalCase(
-            "آخر هفته زیر ۵ میلیون",
-            SearchIntent(dates=DateSpec(kind="weekend"), budget=Budget(max_toman=5_000_000)),
+            "آخر هفته کلاً زیر ۵ میلیون",
+            SearchIntent(
+                dates=DateSpec(kind="weekend"),
+                budget=Budget(max_toman=5_000_000, basis="whole_stay"),
+            ),
         ),
     ]
     answers = (

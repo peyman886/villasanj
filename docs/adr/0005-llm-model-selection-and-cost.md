@@ -177,3 +177,8 @@ sea). Haiku returned fields outside the schema on four queries (`check_in`, `bed
 validator rejected on every retry. `config/llm.toml` now routes `query_understanding` to gpt-5.4-mini
 with gemini-3.1-flash-lite as the fallback (~$0.0012 per query). Re-run the bake-off after the owner
 reviews the draft set; the decision may change.
+
+Follow-up (same day): gpt-5.4-mini guessed a basis for budgets that state none («زیر ۲۰ میلیون»),
+which hid the budget question in search. A deterministic guard now keeps a basis only when the
+query names it (A19). Re-scored from the cached gpt-5.4-mini answers ($0): slots 98.6%, exact
+96%, 0 invented; latency is the uncached run's above.

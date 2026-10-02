@@ -85,3 +85,15 @@ async def test_what_is_still_broken_after_the_retry_is_dropped() -> None:
 def test_plan_prices_one_request_per_query_with_zero_calls() -> None:
     requests = UnderstandQuery(ScriptedClient(), [QUERY, "امشب"]).plan()
     assert [r.messages[-1].text for r in requests] == [f"Query: {QUERY}", "Query: امشب"]
+
+
+async def test_a_guessed_budget_basis_becomes_unknown_without_a_retry() -> None:
+    assert HONEST.budget is not None
+    guessed = HONEST.model_copy(
+        update={"budget": HONEST.budget.model_copy(update={"basis": "whole_stay"})}
+    )
+    client = ScriptedClient(guessed)
+    result = await UnderstandQuery(client).run(QUERY, CTX)
+    assert result.intent == HONEST  # the query says no basis: the search asks instead
+    assert (result.retried, result.dropped) == (False, ())
+    assert len(client.requests) == 1

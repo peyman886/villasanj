@@ -9,6 +9,7 @@ from villasanj.discovery.application.intent import (
     SearchIntent,
     drop_violations,
     verify_intent,
+    with_stated_basis,
     without,
 )
 from villasanj.discovery.domain.dates import (
@@ -127,3 +128,35 @@ def test_dropping_constraints_never_adds_a_number() -> None:
     query = "آخر هفته برای ۴ بزرگسال و ۲ بچه زیر ۵ میلیون، رامسر یا تنکابن، استخر و جکوزی"
     assert verify_intent(edited, query) == []
     assert without(intent, []) == intent
+
+
+@pytest.mark.parametrize(
+    ("query", "basis", "kept"),
+    [
+        ("ویلا زیر ۲۰ میلیون آخر هفته", "whole_stay", "unknown"),  # a guess: not kept
+        ("ویلا زیر ۲۰ میلیون آخر هفته", "per_night", "unknown"),
+        ("شبی تا ۳ میلیون", "per_night", "per_night"),
+        ("زیر ۱ میلیون هر شب", "per_night", "per_night"),
+        ("برای هرشب ۲ میلیون", "per_night", "per_night"),
+        ("بودجه\N{ZERO WIDTH NON-JOINER}مون کلاً ۱۰ میلیونه", "whole_stay", "whole_stay"),
+        ("برای کل اقامت تا ۱۲ میلیون", "whole_stay", "whole_stay"),
+        ("جمعاً ۱۰ میلیون", "whole_stay", "whole_stay"),
+        ("کلبه زیر ۵ میلیون", "whole_stay", "unknown"),  # «کلبه» is not «کل»
+        ("شبی ۳ میلیون", "whole_stay", "unknown"),  # the words say the other basis
+    ],
+)
+def test_a_budget_basis_is_kept_only_when_the_query_says_it(
+    query: str, basis: str, kept: str
+) -> None:
+    intent = SearchIntent.model_validate({"budget": {"max_toman": 1_000_000, "basis": basis}})
+    result = with_stated_basis(intent, query)
+    assert result.budget is not None
+    assert result.budget.basis == kept
+    assert result.budget.max_toman == 1_000_000  # the amount is never touched
+
+
+def test_intents_without_a_budget_or_basis_are_unchanged() -> None:
+    plain = SearchIntent()
+    assert with_stated_basis(plain, "ویلا") is plain
+    unknown = SearchIntent.model_validate({"budget": {"max_toman": 5, "basis": "unknown"}})
+    assert with_stated_basis(unknown, "زیر ۵ میلیون") is unknown

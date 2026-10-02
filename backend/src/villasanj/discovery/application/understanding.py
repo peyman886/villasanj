@@ -16,6 +16,7 @@ from villasanj.discovery.application.intent import (
     SearchIntent,
     drop_violations,
     verify_intent,
+    with_stated_basis,
 )
 from villasanj.shared.application.llm.ports import LLMClient
 from villasanj.shared.application.llm.types import (
@@ -133,6 +134,7 @@ class UnderstandQuery:
             cost += again.cost_usd
             latency += again.latency_ms
         kept, dropped = drop_violations(intent, query)
+        kept = with_stated_basis(kept, query)
         return Understanding(
             query, kept, retried, dropped, tuple(models), cost, latency, response.cache_hit
         )

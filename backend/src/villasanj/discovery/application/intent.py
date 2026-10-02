@@ -9,10 +9,15 @@ The query-understanding LLM fills ``SearchIntent``. Two rules keep it honest (AD
 
 A violation means the intent is retried once with the violations, then the offending field is
 dropped and the user asked (M8 ambiguity flow). The field set is provisional until the M8 eval.
+
+A budget's basis (per night or the whole stay) is kept only when the query says it in words;
+otherwise it becomes ``unknown`` and the search shows the counts under both readings, because a
+guessed basis silently changes the results.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from decimal import Decimal
 from typing import Literal, assert_never
@@ -30,6 +35,7 @@ from villasanj.discovery.domain.dates import (
     Weekend,
 )
 from villasanj.shared.domain.persian_numbers import number_mentions
+from villasanj.shared.domain.persian_text import normalize_persian
 from villasanj.shared.domain.slots import Violation, ViolationCode, verify_span
 
 WeekdayName = Literal["saturday", "sunday", "monday", "tuesday", "wednesday", "thursday", "friday"]
@@ -168,6 +174,23 @@ def field_violations(intent: SearchIntent, query: str) -> dict[str, list[Violati
         if spans := verify_span(place, query):
             problems.setdefault("places", []).extend(spans)
     return problems
+
+
+_BASIS_WORDS = {  # matched on the normalized query (no diacritics: «کلاً» is «کلا»)
+    "per_night": re.compile(r"\bشبی\b|هر ?شب|\bشبانه\b"),
+    "whole_stay": re.compile(r"\bکل(?:ا|ش)?\b|\bمجموع|\bجمعا\b|\bروی ?هم\b"),
+}
+
+
+def with_stated_basis(intent: SearchIntent, query: str) -> SearchIntent:
+    """The intent whose budget basis is ``unknown`` unless the query names that basis."""
+    budget = intent.budget
+    if budget is None or budget.basis == "unknown":
+        return intent
+    if _BASIS_WORDS[budget.basis].search(normalize_persian(query)):
+        return intent
+    unstated = budget.model_copy(update={"basis": "unknown"})
+    return intent.model_copy(update={"budget": unstated})
 
 
 def verify_intent(intent: SearchIntent, query: str) -> list[Violation]:
