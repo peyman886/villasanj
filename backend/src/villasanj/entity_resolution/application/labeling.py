@@ -93,6 +93,14 @@ class LabelingSession:
         self._listings = listings
         self._clock = clock
 
+    async def progress(self, queue: str, labeler: str) -> tuple[int, int] | None:
+        """(pairs, labelled by ``labeler``); ``None`` when the queue does not exist."""
+        items = await self._labels.queue(queue)
+        if not items:
+            return None
+        done = {label.key for label in await self._labels.labels(labeler)}
+        return len(items), sum(item.key in done for item in items)
+
     async def task(self, queue: str, labeler: str, position: int | None = None) -> LabelTask | None:
         """The pair at ``position``, or the first one the labeler has not labelled yet."""
         items = await self._labels.queue(queue)

@@ -94,8 +94,7 @@ class Stub:
         return Async(by_task_and_model=[spend("explanation", "0.25"), spend("judge", "0.1", 1)])
 
     def labeling(self) -> Async:
-        task = SimpleNamespace(total=300, labeled=12) if self._labelled else None
-        return Async(task=task)
+        return Async(progress=(300, 12) if self._labelled else None)
 
     def photo_labeling(self) -> Async:
         return Async(task=None)

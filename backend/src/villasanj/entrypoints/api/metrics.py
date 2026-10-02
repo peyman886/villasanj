@@ -133,9 +133,9 @@ async def get_metrics(request: Request) -> MetricsOut:
     offers = await container.offers().distribution(platforms, container.scenarios())
     spend = await container.llm_spend().by_task_and_model()
     labelling = []
-    gold = await container.labeling().task("gold-v1", "owner")
+    gold = await container.labeling().progress("gold-v1", "owner")
     if gold is not None:
-        labelling.append(LabellingOut(queue="gold-v1", total=gold.total, labelled=gold.labeled))
+        labelling.append(LabellingOut(queue="gold-v1", total=gold[0], labelled=gold[1]))
     photos_task = await container.photo_labeling().task("photos-v1", "owner")
     if photos_task is not None:
         labelling.append(

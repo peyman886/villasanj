@@ -16,7 +16,7 @@ import {
   type TaskResult,
 } from "@/lib/labeling";
 
-type Status = "loading" | "ready" | "done" | "error";
+type Status = "loading" | "ready" | "done" | "missing" | "error";
 type Lightbox = { card: ListingCard; index: number } | null;
 
 const KEY_HINT: Record<Label, string> = { match: "M", non_match: "N", unsure: "U" };
@@ -36,7 +36,13 @@ export function LabelingTool({
 }) {
   const [task, setTask] = useState<LabelTask | null>(first.kind === "ready" ? first.task : null);
   const [status, setStatus] = useState<Status>(first.kind);
-  const [message, setMessage] = useState(first.kind === "error" ? ERROR_MESSAGE : "");
+  const [message, setMessage] = useState(
+    first.kind === "error"
+      ? ERROR_MESSAGE
+      : first.kind === "missing"
+        ? `صف «${queue}» هنوز ساخته نشده است.`
+        : "",
+  );
   const [saving, setSaving] = useState(false);
   const [lightbox, setLightbox] = useState<Lightbox>(null);
   const startedAt = useRef(0);
@@ -58,7 +64,7 @@ export function LabelingTool({
         setTask(result.task);
         startedAt.current = performance.now();
         window.scrollTo({ top: 0 });
-      } else if (result.kind === "done") {
+      } else if (result.kind === "done" || result.kind === "missing") {
         setTask(null);
       } else {
         setMessage(ERROR_MESSAGE);

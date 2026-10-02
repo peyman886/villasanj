@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { faDistance, faNumber, faPropertyType, isLabelTask, shortcutFor } from "./labeling";
+import {
+  faDistance,
+  faNumber,
+  faPropertyType,
+  isLabelTask,
+  shortcutFor,
+  fetchTask,
+} from "./labeling";
 
 const key = (code: string, extra: Partial<Record<string, boolean>> = {}) => ({
   code,
@@ -67,5 +74,18 @@ describe("isLabelTask", () => {
     expect(isLabelTask({ ...task, current_label: "maybe" })).toBe(false);
     expect(isLabelTask({ ...task, left: null })).toBe(false);
     expect(isLabelTask(null)).toBe(false);
+  });
+});
+
+describe("fetchTask", () => {
+  it("tells a queue not drawn yet from a finished one", async () => {
+    const answer = (status: number) =>
+      vi.fn(async () => new Response(status === 204 ? null : "{}", { status }));
+    vi.stubGlobal("fetch", answer(404));
+    expect(await fetchTask("http://api", "gold-v1", "owner")).toEqual({ kind: "missing" });
+    expect(await fetchTask("http://api", "gold-v1", "owner", 7)).toEqual({ kind: "error" });
+    vi.stubGlobal("fetch", answer(204));
+    expect(await fetchTask("http://api", "gold-v1", "owner")).toEqual({ kind: "done" });
+    vi.unstubAllGlobals();
   });
 });

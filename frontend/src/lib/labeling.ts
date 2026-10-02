@@ -132,7 +132,11 @@ export function isLabelTask(value: unknown): value is LabelTask {
   );
 }
 
-export type TaskResult = { kind: "ready"; task: LabelTask } | { kind: "done" } | { kind: "error" };
+export type TaskResult =
+  | { kind: "ready"; task: LabelTask }
+  | { kind: "done" }
+  | { kind: "missing" } // the queue is not drawn yet: not the same as finished
+  | { kind: "error" };
 
 /** One labelling task from the API (server side) or the same-origin proxy (browser). */
 export async function fetchTask(
@@ -149,6 +153,7 @@ export async function fetchTask(
       { cache: "no-store", signal: AbortSignal.timeout(10_000) },
     );
     if (response.status === 204) return { kind: "done" };
+    if (response.status === 404 && position === undefined) return { kind: "missing" };
     const body: unknown = await response.json();
     return response.ok && isLabelTask(body) ? { kind: "ready", task: body } : { kind: "error" };
   } catch {

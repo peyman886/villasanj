@@ -115,8 +115,11 @@ def _distance(left: Listing, right: Listing) -> DistanceOut | None:
 async def task(
     queue: str, request: Request, labeler: str = "owner", position: int | None = None
 ) -> TaskOut | Response:
-    """The pair at ``position``, or the next unlabelled one (204 when the queue is done)."""
+    """The pair at ``position``, or the next unlabelled one (204 when the queue is done, 404
+    when there is no such queue: a queue not drawn yet is not a finished one)."""
     container: Container = request.app.state.container
+    if await container.labeling().progress(queue, labeler) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no queue {queue}")
     found = await container.labeling().task(queue, labeler, position)
     if found is None:
         if position is not None:

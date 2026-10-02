@@ -114,3 +114,9 @@ def test_bad_labels_are_rejected(client: TestClient, pair: str, label: str, stat
 
 def test_unknown_position_is_404(client: TestClient) -> None:
     assert client.get("/er/queues/gold/task", params={"position": 42}).status_code == 404
+
+
+def test_a_queue_not_drawn_yet_is_not_a_finished_one(client: TestClient) -> None:
+    missing = client.get("/er/queues/gold-v9/task")
+    assert missing.status_code == 404
+    assert missing.json()["detail"] == "no queue gold-v9"
