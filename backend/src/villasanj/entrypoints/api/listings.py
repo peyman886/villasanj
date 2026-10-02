@@ -275,6 +275,7 @@ _PLACE_FA = {
     PlaceKind.MEDICAL: "مرکز درمانی",
     PlaceKind.CITY_CENTER: "مرکز شهر",
     PlaceKind.FOREST: "جنگل",
+    PlaceKind.SHOPPING: "مرکز خرید",
 }
 
 

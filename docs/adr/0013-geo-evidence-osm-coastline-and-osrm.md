@@ -103,7 +103,9 @@ Rules, because an absent shop on the map is not an absent shop:
    village counts only if platforms call it a city (Javaherdeh is `place=village` in OSM; without
    it Javaherdeh listings were wrongly contradicted against Chaboksar, 15 km away). A centre is
    an area: anything within 1.5 km of the town's point counts as the centre (A20).
-3. Targets without a kind («مراکز تفریحی», «مراکز خرید», shrines, named sights) stay «بررسی نشد».
+3. Targets without a kind («مراکز تفریحی», shrines, named sights) stay «بررسی نشد». «مراکز خرید»
+   was added the same day as a partial-map kind (`shop=mall|department_store`,
+   `amenity=marketplace`): jabama 1,337 supported, 871 not confirmed; 18,003 places in all.
 
 First run (2026-10-02, snapshot iran-260930): jabama city-centre claims 2,126 supported, 189 not
 confirmed, 46 contradicted (all walking claims, e.g. «۵ دقیقه پیاده» 3.5 km from Katalom's

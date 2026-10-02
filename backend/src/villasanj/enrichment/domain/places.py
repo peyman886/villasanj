@@ -29,6 +29,7 @@ class PlaceKind(StrEnum):
     MEDICAL = "medical"
     CITY_CENTER = "city_center"
     FOREST = "forest"
+    SHOPPING = "shopping"  # malls, department stores, markets
 
 
 KIND_OF_TARGET: Mapping[ClaimTarget, PlaceKind] = {
@@ -38,6 +39,7 @@ KIND_OF_TARGET: Mapping[ClaimTarget, PlaceKind] = {
     ClaimTarget.MEDICAL: PlaceKind.MEDICAL,
     ClaimTarget.CITY_CENTER: PlaceKind.CITY_CENTER,
     ClaimTarget.FOREST: PlaceKind.FOREST,
+    ClaimTarget.SHOPPING: PlaceKind.SHOPPING,
 }
 COMPLETE: frozenset[PlaceKind] = frozenset({PlaceKind.CITY_CENTER})
 # A town's centre is an area around its OSM point, not the point: anything within this distance
@@ -50,6 +52,8 @@ _SHOPS = {
     "grocery": PlaceKind.SUPERMARKET,
     "general": PlaceKind.SUPERMARKET,
     "bakery": PlaceKind.BAKERY,
+    "mall": PlaceKind.SHOPPING,
+    "department_store": PlaceKind.SHOPPING,
 }
 _AMENITIES = {
     "restaurant": PlaceKind.RESTAURANT,
@@ -57,6 +61,7 @@ _AMENITIES = {
     "hospital": PlaceKind.MEDICAL,
     "clinic": PlaceKind.MEDICAL,
     "doctors": PlaceKind.MEDICAL,
+    "marketplace": PlaceKind.SHOPPING,
 }
 
 

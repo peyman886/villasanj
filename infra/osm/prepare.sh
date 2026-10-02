@@ -22,8 +22,8 @@ $OSMIUM export --overwrite --add-unique-id=type_id -f geojsonseq \
 # Places distance claims name (M9): shops, bakeries, restaurants, medical, town centres (villages
 # too: the loader keeps only those platforms call a city) and woods.
 $OSMIUM tags-filter --overwrite -o /data/poi.osm.pbf /data/north.osm.pbf \
-    nwr/shop=supermarket,convenience,grocery,general,bakery \
-    nwr/amenity=restaurant,fast_food,hospital,clinic,doctors \
+    nwr/shop=supermarket,convenience,grocery,general,bakery,mall,department_store \
+    nwr/amenity=restaurant,fast_food,hospital,clinic,doctors,marketplace \
     n/place=city,town,village wr/landuse=forest wr/natural=wood
 $OSMIUM export --overwrite --add-unique-id=type_id -f geojsonseq \
     -o /data/poi.geojsonseq /data/poi.osm.pbf

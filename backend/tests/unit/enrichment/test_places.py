@@ -23,6 +23,8 @@ CITIES = {place_key("جواهرده")}
         ({"place": "village", "name": "لمتر"}, None),
         ({"natural": "wood"}, PlaceKind.FOREST),
         ({"shop": "clothes"}, None),
+        ({"shop": "mall"}, PlaceKind.SHOPPING),
+        ({"amenity": "marketplace"}, PlaceKind.SHOPPING),
     ],
 )
 def test_osm_tags_map_to_the_kinds_claims_name(tags: dict[str, str], kind: PlaceKind) -> None:
