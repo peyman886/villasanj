@@ -6,7 +6,7 @@ JOB ?= llm-smoke
 
 .DEFAULT_GOAL := help
 .PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live openapi openapi-check lint fmt \
-	test-e2e post-crawl osm-download osm-prepare routing-up routing-down geo \
+	test-e2e test-smoke post-crawl osm-download osm-prepare routing-up routing-down geo \
 	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-scenarios crawl-status crawl-metrics reparse report match eval eval-hypotheses
 
 help: ## Show available targets
@@ -66,7 +66,10 @@ openapi: ## Regenerate the OpenAPI schema and the frontend's TypeScript types fr
 OSM_SNAPSHOT ?= iran-260930
 
 test-e2e: ## Playwright E2E on the running app (provenance clicks, axe, keyboard); E2E_BASE_URL to override
-	cd frontend && PLAYWRIGHT_HTML_OPEN=never npx playwright test
+	cd frontend && PLAYWRIGHT_HTML_OPEN=never npx playwright test --grep-invert @smoke
+
+test-smoke: ## 50 sampled listing pages render without errors (E2E_API_URL, E2E_BASE_URL to override)
+	cd frontend && PLAYWRIGHT_HTML_OPEN=never npx playwright test --grep @smoke
 
 osm-download: ## Download the Geofabrik Iran extract (230 MB on 2026-10-02) and check its MD5
 	mkdir -p data/osm && cd data/osm && curl -sSfL -o $(OSM_SNAPSHOT).osm.pbf.md5 \

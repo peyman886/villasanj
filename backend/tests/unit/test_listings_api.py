@@ -85,7 +85,8 @@ class Stub:
     def __init__(self) -> None:
         self.listings = Listings()
         self.settings = SimpleNamespace(scenarios_path=CONFIG / "scenarios.toml")
-        self.crawl = SimpleNamespace(adapters={})
+        profile = SimpleNamespace(display_name="example")
+        self.crawl = SimpleNamespace(adapters={"example": SimpleNamespace(profile=profile)})
 
     def offers(self) -> OfferBook:
         return OfferBook(self.listings, {}, SteppingClock(NOW + timedelta(hours=2)))
@@ -128,6 +129,13 @@ class Summaries:
 def client() -> Iterator[TestClient]:
     with TestClient(create_app(lambda: cast(Container, Stub()))) as test_client:
         yield test_client
+
+
+def test_a_sample_is_deterministic_and_bounded(client: TestClient) -> None:
+    first = client.get("/listings/sample", params={"n": 5}).json()
+    assert first == client.get("/listings/sample", params={"n": 5}).json()
+    assert first == [{"platform": "example", "external_id": "42", "title": LISTING.title_norm}]
+    assert client.get("/listings/sample", params={"n": 0}).status_code == 422
 
 
 def test_listing_carries_its_source_snapshot(client: TestClient) -> None:

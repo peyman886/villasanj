@@ -156,6 +156,7 @@ make match                              # fingerprint + embed new photos, then b
 make eval [QUEUE=gold-v1]               # precision/recall with Wilson CIs against the owner's labels
 make eval-hypotheses [THRESHOLD=..]     # reports/hypotheses-<date>.md (H1-H3)
 make test-ml                            # opt-in test with the real image model (pinned weights)
+make test-e2e / test-smoke              # Playwright on the running app / 50 sampled listing pages
 make crawl-scenarios [LIVE=1]           # same-window re-capture of all calendars (plan only by default)
 make crawl-metrics                      # traffic per host with measured pacing, queue, runs
 make openapi / openapi-check           # regenerate / verify the OpenAPI schema and TS types

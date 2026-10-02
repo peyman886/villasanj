@@ -7,6 +7,7 @@ come with M5's canonical villas; prices stay per listing either way (product rul
 
 from __future__ import annotations
 
+import hashlib
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Literal
@@ -511,6 +512,36 @@ def _review_out(review: ListingReview) -> ReviewOut:
         host_replied=review.host_replied,
         provenance=ProvenanceOut.of(review.provenance),
     )
+
+
+class ListingRefOut(BaseModel):
+    platform: str
+    external_id: str
+    title: str | None
+
+
+MAX_SAMPLE = 200
+
+
+@router.get("/sample")
+async def sample_listings(
+    request: Request,
+    n: Annotated[int, Query(ge=1, le=MAX_SAMPLE)] = 50,
+    seed: str = "7",
+) -> list[ListingRefOut]:
+    """A deterministic sample across platforms (the same ``seed`` gives the same listings), for
+    smoke tests and for reviewers who want to browse."""
+    container = _container(request)
+    every = [
+        listing
+        for platform in sorted(container.crawl.adapters)
+        for listing in await container.listings.listings(platform)
+    ]
+    every.sort(key=lambda x: hashlib.sha256(f"{seed}:{x.id}".encode()).hexdigest())
+    return [
+        ListingRefOut(platform=x.id.platform, external_id=x.id.external_id, title=x.title_norm)
+        for x in every[:n]
+    ]
 
 
 @router.get("/{platform}/{external_id}")

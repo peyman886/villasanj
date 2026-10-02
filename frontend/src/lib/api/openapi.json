@@ -750,6 +750,36 @@
         "title": "ListingOut",
         "type": "object"
       },
+      "ListingRefOut": {
+        "properties": {
+          "external_id": {
+            "title": "External Id",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "platform",
+          "external_id",
+          "title"
+        ],
+        "title": "ListingRefOut",
+        "type": "object"
+      },
       "LiveOut": {
         "properties": {
           "status": {
@@ -2113,6 +2143,66 @@
           }
         },
         "summary": "Live"
+      }
+    },
+    "/listings/sample": {
+      "get": {
+        "description": "A deterministic sample across platforms (the same ``seed`` gives the same listings), for\nsmoke tests and for reviewers who want to browse.",
+        "operationId": "sample_listings_listings_sample_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "n",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "N",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "default": "7",
+              "title": "Seed",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ListingRefOut"
+                  },
+                  "title": "Response Sample Listings Listings Sample Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sample Listings",
+        "tags": [
+          "listings"
+        ]
       }
     },
     "/listings/{platform}/{external_id}": {

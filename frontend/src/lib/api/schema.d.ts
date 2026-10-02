@@ -82,6 +82,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/listings/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sample Listings
+         * @description A deterministic sample across platforms (the same ``seed`` gives the same listings), for
+         *     smoke tests and for reviewers who want to browse.
+         */
+        get: operations["sample_listings_listings_sample_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/listings/{platform}/{external_id}": {
         parameters: {
             query?: never;
@@ -556,6 +577,15 @@ export interface components {
             title: string;
             /** Url */
             url: string;
+        };
+        /** ListingRefOut */
+        ListingRefOut: {
+            /** External Id */
+            external_id: string;
+            /** Platform */
+            platform: string;
+            /** Title */
+            title: string | null;
         };
         /** LiveOut */
         LiveOut: {
@@ -1078,6 +1108,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LiveOut"];
+                };
+            };
+        };
+    };
+    sample_listings_listings_sample_get: {
+        parameters: {
+            query?: {
+                n?: number;
+                seed?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingRefOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
