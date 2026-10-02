@@ -30,7 +30,8 @@ export interface paths {
         };
         /**
          * Task
-         * @description The pair at ``position``, or the next unlabelled one (204 when the queue is done).
+         * @description The pair at ``position``, or the next unlabelled one (204 when the queue is done, 404
+         *     when there is no such queue: a queue not drawn yet is not a finished one).
          */
         get: operations["task_er_queues__queue__task_get"];
         put?: never;
