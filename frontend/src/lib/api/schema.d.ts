@@ -351,6 +351,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/ranking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ranking Rules */
+        get: operations["ranking_rules_search_ranking_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/summary-reviews": {
         parameters: {
             query?: never;
@@ -850,6 +867,24 @@ export interface components {
             /** Snapshot Id */
             snapshot_id: string | null;
             source: components["schemas"]["SourceOut"] | null;
+        };
+        /**
+         * RankingRulesOut
+         * @description The numbers the public "how we rank" page states, from the code that uses them.
+         */
+        RankingRulesOut: {
+            /** Centre Extent M */
+            centre_extent_m: number;
+            /** Near Sea M */
+            near_sea_m: number;
+            /** Origin */
+            origin: string | null;
+            /** Unknown Radius M */
+            unknown_radius_m: number;
+            /** Weights */
+            weights: {
+                [key: string]: number;
+            };
         };
         /** ResultOut */
         ResultOut: {
@@ -1614,6 +1649,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ranking_rules_search_ranking_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RankingRulesOut"];
                 };
             };
         };

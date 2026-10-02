@@ -1416,6 +1416,50 @@
         "title": "ProvenanceOut",
         "type": "object"
       },
+      "RankingRulesOut": {
+        "description": "The numbers the public \"how we rank\" page states, from the code that uses them.",
+        "properties": {
+          "centre_extent_m": {
+            "title": "Centre Extent M",
+            "type": "number"
+          },
+          "near_sea_m": {
+            "title": "Near Sea M",
+            "type": "number"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
+          "unknown_radius_m": {
+            "title": "Unknown Radius M",
+            "type": "integer"
+          },
+          "weights": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Weights",
+            "type": "object"
+          }
+        },
+        "required": [
+          "weights",
+          "near_sea_m",
+          "centre_extent_m",
+          "unknown_radius_m",
+          "origin"
+        ],
+        "title": "RankingRulesOut",
+        "type": "object"
+      },
       "ResultOut": {
         "properties": {
           "cautions": {
@@ -2993,6 +3037,27 @@
           }
         },
         "summary": "Search Explanation",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/search/ranking": {
+      "get": {
+        "operationId": "ranking_rules_search_ranking_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingRulesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ranking Rules",
         "tags": [
           "search"
         ]

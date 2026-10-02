@@ -272,7 +272,10 @@ function Results({ result, drop, now }: { result: SearchOut; drop: string[]; now
           <p className="mt-1 text-sm text-pretty text-stone-600">
             اول آگهی‌هایی که امکانات خواسته‌شده‌شان تأیید شده، بعد بقیه؛ در هر گروه به ترتیب قیمت
             برای هر نفر و امتیاز مهمان‌ها. نتیجه‌ها هنوز در سطح آگهی است: یک ویلا ممکن است در دو
-            پلتفرم دو بار بیاید.
+            پلتفرم دو بار بیاید.{" "}
+            <Link href="/how-we-rank" className={cn("underline underline-offset-4", FOCUS)}>
+              چطور رتبه‌بندی می‌کنیم
+            </Link>
           </p>
           {driveCoverageText(result) ? (
             <p className="mt-1 text-xs text-stone-500 tabular-nums">{driveCoverageText(result)}</p>

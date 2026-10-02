@@ -113,3 +113,14 @@ def test_open_questions_come_back_without_results() -> None:
 
 def test_a_too_short_query_is_rejected(client: TestClient) -> None:
     assert client.post("/search", json={"query": "و"}).status_code == 422
+
+
+def test_the_ranking_rules_page_reads_the_numbers_from_the_code(client: TestClient) -> None:
+    body = client.get("/search/ranking").json()
+    assert body["weights"] == {"price": 0.6, "rating": 0.4}
+    assert (body["near_sea_m"], body["centre_extent_m"], body["unknown_radius_m"]) == (
+        1000.0,
+        1500.0,
+        500,
+    )
+    assert body["origin"] == ORIGIN.name_fa

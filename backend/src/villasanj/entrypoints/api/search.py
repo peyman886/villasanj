@@ -17,7 +17,10 @@ from villasanj.discovery.application.explanation import ExplainChoice, Explanati
 from villasanj.discovery.application.routing import Origin
 from villasanj.discovery.application.search import SearchResult
 from villasanj.discovery.domain.dates import describe_fa
-from villasanj.discovery.domain.ranking import Ranked
+from villasanj.discovery.domain.ranking import WEIGHTS, Ranked
+from villasanj.enrichment.domain.features import NEAR_SEA_M
+from villasanj.enrichment.domain.geo import UNKNOWN_RADIUS_M
+from villasanj.enrichment.domain.places import CENTRE_EXTENT_M
 from villasanj.entrypoints.api.listings import GeoOut, MoneyOut, ProvenanceOut, geo_out
 from villasanj.entrypoints.container import Container
 from villasanj.shared.application.jobs import JobStatus
@@ -163,6 +166,28 @@ def _segments(explanation: Explanation) -> list[SegmentOut]:
     if position < len(explanation.slotted):
         segments.append(SegmentOut(text=explanation.slotted[position:], slot=None, provenance=None))
     return segments
+
+
+class RankingRulesOut(BaseModel):
+    """The numbers the public "how we rank" page states, from the code that uses them."""
+
+    weights: dict[str, float]  # score = sum of weight x normalized component (0..1 in a search)
+    near_sea_m: float  # «نزدیک دریا» from the map (A17)
+    centre_extent_m: float  # a town centre is an area this wide around its point (A20)
+    unknown_radius_m: int  # assumed blur when a platform publishes none (A14)
+    origin: str | None  # where drive times start
+
+
+@router.get("/search/ranking")
+async def ranking_rules(request: Request) -> RankingRulesOut:
+    container: Container = request.app.state.container
+    return RankingRulesOut(
+        weights=dict(WEIGHTS),
+        near_sea_m=NEAR_SEA_M,
+        centre_extent_m=CENTRE_EXTENT_M,
+        unknown_radius_m=UNKNOWN_RADIUS_M,
+        origin=container.routing_origin().name_fa,
+    )
 
 
 @router.post("/search")
