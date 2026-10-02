@@ -232,6 +232,7 @@ class Container:
             PgCoastDistanceStore(self.engine),
             PgDriveTimeStore(self.engine),
             load_origin(self.settings.routing_origin_path),
+            self.place_store(),
         )
 
     def routing_origin(self) -> Origin:

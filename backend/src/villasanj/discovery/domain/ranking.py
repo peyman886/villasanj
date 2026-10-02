@@ -45,6 +45,7 @@ class Candidate:
     rating: float | None  # Bayesian-shrunk, on the 1..5 scale
     features: Mapping[Feature, FeatureEvidence] = field(default_factory=dict)
     drive_minutes: tuple[float, float] | None = None  # free-flow, over the blur circle
+    contradicted_claims: int = 0  # published distances the map contradicts even at best
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +77,7 @@ class Caution(StrEnum):
     FEATURE_ONLY_DESCRIBED = "feature_only_described"
     DRIVE_UNKNOWN = "drive_unknown"
     MAY_EXCEED_DRIVE = "may_exceed_drive"  # the blurred location's range straddles the limit
+    CLAIM_CONTRADICTED = "claim_contradicted"  # a published distance the map contradicts
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +189,8 @@ def _check(
             warnings.add(Caution.FEATURE_UNCONFIRMED)
         elif evidence is FeatureEvidence.DESCRIBED:
             warnings.add(Caution.FEATURE_ONLY_DESCRIBED)
+    if candidate.contradicted_claims:
+        warnings.add(Caution.CLAIM_CONTRADICTED)  # said, never a reason to exclude (rule 5)
     return None, frozenset(warnings)
 
 

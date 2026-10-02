@@ -32,6 +32,9 @@ from villasanj.discovery.domain.ranking import (
 )
 from villasanj.enrichment.application.coast import CoastDistance, CoastDistanceStore
 from villasanj.enrichment.application.features import AmenityMap
+from villasanj.enrichment.application.places import PlaceDistanceStore
+from villasanj.enrichment.application.truth import place_verdicts
+from villasanj.enrichment.domain.distance_claims import Verdict
 from villasanj.enrichment.domain.features import (
     Feature,
     FeatureEvidence,
@@ -101,6 +104,7 @@ class SearchListings:
         coast: CoastDistanceStore | None = None,
         drives: DriveTimeStore | None = None,
         origin: Origin | None = None,
+        places: PlaceDistanceStore | None = None,
     ) -> None:
         self._understand = understand
         self._holidays = holidays
@@ -113,6 +117,7 @@ class SearchListings:
         self._coast = coast
         self._drives = drives
         self._origin = origin
+        self._place_distances = places
 
     async def run(self, query: str, ctx: JobContext, drop: Sequence[str] = ()) -> SearchResult:
         """``drop``: constraints the user removed from the understood query (editable chips)."""
@@ -142,6 +147,9 @@ class SearchListings:
                 if self._drives and self._origin
                 else {}
             )
+            nearby = (
+                await self._place_distances.of_platform(platform) if self._place_distances else {}
+            )
             for listing in platform_listings:
                 offer = platform_offers.get(listing.id)
                 if offer is None:
@@ -155,7 +163,16 @@ class SearchListings:
                     self._origin.name_fa if self._origin else None,
                 )
                 geos[key] = geo
-                candidates.append(self._candidate(key, listing, offer, prior, intent, geo))
+                contradicted = sum(
+                    check.assessment is not None
+                    and check.assessment.verdict is Verdict.CONTRADICTED
+                    for check in place_verdicts(
+                        listing.distance_claims, geo.coast, nearby.get(listing.id, {})
+                    )
+                )
+                candidates.append(
+                    self._candidate(key, listing, offer, prior, intent, geo, contradicted)
+                )
         wants = _requirements(intent, dates)
         ranking = rank(candidates, wants)
         coverage = (
@@ -218,6 +235,7 @@ class SearchListings:
         prior: RatingPrior | None,
         intent: SearchIntent,
         geo: Geo,
+        contradicted: int = 0,
     ) -> Candidate:
         stated = self._amenities.features_of(listing)
         claims = extract_claims(listing.description_norm or "")
@@ -245,6 +263,7 @@ class SearchListings:
             rating=rating,
             features=features,
             drive_minutes=geo.drive_minutes,
+            contradicted_claims=contradicted,
         )
 
 

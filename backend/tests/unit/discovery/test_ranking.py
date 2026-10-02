@@ -206,3 +206,12 @@ def test_drive_coverage_counts_results_per_limit_with_every_other_filter() -> No
     ]
     coverage = drive_coverage(candidates, Requirements(nights=2, guests=4), hours=(3, 4))
     assert coverage == {3: 1, 4: 2}
+
+
+def test_a_contradicted_claim_is_said_never_a_reason_to_exclude() -> None:
+    ranking = rank([candidate("a", contradicted_claims=2), candidate("b")], Requirements(nights=2))
+    assert len(ranking.results) == 2
+    by_id = {r.candidate.id: r for r in ranking.results}
+    assert Caution.CLAIM_CONTRADICTED in by_id["a"].warnings
+    assert Caution.CLAIM_CONTRADICTED not in by_id["b"].warnings
+    assert ranking.excluded == {}

@@ -107,6 +107,13 @@ CAUTION_FA: dict[Caution, str] = {
     Caution.PRICE_UNKNOWN: "قیمت این اقامت معلوم نیست",
     Caution.FEATURE_UNCONFIRMED: f"یکی از امکانات خواسته{ZWNJ}شده تأیید نشد",
     Caution.FEATURE_ONLY_DESCRIBED: f"یکی از امکانات خواسته{ZWNJ}شده فقط در توضیحات آگهی آمده است",
+    Caution.DRIVE_UNKNOWN: "زمان رانندگی تا این ویلا معلوم نیست",
+    Caution.MAY_EXCEED_DRIVE: (
+        f"بسته به جای دقیق ویلا، زمان رانندگی ممکن است از سقف گفته{ZWNJ}شده بیشتر شود"
+    ),
+    Caution.CLAIM_CONTRADICTED: (
+        f"یکی از فاصله{ZWNJ}هایی که آگهی اعلام کرده با نقشه نمی{ZWNJ}خواند"
+    ),
 }
 
 

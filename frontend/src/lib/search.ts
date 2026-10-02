@@ -27,6 +27,7 @@ export const CAUTION_TEXT: Record<string, string> = {
   feature_only_described: "یکی از امکانات خواسته‌شده فقط در توضیحات آمده",
   drive_unknown: "زمان رانندگی معلوم نیست",
   may_exceed_drive: "بسته به جای دقیق ویلا، ممکن است از سقف زمان رانندگی بیشتر شود",
+  claim_contradicted: "یکی از فاصله‌های اعلام‌شده در آگهی با نقشه نمی‌خواند",
 };
 
 export const EXCLUSION_TEXT: Record<string, string> = {

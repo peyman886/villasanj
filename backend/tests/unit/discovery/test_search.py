@@ -103,8 +103,12 @@ def coast_and_drives() -> tuple[CoastStore, DriveStore]:
     return coast, drives
 
 
-def search(intent: SearchIntent) -> SearchListings:
-    reader = Calendars(LISTINGS)
+def search(
+    intent: SearchIntent,
+    listings: Sequence[Listing] = LISTINGS,
+    places: object = None,
+) -> SearchListings:
+    reader = Calendars(listings)
     clock = FixedClock()
     coast, drives = coast_and_drives()
     return SearchListings(
@@ -119,6 +123,7 @@ def search(intent: SearchIntent) -> SearchListings:
         coast,
         drives,
         ORIGIN,
+        places,  # type: ignore[arg-type]
     )
 
 
@@ -193,3 +198,23 @@ async def test_removed_chips_widen_the_search() -> None:
     assert result.understanding.intent.features == []
     assert result.ranking is not None
     assert len(result.ranking.results) == 4
+
+
+async def test_a_contradicted_distance_claim_is_a_caution_on_the_result() -> None:
+    from tests.unit.enrichment.test_truth import Places, place
+    from villasanj.enrichment.domain.places import PlaceKind
+    from villasanj.ingestion.domain.parsed import ParsedDistanceClaim, TravelMode
+
+    walk = (ParsedDistanceClaim("فاصله از مرکز شهر", "زیر 5 دقیقه", TravelMode.WALK),)
+    homes = [
+        listing("pool", city_fa="رامسر", amenities=(POOL,), distance_claims=walk),
+        listing("contradicted", city_fa="رامسر", amenities=(POOL,), distance_claims=walk),
+    ]
+    far = place(ListingId("p", "contradicted"), PlaceKind.CITY_CENTER, 4000.0, 4800.0)
+    near = place(ListingId("p", "pool"), PlaceKind.CITY_CENTER, 0.0, 800.0)
+    query = "ویلای استخردار در رامسر برای ۴ نفر آخر هفته زیر ۵ میلیون"
+    result = await search(WEEKEND, homes, Places([far, near])).run(query, CTX)
+    assert result.ranking is not None
+    warnings = {r.candidate.id: r.warnings for r in result.ranking.results}
+    assert Caution.CLAIM_CONTRADICTED in warnings["p:contradicted"]
+    assert Caution.CLAIM_CONTRADICTED not in warnings["p:pool"]

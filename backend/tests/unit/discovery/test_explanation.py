@@ -217,3 +217,8 @@ def test_drive_time_and_coast_distance_become_facts() -> None:
     )
     assert "۰٫۶ تا ۱٫۴ کیلومتر تا ساحل در خط مستقیم" in texts
     assert check(built.template, built) == []
+
+
+def test_every_caution_has_a_clause_to_say_it() -> None:
+    # A caution without a text would crash the explanation of the result that carries it.
+    assert set(explanation.CAUTION_FA) == set(Caution)
