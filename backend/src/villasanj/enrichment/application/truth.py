@@ -16,12 +16,14 @@ join as evidence once their thresholds come from labels; other platforms' fields
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from villasanj.catalog.application.reading import ListingReader
 from villasanj.catalog.domain.listing import Listing, ListingId
 from villasanj.enrichment.application.coast import CoastDistance, CoastDistanceStore
 from villasanj.enrichment.application.features import AmenityMap
+from villasanj.enrichment.application.places import PlaceDistance, PlaceDistanceStore
 from villasanj.enrichment.domain.distance_claims import (
     Assessment,
     ClaimTarget,
@@ -38,6 +40,11 @@ from villasanj.enrichment.domain.features import (
     against_amenities,
     extract_claims,
     near_sea_evidence,
+)
+from villasanj.enrichment.domain.places import (
+    KIND_OF_TARGET,
+    PlaceKind,
+    assess_place,
 )
 from villasanj.entity_resolution.domain.evaluation import Interval, wilson
 from villasanj.ingestion.domain.parsed import ParsedDistanceClaim
@@ -124,6 +131,7 @@ class DistanceClaimCheck:
     claim: DistanceClaim | None  # ``None``: wording not understood (never guessed)
     assessment: Assessment | None  # ``None``: not judged (no evidence for the target yet)
     radius_assumed: bool = False
+    place: PlaceDistance | None = None  # the evidence for a target other than the sea
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,23 +149,48 @@ class ListingTruth:
     coast: CoastDistance | None
 
 
+def place_verdicts(
+    claims: Sequence[ParsedDistanceClaim],
+    coast: CoastDistance | None,
+    places: Mapping[PlaceKind, PlaceDistance],
+) -> list[DistanceClaimCheck]:
+    """Each published distance claim against its evidence: the coastline for the sea, the
+    nearest mapped place of the target's kind otherwise (supporting only, unless complete)."""
+    checks = []
+    for raw in claims:
+        parsed = parse_claim(raw)
+        if parsed is None:
+            checks.append(DistanceClaimCheck(raw, None, None))
+        elif parsed.target is ClaimTarget.SEA and coast is not None:
+            assessment = assess(parsed, (coast.low_m, coast.high_m))
+            checks.append(DistanceClaimCheck(raw, parsed, assessment, coast.blur.assumed))
+        elif (kind := KIND_OF_TARGET.get(parsed.target)) is not None and kind in places:
+            place = places[kind]
+            assessment = assess_place(parsed, kind, (place.low_m, place.high_m))
+            assumed = place.blur.assumed
+            checks.append(DistanceClaimCheck(raw, parsed, assessment, assumed, place))
+        else:
+            checks.append(DistanceClaimCheck(raw, parsed, None))
+    return checks
+
+
 class CheckListingClaims:
     """Every claim of one listing with its evidence; what has no evidence yet says so."""
 
-    def __init__(self, amenities: AmenityMap, distances: CoastDistanceStore) -> None:
+    def __init__(
+        self,
+        amenities: AmenityMap,
+        distances: CoastDistanceStore,
+        places: PlaceDistanceStore | None = None,
+    ) -> None:
         self._amenities = amenities
         self._distances = distances
+        self._places = places
 
     async def run(self, listing: Listing) -> ListingTruth:
         coast = await self._distances.get(listing.id)
-        distances = []
-        for raw in listing.distance_claims:
-            parsed = parse_claim(raw)
-            if parsed is None or parsed.target is not ClaimTarget.SEA or coast is None:
-                distances.append(DistanceClaimCheck(raw, parsed, None))
-                continue
-            assessment = assess(parsed, (coast.low_m, coast.high_m))
-            distances.append(DistanceClaimCheck(raw, parsed, assessment, coast.blur.assumed))
+        places = await self._places.get(listing.id) if self._places else {}
+        distances = place_verdicts(listing.distance_claims, coast, places)
         stated = self._amenities.features_of(listing)
         features = []
         for said in extract_claims(listing.description_norm or ""):
@@ -166,3 +199,42 @@ class CheckListingClaims:
                 on_map = near_sea_evidence(coast.low_m, coast.high_m)
             features.append(FeatureClaimCheck(said, against_amenities(said, stated), on_map))
         return ListingTruth(listing.id, tuple(distances), tuple(features), coast)
+
+
+@dataclass(slots=True)
+class DistanceTruthReport:
+    """Verdicts of every published distance claim of one platform, per target (M9)."""
+
+    platform: str
+    verdicts: Counter[str] = field(default_factory=Counter)  # "city_center:supported", ...
+    listings_contradicted: int = 0  # at least one distance claim contradicted
+    listings_judged: int = 0  # at least one distance claim with evidence
+
+
+class CheckDistanceClaims:
+    def __init__(
+        self, listings: ListingReader, coast: CoastDistanceStore, places: PlaceDistanceStore
+    ) -> None:
+        self._listings = listings
+        self._coast = coast
+        self._places = places
+
+    async def run(self, platform: str) -> DistanceTruthReport:
+        report = DistanceTruthReport(platform)
+        coast = await self._coast.of_platform(platform)
+        places = await self._places.of_platform(platform)
+        for listing in await self._listings.listings(platform):
+            checks = place_verdicts(
+                listing.distance_claims, coast.get(listing.id), places.get(listing.id, {})
+            )
+            judged = [c for c in checks if c.assessment is not None and c.claim is not None]
+            for check in checks:
+                target = check.claim.target.value if check.claim else "not_understood"
+                verdict = check.assessment.verdict.value if check.assessment else "not_checked"
+                report.verdicts[f"{target}:{verdict}"] += 1
+            report.listings_judged += bool(judged)
+            report.listings_contradicted += any(
+                c.assessment is not None and c.assessment.verdict is Verdict.CONTRADICTED
+                for c in judged
+            )
+        return report

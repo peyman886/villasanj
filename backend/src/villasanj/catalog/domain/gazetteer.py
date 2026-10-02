@@ -64,6 +64,9 @@ class Gazetteer:
     def get(self, slug: str) -> Place | None:
         return self._places.get(slug)
 
+    def of_kind(self, kind: PlaceKind) -> list[Place]:
+        return [place for place in self._places.values() if place.kind is kind]
+
     def resolve(self, text: str | None) -> Place | None:
         """The most specific known place mentioned in ``text``.
 

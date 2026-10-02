@@ -82,3 +82,75 @@ async def test_coast_distances_and_drive_times_are_replaced_per_platform(
     assert await drives.of_platform(platform, "elsewhere") == {}
     assert await drives.get(listing, "tehran") == routed
     assert await drives.get(listing, "elsewhere") is None
+
+
+async def test_nearest_places_per_kind_points_and_areas(engine: AsyncEngine) -> None:
+    from villasanj.catalog.domain.gazetteer import place_key
+    from villasanj.enrichment.application.places import PlaceDistance
+    from villasanj.enrichment.domain.places import PlaceKind
+    from villasanj.enrichment.infrastructure.places import PgPlaceDistanceStore, PgPlaces
+
+    def tagged(osm_id: str, geometry: dict[str, object], **tags: str) -> str:
+        return "\x1e" + json.dumps(
+            {"type": "Feature", "id": osm_id, "geometry": geometry, "properties": tags}
+        )
+
+    wood: dict[str, object] = {
+        "type": "MultiPolygon",
+        "coordinates": [
+            [[[50.50, 37.00], [50.52, 37.00], [50.52, 37.02], [50.50, 37.02], [50.50, 37.00]]]
+        ],
+    }
+    places = PgPlaces(engine, f"places-{id(engine)}")
+    loaded = await places.load(
+        [
+            tagged("n1", {"type": "Point", "coordinates": [50.5, 36.99]}, shop="bakery"),
+            tagged(
+                "n2",
+                {"type": "Point", "coordinates": [50.6, 36.9]},
+                place="village",
+                name="جواهرده",
+            ),
+            tagged(
+                "n3", {"type": "Point", "coordinates": [50.7, 36.9]}, place="village", name="لمتر"
+            ),
+            tagged(
+                "w4",
+                {"type": "LineString", "coordinates": [[50.5, 37.0], [50.6, 37.0]]},
+                natural="wood",
+            ),
+            tagged("w4", wood, natural="wood"),
+            tagged("n5", {"type": "Point", "coordinates": [50.5, 36.99]}, shop="clothes"),
+        ],
+        {place_key("جواهرده")},
+    )
+    assert loaded == 3  # the bakery, the platforms' city and the wood (as an area)
+    here = GeoPoint(36.99, 50.5)
+    (bakery,) = await places.nearest([here], PlaceKind.BAKERY, 30_000)
+    assert bakery is not None
+    assert bakery.distance_m == pytest.approx(0, abs=1)
+    (centre,) = await places.nearest([here], PlaceKind.CITY_CENTER, 30_000)
+    assert centre is not None
+    assert centre.name == "جواهرده"
+    (inside,) = await places.nearest([GeoPoint(37.01, 50.51)], PlaceKind.FOREST, 30_000)
+    assert inside is not None
+    assert inside.distance_m == 0  # inside the wood
+    assert await places.nearest([here], PlaceKind.MEDICAL, 30_000) == [None]
+
+    platform = f"places-{id(engine)}"
+    store = PgPlaceDistanceStore(engine)
+    row = PlaceDistance(
+        ListingId(platform, "1"),
+        PlaceKind.BAKERY,
+        "osm-1",
+        0.0,
+        0.0,
+        400.0,
+        Blur(400, False),
+        None,
+        NOW,
+    )
+    await store.replace(platform, [row])
+    await store.replace(platform, [row])
+    assert await store.get(ListingId(platform, "1")) == {PlaceKind.BAKERY: row}
+    assert await store.of_platform(platform) == {ListingId(platform, "1"): {PlaceKind.BAKERY: row}}

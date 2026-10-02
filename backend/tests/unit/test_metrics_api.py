@@ -66,6 +66,13 @@ class Stub:
 
         return Async(run=report)
 
+    def distance_truth(self) -> Async:
+        def report(platform: str) -> SimpleNamespace:
+            judged = 3 if platform == "alpha" else 0
+            return SimpleNamespace(listings_judged=judged, listings_contradicted=min(1, judged))
+
+        return Async(run=report)
+
     def coast_store(self) -> Async:
         return Async(of_platform=lambda platform: {"1": 0, "2": 0} if platform == "alpha" else {})
 
@@ -119,6 +126,8 @@ def test_metrics_report_every_platform_with_its_coverage_and_truth_check(
     assert (alpha["coast_measured"], alpha["drive_routed"]) == (2, 1)  # unrouted pins not counted
     assert (alpha["sea_claim_listings"], alpha["sea_contradicted_listings"]) == (2, 1)
     assert alpha["sea_measured_listings"] == 2
+    assert (alpha["distance_judged_listings"], alpha["distance_contradicted_listings"]) == (3, 1)
+    assert (beta["distance_contradicted_low"], beta["distance_contradicted_high"]) == (0.0, 1.0)
     assert 0.0 < alpha["sea_contradicted_low"] < 0.5 < alpha["sea_contradicted_high"] < 1.0
     assert alpha["sea_verdicts"] == {"supported": 2, "contradicted": 1}
     assert (beta["listings"], beta["photos_selected"], beta["photo_coverage"]) == (1, 0, 0.0)

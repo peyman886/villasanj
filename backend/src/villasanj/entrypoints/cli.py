@@ -17,6 +17,8 @@ import typer
 from villasanj.catalog.application.coverage import MeasureScenarioCoverage
 from villasanj.catalog.application.places import MeasurePlaceResolution
 from villasanj.catalog.application.reports import PhotoPipelineReport, RegionalInventory
+from villasanj.catalog.domain.gazetteer import PlaceKind as GazetteerKind
+from villasanj.catalog.domain.gazetteer import place_key
 from villasanj.catalog.domain.listing import ListingId
 from villasanj.catalog.domain.review import RatingPrior
 from villasanj.catalog.infrastructure.gazetteer_file import load_gazetteer
@@ -55,7 +57,7 @@ from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
 from villasanj.entity_resolution.application.labeling import QueueExists
-from villasanj.entity_resolution.domain.evaluation import Interval
+from villasanj.entity_resolution.domain.evaluation import Interval, wilson
 from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container, build_container
 from villasanj.ingestion.application.capture import CAPTURE_KINDS, ScenarioCapture
@@ -612,6 +614,71 @@ def enrichment_coastline_load() -> None:
 
     if not asyncio.run(_with_container(run)):
         raise typer.Exit(code=1)
+
+
+@enrichment_app.command("places-load")
+def enrichment_places_load() -> None:
+    """Load the exported OSM places (infra/osm/prepare.sh) that distance claims name."""
+
+    async def run(container: Container) -> bool:
+        path = container.settings.geo.osm_dir / "poi.geojsonseq"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        gazetteer = load_gazetteer(container.settings.gazetteer_path)
+        cities = {
+            place_key(name)
+            for place in gazetteer.of_kind(GazetteerKind.CITY)
+            for name in (place.name_fa, *place.aliases)
+        }
+        loaded = await container.places().load(lines, cities)
+        typer.echo(f"dataset={container.settings.geo.dataset} places={loaded}")
+        return loaded > 0
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@enrichment_app.command("places")
+def enrichment_places() -> None:
+    """Distance from every listing to the nearest mapped place of each kind."""
+
+    async def run(container: Container) -> bool:
+        measure = container.place_distances()
+        for platform in sorted(container.crawl.adapters):
+            r = await measure.run(platform)
+            kinds = " ".join(f"{k}={v}" for k, v in sorted(r.measured.items())) or "-"
+            typer.echo(f"{platform:<7} with_location={r.with_location} measured[{kinds}]")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@enrichment_app.command("truth-distances")
+def enrichment_truth_distances() -> None:
+    """Every published distance claim against the map, per target (zero network)."""
+
+    async def run(container: Container) -> bool:
+        check = container.distance_truth()
+        for platform in sorted(container.crawl.adapters):
+            r = await check.run(platform)
+            share = wilson(r.listings_contradicted, r.listings_judged)
+            h4 = (
+                f" ({share.estimate:.1%}, 95% CI {share.low:.1%}-{share.high:.1%})"
+                if share.estimate is not None
+                else ""
+            )
+            typer.echo(
+                f"{platform:<7} listings_judged={r.listings_judged} "
+                f"listings_with_a_contradiction={r.listings_contradicted}{h4}"
+            )
+            by_target: dict[str, list[str]] = {}
+            for key, count in sorted(r.verdicts.items()):
+                target, verdict = key.split(":")
+                by_target.setdefault(target, []).append(f"{verdict}={count}")
+            for target, parts in by_target.items():
+                typer.echo(f"    {target:<15} {' '.join(parts)}")
+        return True
+
+    asyncio.run(_with_container(run))
 
 
 @enrichment_app.command("coast")

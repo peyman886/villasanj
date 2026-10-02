@@ -18,19 +18,21 @@ from villasanj.catalog.domain.listing import CalendarObservation, Listing, Listi
 from villasanj.catalog.domain.review import ListingReview
 from villasanj.discovery.application.routing import DriveTime, Origin
 from villasanj.enrichment.application.coast import CoastDistance
+from villasanj.enrichment.application.places import PlaceDistance
 from villasanj.enrichment.application.review_summary import CitedPoint
 from villasanj.enrichment.application.truth import (
     DistanceClaimCheck,
     FeatureClaimCheck,
     ListingTruth,
 )
-from villasanj.enrichment.domain.distance_claims import ClaimTarget, Verdict
+from villasanj.enrichment.domain.distance_claims import Assessment, ClaimTarget, Verdict
 from villasanj.enrichment.domain.features import (
     NEAR_SEA_M,
     Agreement,
     FeatureEvidence,
     Polarity,
 )
+from villasanj.enrichment.domain.places import CENTRE_EXTENT_M, COMPLETE, PlaceKind
 from villasanj.entrypoints.container import Container
 from villasanj.pricing.domain.offer import Offer
 from villasanj.pricing.domain.quote import NightCharge, StayRequest
@@ -265,37 +267,73 @@ def _measured(coast: CoastDistance) -> str:
     return f"نقشه: {fa_metres_range(coast.low_m, coast.high_m)} تا ساحل در خط مستقیم"
 
 
+_PLACE_FA = {
+    PlaceKind.SUPERMARKET: "سوپرمارکت",
+    PlaceKind.BAKERY: "نانوایی",
+    PlaceKind.RESTAURANT: "رستوران",
+    PlaceKind.MEDICAL: "مرکز درمانی",
+    PlaceKind.CITY_CENTER: "مرکز شهر",
+    PlaceKind.FOREST: "جنگل",
+}
+
+
+def _place_measured(place: PlaceDistance) -> str:
+    distance = f"{fa_metres_range(place.low_m, place.high_m)} در خط مستقیم"
+    if place.kind is PlaceKind.CITY_CENTER:
+        name = place.nearest_name or "نزدیک" + f"{ZWNJ}ترین شهر"
+        return (
+            f"نقشه: نقطه{ZWNJ}ی مرکز {name} {distance} (تا {fa_metres(CENTRE_EXTENT_M)} "
+            f"دورتر از این نقطه هم مرکز شهر حساب شده)"
+        )
+    return f"نقشه: نزدیک{ZWNJ}ترین {_PLACE_FA[place.kind]} ثبت{ZWNJ}شده در OpenStreetMap {distance}"
+
+
+def _judged(
+    assessment: Assessment, measured: str, *, partial: bool, kind_fa: str
+) -> tuple[ClaimVerdict, str]:
+    claim_high = assessment.claimed_m[1]
+    if assessment.verdict is Verdict.SUPPORTED:
+        return "supported", f"{measured}؛ از همه{ZWNJ}ی محدوده{ZWNJ}ی مکان آگهی در حد ادعاست."
+    if assessment.verdict is Verdict.CONTRADICTED and claim_high is not None:
+        return "contradicted", (
+            f"{measured}، اما این ادعا حتی با سخاوتمندانه{ZWNJ}ترین برداشت "
+            f"حداکثر {fa_metres(claim_high)} است."
+        )
+    if partial:
+        return "not_confirmed", (
+            f"{measured}. نقشه همه{ZWNJ}ی {kind_fa}{ZWNJ}ها را ندارد، پس دورتر بودن "
+            f"نزدیک{ZWNJ}ترین مورد ثبت{ZWNJ}شده ادعا را رد نمی{ZWNJ}کند."
+        )
+    return "not_confirmed", f"{measured}؛ با این شواهد نمی{ZWNJ}شود گفت درست است یا نه."
+
+
 def _distance_out(
     listing: Listing, check: DistanceClaimCheck, coast: CoastDistance | None
 ) -> DistanceClaimOut:
-    raw, claim, assessment = check.raw, check.claim, check.assessment
+    raw, claim, assessment, place = check.raw, check.claim, check.assessment, check.place
     mode = _MODE_FA[raw.mode.value]
     text = f"{raw.target_fa}: {to_persian_digits(raw.value_text)}" + (f" {mode}" if mode else "")
     verdict: ClaimVerdict = "not_checked"
     evidence_provenance = None
     if claim is None:
         evidence = "این عبارت را نتوانستیم به فاصله تبدیل کنیم."
-    elif claim.target is not ClaimTarget.SEA:
-        evidence = f"برای این مقصد هنوز داده{ZWNJ}ی نقشه نداریم."
-    elif assessment is None or coast is None:
-        evidence = f"فاصله{ZWNJ}ی این آگهی تا ساحل اندازه{ZWNJ}گیری نشده است."
-    else:
+    elif assessment is not None and place is not None:
+        kind_fa = _PLACE_FA[place.kind]
+        evidence_provenance = _map_provenance(
+            listing, place.computed_at, f"فاصله تا نزدیک{ZWNJ}ترین {kind_fa}", place.dataset
+        )
+        verdict, evidence = _judged(
+            assessment, _place_measured(place), partial=place.kind not in COMPLETE, kind_fa=kind_fa
+        )
+    elif assessment is not None and coast is not None:
         evidence_provenance = _map_provenance(
             listing, coast.computed_at, "فاصله تا خط ساحل", coast.dataset
         )
-        claim_high = assessment.claimed_m[1]
-        if assessment.verdict is Verdict.SUPPORTED:
-            verdict = "supported"
-            evidence = f"{_measured(coast)}؛ همه{ZWNJ}ی محدوده{ZWNJ}ی مکان آگهی با ادعا جور است."
-        elif assessment.verdict is Verdict.CONTRADICTED and claim_high is not None:
-            verdict = "contradicted"
-            evidence = (
-                f"{_measured(coast)}، اما این ادعا حتی با سخاوتمندانه{ZWNJ}ترین برداشت "
-                f"حداکثر {fa_metres(claim_high)} است."
-            )
-        else:
-            verdict = "not_confirmed"
-            evidence = f"{_measured(coast)}؛ با این شواهد نمی{ZWNJ}شود گفت درست است یا نه."
+        verdict, evidence = _judged(assessment, _measured(coast), partial=False, kind_fa="")
+    elif claim.target is ClaimTarget.SEA:
+        evidence = f"فاصله{ZWNJ}ی این آگهی تا ساحل اندازه{ZWNJ}گیری نشده است."
+    else:
+        evidence = f"برای این مقصد هنوز داده{ZWNJ}ی نقشه نداریم."
     return DistanceClaimOut(
         text=text,
         target=claim.target.value if claim else ClaimTarget.OTHER.value,

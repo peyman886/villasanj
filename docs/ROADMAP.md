@@ -452,6 +452,7 @@ result.
 | Group mode, part 1: each person's share of every offer (`per_person` on offers and search results, `MoneyRange.shared_by` rounds outwards so the true share stays inside; an open total stays open), shown in the listing's offers table with its provenance | M11 scope (group mode: per-person cost) | ✅ done | nearby villas for split groups needs canonical villas (M5): two listings of one villa must not be offered as two villas |
 | Explanation eval `discovery eval-explanations` (M10 crit. 2 and 4) and a five-model bake-off (ADR-0005 amendment, texts in `docs/reference/explanation-bakeoff-2026-10-02.md`): on the 20 draft queries that get an explanation, gemini-3.8-flash 100% LLM text, 0% template fallback, 20% retried; p95 6.1–10.6 s uncached. Results now come first (`explain: false`, 1.1 s) and the explanation streams in (`POST /search/explanation`); the verifier also rejects «در دسترس قرار دارد» | M10 crit. 2 ✅ measured; crit. 4 ❌ not met for the explanation itself | ✅ built | the owner's review of the texts; crit. 3 (blind review of summaries) |
 | Estimator check for the review-summary job: calibrated on 24 listings (+56% before: expected output 500 vs 292 measured), validated on 24 others: estimate $0.0363 vs ledger $0.0352 (+3%); 48/48 summaries passed the verifier first time (ADR-0005 amendment) | M9 crit. 5 (summaries; the only LLM enrichment job so far), M10 crit. 2 (summaries) | ✅ measured | VLM checks and an LLM claim residue, if they are built |
+| Every distance claim judged where the map can: OSM places (shops, bakeries, restaurants, medical, town centres incl. platform-named villages, woods) in PostGIS, nearest per kind with the blur range (`enrichment places-load`, `places`, `truth-distances`, migration 0011); partial maps only support, town centres (an area, A20) can contradict; on the listing page every such claim now has its evidence; H4 any target: jabama 9.3% (8.1–10.6%), shab 1.9% (1.1–3.4%) (ADR-0013 amendment) | M9 crit. 3–4 (other targets) | ✅ done | photo evidence and cross-platform fields |
 
 Still blocked or waiting:
 - **M3:** photo crawl (jabama, ~11 h left on 2026-10-01 17:00 UTC) → `make match` → gold-v1 → owner labels → eval → H1–H3 → review.
@@ -459,7 +460,7 @@ Still blocked or waiting:
 - **M5:** Splink / supervised model, judge bake-off, ablations, human review queue for UNSURE, clustering on real data — all need the gold set.
 - **M6 crit. 3:** direct-quote comparison: no public quote source found on either platform.
 - **M8:** the 50-query eval set needs the owner's review before its result counts; the latency target is met by gpt-5.4-mini on the draft set (p95 1.3 s, ADR-0005 amendment) but is provisional with the set; retrieval eval (crit. 2) and villa-level ranking need M5.
-- **M9:** sea claims are judged (ADR-0013); other targets need OSM POIs; the 60-description claim eval and the 300-photo tag eval need hand labels; photo tags are scored (SigLIP 2) but get no threshold before those labels.
+- **M9:** distance claims are judged against the coastline and OSM places (ADR-0013 and its amendment); the 60-description claim eval and the 300-photo tag eval need hand labels; photo tags are scored (SigLIP 2) but get no threshold before those labels.
 - **M10–M11:** not started beyond the pieces above.
 
 ---

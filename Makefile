@@ -86,9 +86,11 @@ routing-up: ## Start OSRM (profile "routing"); the core stack is not touched
 routing-down: ## Stop OSRM
 	docker compose --profile routing stop osrm
 
-geo: ## Coastline into PostGIS, coast distances, drive times, sea truth check (OSRM must be up)
+geo: ## Coastline + places into PostGIS, distances, drive times, truth checks (OSRM must be up)
 	cd backend && uv run villasanj enrichment coastline-load && uv run villasanj enrichment coast \
-		&& uv run villasanj discovery drive-times && uv run villasanj enrichment truth-sea
+		&& uv run villasanj enrichment places-load && uv run villasanj enrichment places \
+		&& uv run villasanj discovery drive-times && uv run villasanj enrichment truth-sea \
+		&& uv run villasanj enrichment truth-distances
 
 openapi-check: ## Fail if the committed OpenAPI schema or TS types are out of date
 	@tmp=$$(mktemp -d) && cd backend && uv run villasanj api openapi --out $$tmp/openapi.json >/dev/null \

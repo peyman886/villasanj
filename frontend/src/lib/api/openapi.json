@@ -1203,6 +1203,22 @@
             "title": "Coast Measured",
             "type": "integer"
           },
+          "distance_contradicted_high": {
+            "title": "Distance Contradicted High",
+            "type": "number"
+          },
+          "distance_contradicted_listings": {
+            "title": "Distance Contradicted Listings",
+            "type": "integer"
+          },
+          "distance_contradicted_low": {
+            "title": "Distance Contradicted Low",
+            "type": "number"
+          },
+          "distance_judged_listings": {
+            "title": "Distance Judged Listings",
+            "type": "integer"
+          },
           "drive_routed": {
             "title": "Drive Routed",
             "type": "integer"
@@ -1273,6 +1289,10 @@
           "sea_contradicted_listings",
           "sea_contradicted_low",
           "sea_contradicted_high",
+          "distance_judged_listings",
+          "distance_contradicted_listings",
+          "distance_contradicted_low",
+          "distance_contradicted_high",
           "sea_verdicts"
         ],
         "title": "PlatformOut",

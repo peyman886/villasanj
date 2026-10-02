@@ -81,4 +81,32 @@ Status: Accepted (2026-10-02) · Refines ADR-0003 decision 5 · Owner approved t
 - (−) Free-flow times are optimistic on busy weekends; the UI must label them.
 - (−) The 500 m assumption for shab is a judgement; it is visible on every affected row.
 - (−) Only the sea is judged so far. Other targets (supermarket, bakery, city centre) need OSM POIs
-  and are not judged yet.
+  and are not judged yet. (Superseded by the amendment below.)
+
+
+## Amendment (2026-10-02): places from the same snapshot judge the other distance claims
+
+Jabama and shab publish distances to supermarkets, bakeries, restaurants, medical centres, town
+centres and forests as often as to the sea (≈ 15,000 claims). `infra/osm/prepare.sh` now also
+exports those places from the clipped snapshot (shops `supermarket|convenience|grocery|general|
+bakery`, amenities `restaurant|fast_food|hospital|clinic|doctors`, `place=city|town|village`,
+`landuse=forest`, `natural=wood`); `enrichment places-load` keeps 16,708 of them in
+`enrichment.place` and `enrichment places` stores each listing's nearest one per kind with the
+blur range (`enrichment.place_distance`, migration 0011).
+
+Rules, because an absent shop on the map is not an absent shop:
+
+1. **Partial maps support, never contradict.** For shops, restaurants, medical centres and woods
+   the nearest *mapped* place is an upper bound on the nearest real one: a claim is SUPPORTED
+   when that place is within the claim from every point of the blur circle, otherwise «تأیید نشد».
+2. **Town centres are complete and can contradict.** Every gazetteer city has an OSM centre; a
+   village counts only if platforms call it a city (Javaherdeh is `place=village` in OSM; without
+   it Javaherdeh listings were wrongly contradicted against Chaboksar, 15 km away). A centre is
+   an area: anything within 1.5 km of the town's point counts as the centre (A20).
+3. Targets without a kind («مراکز تفریحی», «مراکز خرید», shrines, named sights) stay «بررسی نشد».
+
+First run (2026-10-02, snapshot iran-260930): jabama city-centre claims 2,126 supported, 189 not
+confirmed, 46 contradicted (all walking claims, e.g. «۵ دقیقه پیاده» 3.5 km from Katalom's
+centre); listings with at least one contradicted distance claim, any target: jabama 198 of 2,137
+judged (9.3%, 95% CI 8.1–10.6%), shab 11 of 572 (1.9%, 1.1–3.4%). Before rule 2's area the count
+was 210 city-centre contradictions; checking them by hand is what produced the 1.5 km extent.

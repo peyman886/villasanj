@@ -112,7 +112,8 @@ export default async function MetricsPage() {
             "فاصله تا ساحل",
             "زمان رانندگی",
             "ادعای فاصله تا دریا",
-            "دست‌کم یک ادعا ناسازگار با نقشه",
+            "ناسازگار با نقشه (دریا)",
+            "ناسازگار با نقشه (همه‌ی مقصدها)",
           ]}
           rows={m.platforms.map((p) => [
             p.platform,
@@ -124,12 +125,17 @@ export default async function MetricsPage() {
             p.sea_measured_listings
               ? `${faNumber(p.sea_contradicted_listings)} از ${faNumber(p.sea_measured_listings)} (${percent(p.sea_contradicted_listings / p.sea_measured_listings)}؛ ${percent(p.sea_contradicted_low)} تا ${percent(p.sea_contradicted_high)})`
               : "—",
+            p.distance_judged_listings
+              ? `${faNumber(p.distance_contradicted_listings)} از ${faNumber(p.distance_judged_listings)} (${percent(p.distance_contradicted_listings / p.distance_judged_listings)}؛ ${percent(p.distance_contradicted_low)} تا ${percent(p.distance_contradicted_high)})`
+              : "—",
           ])}
         />
         <p className="mt-2 text-xs text-pretty text-stone-500">
           سهم ناسازگار با نقشه فقط میان آگهی‌هایی است که فاصله‌شان تا ساحل اندازه‌گیری شده؛ داخل
           پرانتز، بازه‌ی اطمینان ۹۵٪ (Wilson). ناسازگار یعنی حتی نزدیک‌ترین نقطه‌ی ممکن و
-          سخاوتمندانه‌ترین برداشت از ادعا به هم نمی‌رسند.
+          سخاوتمندانه‌ترین برداشت از ادعا به هم نمی‌رسند. «همه‌ی مقصدها» دریا و مرکز شهر را
+          می‌شمارد؛ سوپرمارکت، نانوایی، رستوران، مرکز درمانی و جنگل را نقشه کامل ندارد، پس فقط تأیید
+          می‌کنند و هرگز رد نمی‌کنند.
         </p>
         <p className="mt-1 text-xs text-stone-500">
           حکم ادعاهای دریا:{" "}

@@ -14,6 +14,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
+from villasanj.entity_resolution.domain.evaluation import wilson
 from villasanj.entrypoints.container import Container
 
 router = APIRouter(tags=["metrics"])
@@ -41,6 +42,10 @@ class PlatformOut(BaseModel):
     sea_contradicted_listings: int
     sea_contradicted_low: float  # Wilson 95% interval of the share among measured listings (H4)
     sea_contradicted_high: float
+    distance_judged_listings: int  # with at least one distance claim the map can judge
+    distance_contradicted_listings: int  # any target: sea, town centre (partial maps never)
+    distance_contradicted_low: float
+    distance_contradicted_high: float
     sea_verdicts: dict[str, int]
 
 
@@ -89,12 +94,15 @@ async def get_metrics(request: Request) -> MetricsOut:
         for r in await container.photo_pipeline().run(container.image_embedder().model_id)
     }
     truth = container.sea_truth()
+    distances = container.distance_truth()
     origin = container.routing_origin()
     rows = []
     for platform in platforms:
         photo = photos.get(platform)
         sea = await truth.run(platform)
         share = sea.contradicted_share()
+        judged = await distances.run(platform)
+        any_share = wilson(judged.listings_contradicted, judged.listings_judged)
         rows.append(
             PlatformOut(
                 platform=platform,
@@ -115,6 +123,10 @@ async def get_metrics(request: Request) -> MetricsOut:
                 sea_contradicted_listings=sea.listings_contradicted,
                 sea_contradicted_low=round(share.low, 4),
                 sea_contradicted_high=round(share.high, 4),
+                distance_judged_listings=judged.listings_judged,
+                distance_contradicted_listings=judged.listings_contradicted,
+                distance_contradicted_low=round(any_share.low, 4),
+                distance_contradicted_high=round(any_share.high, 4),
                 sea_verdicts=dict(sea.verdicts),
             )
         )

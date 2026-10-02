@@ -717,6 +717,14 @@ export interface components {
         PlatformOut: {
             /** Coast Measured */
             coast_measured: number;
+            /** Distance Contradicted High */
+            distance_contradicted_high: number;
+            /** Distance Contradicted Listings */
+            distance_contradicted_listings: number;
+            /** Distance Contradicted Low */
+            distance_contradicted_low: number;
+            /** Distance Judged Listings */
+            distance_judged_listings: number;
             /** Drive Routed */
             drive_routed: number;
             /** Listings */

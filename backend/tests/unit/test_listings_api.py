@@ -267,6 +267,30 @@ def test_claim_texts_never_accuse() -> None:
         assert word not in texts
 
 
+def test_place_claims_say_what_the_map_can_and_cannot_tell() -> None:
+    from tests.unit.enrichment.test_truth import Places, place
+    from villasanj.enrichment.domain.places import PlaceKind
+
+    claims = (
+        ParsedDistanceClaim("فاصله از نانوایی", "زیر 5 دقیقه", TravelMode.WALK),
+        ParsedDistanceClaim("فاصله از مرکز شهر", "زیر 5 دقیقه", TravelMode.WALK),
+    )
+    listing = Listing.from_parsed(parsed(distance_claims=claims), SNAPSHOT, NOW)
+    rows = [
+        place(listing.id, PlaceKind.BAKERY, 4000.0, 4800.0),
+        place(listing.id, PlaceKind.CITY_CENTER, 4000.0, 4800.0),
+    ]
+    truth = asyncio.run(CheckListingClaims(AmenityMap({}), CoastStore(), Places(rows)).run(listing))
+    bakery, centre = api.claims_out(listing, truth).distances
+    assert bakery.verdict == "not_confirmed"
+    assert "OpenStreetMap" in bakery.evidence
+    assert f"رد نمی{ZWNJ}کند" in bakery.evidence  # a partial map never contradicts
+    assert centre.verdict == "contradicted"
+    assert "رامسر" in centre.evidence  # the nearest centre is named
+    assert centre.evidence_provenance is not None
+    assert centre.evidence_provenance.method == "derived"
+
+
 def test_review_summary_cites_reviews_and_is_null_with_too_few(client: TestClient) -> None:
     path = f"/listings/{LISTING.id.platform}/{LISTING.id.external_id}/review-summary"
     assert client.get(path).json() is None  # too few reviews with text: no summary

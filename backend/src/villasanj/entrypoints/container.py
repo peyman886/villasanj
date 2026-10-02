@@ -40,11 +40,17 @@ from villasanj.enrichment.application.photo_tags import (
     PhotoLabeling,
     TagPhotos,
 )
+from villasanj.enrichment.application.places import MeasurePlaceDistances
 from villasanj.enrichment.application.review_summary import SummarizeReviews
-from villasanj.enrichment.application.truth import CheckListingClaims, CheckSeaClaims
+from villasanj.enrichment.application.truth import (
+    CheckDistanceClaims,
+    CheckListingClaims,
+    CheckSeaClaims,
+)
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore, PgCoastline
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.enrichment.infrastructure.photo_tags import PgPhotoQueueStore, PgPhotoTagStore
+from villasanj.enrichment.infrastructure.places import PgPlaceDistanceStore, PgPlaces
 from villasanj.enrichment.infrastructure.siglip import SigLip2Tagger
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
 from villasanj.entity_resolution.application.judge import JudgePairs
@@ -241,7 +247,23 @@ class Container:
         return CheckSeaClaims(self.listings, self.coast_store())
 
     def listing_claims(self) -> CheckListingClaims:
-        return CheckListingClaims(load_amenity_map(self.settings.features_path), self.coast_store())
+        return CheckListingClaims(
+            load_amenity_map(self.settings.features_path), self.coast_store(), self.place_store()
+        )
+
+    def places(self) -> PgPlaces:
+        return PgPlaces(self.engine, self.settings.geo.dataset)
+
+    def place_store(self) -> PgPlaceDistanceStore:
+        return PgPlaceDistanceStore(self.engine)
+
+    def place_distances(self) -> MeasurePlaceDistances:
+        return MeasurePlaceDistances(
+            self.listings, self.places(), self.place_store(), self.clock, self.settings.geo.dataset
+        )
+
+    def distance_truth(self) -> CheckDistanceClaims:
+        return CheckDistanceClaims(self.listings, self.coast_store(), self.place_store())
 
     def llm_spend(self) -> PgLLMSpendQuery:
         return PgLLMSpendQuery(self.engine)

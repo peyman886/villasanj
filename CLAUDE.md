@@ -161,7 +161,7 @@ make crawl-metrics                      # traffic per host with measured pacing,
 make openapi / openapi-check           # regenerate / verify the OpenAPI schema and TS types
 make osm-download / osm-prepare         # Geofabrik Iran snapshot -> clipped extract, coastline, OSRM graph
 make routing-up / routing-down          # OSRM (compose profile routing); core stack untouched
-make geo                                # coastline into PostGIS, coast distances, drive times, sea check
+make geo                                # coastline + places into PostGIS, distances, drive times, truth checks
 make seed                               # nothing to seed until M11
 ```
 
@@ -179,7 +179,7 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `enrichment features` (description claims vs amenity lists), `llm spend` (ledger totals and the cap),
 `discovery search <query>` (query → ranked listings with reasons; one LLM call),
 `discovery eval-understanding <cases.jsonl> [--dry-run]` (M8 crit. 1 harness), `enrichment coast`,
-`enrichment truth-sea`, `discovery drive-times` (OSRM up), `enrichment tag-photos` / `photo-queue` /
+`enrichment truth-sea`, `enrichment places-load` / `places` / `truth-distances`, `discovery drive-times` (OSRM up), `enrichment tag-photos` / `photo-queue` /
 `photo-tags-eval` (SigLIP 2 tags, gated by labels at `/label/photos`). Search page: `/search`.
 Labelling UI: `http://localhost:3300/label` (stack) or `npm run dev` with `API_URL` set.
 
