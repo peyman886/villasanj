@@ -312,6 +312,12 @@ Acceptance criteria:
    when |error| > 1%.
 4. Staleness: an offer older than the configured max age (default 24 h) is flagged in the API output.
 
+Finding (2026-10-02), optional fees: nothing to show. jabama's structured `extraServices` field is
+empty on all 2,985 listing pages (snapshots of 2026-10-01), shab publishes no such field, and the
+descriptions almost never give a fee amount (0 heating fees with an amount; ~24 listings mention a
+separate fee in words only). Optional fees stay unknown, which the open bound of every offer
+already says; no parser is built for data that does not exist.
+
 ---
 
 ## M7 — API & canonical villa page
