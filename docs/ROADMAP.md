@@ -22,7 +22,7 @@ hard cap $30). Estimates come from [ADR-0005](adr/0005-llm-model-selection-and-c
 | 0 | Understanding & design | $0.05 | ✅ approved 2026-10-01 |
 | 1 | Skeleton & LLM platform | $0.20 | ✅ delivered |
 | 2 | First vertical slice (jabama → shab) | $0.50 | ✅ approved 2026-10-01 |
-| 3 | Hypothesis test (ER baseline + pricing core + H1–H3) | $0.50 | **open**: waits for the photo crawl and the owner's labels; then the mandatory re-prioritisation review |
+| 3 | Hypothesis test (ER baseline + pricing core + H1–H3) | $0.50 | **open**: gold-v1 drawn (362 pairs, 2026-10-02); waits for the owner's labels, then eval, H1–H3 and the mandatory re-prioritisation review |
 | 4 | Coverage: permission-gated adapters, wider region, scheduled scenario crawls | $0.50 | **partly started in parallel** with M3 (only parts independent of M3 results) |
 | 5 | Full ER | $8.00 | report + precision sign-off |
 | 6 | Pricing complete & offers | $0.50 | report |
@@ -221,8 +221,13 @@ listing (83% of jabama listings are within 1 km of a shab listing with ±1 bedro
 prefilter would save little). The labelling UI shows every photo straight from the platforms' CDNs
 (no copy on our server).
 
-Waiting for: the photo crawl → `make match` → `villasanj er queue --name gold-v1` → **owner labels
-≥ 300 pairs** → `make eval` → `make eval-hypotheses` → owner review (criterion 5).
+Done after the crawl (2026-10-02, `make post-crawl`, 8 min 41 s): 7,545 new photos fingerprinted,
+7,269 new images embedded (17,428 in all), 5,285 newly tagged; `er match` run `3425556d`, dataset
+`dd0bcb816434`: 154,395 candidate pairs (28,557 from the narrow blocks: location + rooms 27,301,
+photo embedding 1,219, same-platform shared photos 389, pHash 232; the wide net 125,838).
+**gold-v1 is drawn: 362 pairs** (geo bands 90, photo bands 177, same-platform hard negatives 45,
+wide net 50). Waiting for: **the owner's labels ≥ 300 pairs at `/label`** → `make eval` →
+threshold → `make eval-hypotheses` → owner review (criterion 5). Nothing of M3 is final before then.
 
 Stack (2026-10-02): the `api` and `web` images were rebuilt and only those two containers recreated (the db and the crawl untouched), so `/label`, `/search` and the listing pages run current code on port 3300. A throwaway queue `rehearsal-20261002` (362 pairs from the rehearsal candidates) was opened in `/label` to check the UI end to end and then deleted; no label was recorded.
 
@@ -262,9 +267,9 @@ results and the re-prioritisation review are not done and nothing provisional is
 | Wider region | ⏸ waits for M3 | Only "if M3 shows too few cross-platform pairs" (H1). |
 | Same-window scenario capture (criterion 3) | ✅ built, **not run** | `make crawl-scenarios` plans the capture (currently jabama 2.9 h, shab 0.6 h, in parallel; LIVE=1 runs it). Running it now would change the catalog under the M3 gold set, so it runs after M3 or for the M11 final crawl. |
 | Crawl metrics | ✅ built | `make crawl-metrics`: traffic per host with measured pacing (every host: min interval ≥ 3.05 s, median ~3.7 s). |
-| Photo pipeline report (criterion 4) | ✅ built; final numbers after the crawl | `catalog photo-report`: selected / downloaded / failed with reasons / coverage / hashed / embedded / storage. "≥ 99% of referenced photos" is read as ≥ 99% of the photos the policy selects (5 per listing, ADR-0012). The full 66k would be ~50 h of polite crawling for little ER gain. |
+| Photo pipeline report (criterion 4) | ✅ met (2026-10-02): jabama 14,837/14,837 selected photos downloaded (100%), 0 failed, all fingerprinted, 14,466 distinct images embedded, 8.48 GB; shab 3,004/3,004, 1.09 GB | `catalog photo-report`: selected / downloaded / failed with reasons / coverage / hashed / embedded / storage. "≥ 99% of referenced photos" is read as ≥ 99% of the photos the policy selects (5 per listing, ADR-0012). The full 66k would be ~50 h of polite crawling for little ER gain. |
 | Regional coverage per platform (criterion 2) | ✅ built | `catalog inventory`. A second discovery pass was run before gold-v1 exists, so no label is affected. jabama search pages again (119 pages): **34 new stays**, catalog 2,951 → 2,985, 0 parse failures. shab sitemaps again: 0 new houses (601). Their coverage photos were queued too. |
-| Photo pipeline, shab (2026-10-01 16:46 UTC) | ✅ complete | 3,004 selected → 3,004 downloaded (100%), 3,004 fingerprinted, 2,962 distinct images embedded, 1.09 GB. jabama is still crawling (`catalog photo-report`). |
+| Photo pipeline, shab (2026-10-01 16:46 UTC) | ✅ complete | 3,004 selected → 3,004 downloaded (100%), 3,004 fingerprinted, 2,962 distinct images embedded, 1.09 GB. jabama finished 2026-10-02 (run `a667381a`: 12,370 fetched, 8 retried, 0 given up, frontier empty). |
 
 M5–M11: only parts that do not depend on M3's outputs were built, all provisional; see "Work done ahead of its milestone" below. M3's review can still reorder them.
 
@@ -461,7 +466,7 @@ result.
 | Claim labelling tool `/label/claims` (migration 0013): queue `claims-v1` of 60 descriptions (≥ 80 characters) drawn once (`enrichment claim-queue`); for each, the owner marks every feature has / has not / shared / says nothing, without seeing the rules' output; `enrichment claims-eval` scores claim-level precision and recall with Wilson CIs, overall and per feature; progress on `/metrics`. Rehearsed end to end, rehearsal deleted | M9 crit. 1 | ✅ built; **waits for the owner's labels** | — |
 
 Still blocked or waiting:
-- **M3:** photo crawl (jabama, ~11 h left on 2026-10-01 17:00 UTC) → `make match` → gold-v1 → owner labels → eval → H1–H3 → review.
+- **M3:** owner labels gold-v1 (362 pairs drawn 2026-10-02) at `/label` → eval → threshold → H1–H3 → review.
 - **M4:** new adapters (no written permission); wider region (H1).
 - **M5:** Splink / supervised model, judge bake-off, ablations, human review queue for UNSURE, clustering on real data — all need the gold set.
 - **M6 crit. 3:** direct-quote comparison: no public quote source found on either platform.

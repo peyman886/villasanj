@@ -27,12 +27,11 @@ Context files (local):
   + 601 shab listings, 278k calendar observations; gazetteer v1 in `config/gazetteer.toml`.
 - **M3 in progress (started 2026-10-01).** Built: pricing engine v1, image embeddings (local
   DINOv2-small, ADR-0012), ER baseline (blocking → evidence → rule score), stratified gold-set
-  queue, labelling UI at `/label`, evaluation and the H1–H3 report. Waiting for: the coverage
-  photo crawl (5 per listing), then `make match`, `er queue --name gold-v1`, the **owner's labels**
-  (≥ 300 pairs, `docs/er-labeling-protocol.md`), then `make eval` and `make eval-hypotheses`.
-- Photo crawl resumed 2026-10-01 16:23 UTC from the frontier checkpoint (nothing refetched). It
-  continues in the background; if it is interrupted, rerun the same `crawl run <platform> --live
-  --kind photo` command; abandoned claims are recovered after 10 minutes.
+  queue, labelling UI at `/label`, evaluation and the H1–H3 report. The photo crawl finished
+  2026-10-02 (100% of selected photos on both platforms) and `make post-crawl` ran: match run
+  `3425556d`, dataset `dd0bcb816434`, **gold-v1 drawn with 362 pairs**. Waiting for: the
+  **owner's labels** (≥ 300 pairs, `docs/er-labeling-protocol.md`), then `make eval`, threshold
+  and `make eval-hypotheses`. Never declare precision/recall/threshold before the labels exist.
 - **M4 partly started in parallel** (owner's instruction): only parts independent of M3's final
   outputs. Done: scenario capture tool (built, not run while M3 is open), crawl metrics, photo
   report, inventory, a second discovery pass. Blocked: new adapters (no permission). Waiting for
