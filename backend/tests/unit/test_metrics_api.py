@@ -99,6 +99,10 @@ class Stub:
     def photo_labeling(self) -> Async:
         return Async(task=None)
 
+    def summary_reviewing(self) -> Async:
+        task = SimpleNamespace(total=20, reviewed=3) if self._labelled else None
+        return Async(task=task)
+
     async def aclose(self) -> None:
         return None
 
@@ -146,7 +150,10 @@ def test_metrics_report_politeness_offers_spend_and_labelling(client: TestClient
     assert body["offers"][0]["by_kind"] == {"open": 2}
     assert [s["task"] for s in body["llm_spend"]] == ["explanation", "judge"]
     assert (body["llm_total_usd"], body["llm_cap_usd"]) == (0.35, 30.0)
-    assert body["labelling"] == [{"queue": "gold-v1", "total": 300, "labelled": 12}]
+    assert body["labelling"] == [
+        {"queue": "gold-v1", "total": 300, "labelled": 12},
+        {"queue": "summaries-v1", "total": 20, "labelled": 3},
+    ]
 
 
 def test_queues_that_do_not_exist_yet_are_left_out() -> None:

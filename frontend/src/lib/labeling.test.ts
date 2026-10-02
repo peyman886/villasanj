@@ -8,6 +8,7 @@ import {
   shortcutFor,
   fetchTask,
 } from "./labeling";
+import { verdictFor } from "./summary-reviews";
 
 const key = (code: string, extra: Partial<Record<string, boolean>> = {}) => ({
   code,
@@ -87,5 +88,21 @@ describe("fetchTask", () => {
     vi.stubGlobal("fetch", answer(204));
     expect(await fetchTask("http://api", "gold-v1", "owner")).toEqual({ kind: "done" });
     vi.unstubAllGlobals();
+  });
+});
+
+describe("verdictFor", () => {
+  const press = (code: string, extra: Partial<KeyboardEvent> = {}) => ({
+    code,
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    ...extra,
+  });
+  it("reads physical Y and N, and nothing with a modifier", () => {
+    expect(verdictFor(press("KeyY"))).toBe(true);
+    expect(verdictFor(press("KeyN"))).toBe(false);
+    expect(verdictFor(press("KeyY", { metaKey: true }))).toBeNull();
+    expect(verdictFor(press("KeyM"))).toBeNull();
   });
 });

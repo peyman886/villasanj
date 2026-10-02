@@ -14,6 +14,7 @@ from villasanj.entrypoints.api.listings import scenarios_router
 from villasanj.entrypoints.api.metrics import router as metrics_router
 from villasanj.entrypoints.api.photo_labels import router as photo_labels_router
 from villasanj.entrypoints.api.search import router as search_router
+from villasanj.entrypoints.api.summary_reviews import router as summary_reviews_router
 from villasanj.entrypoints.container import Container, build_container
 
 
@@ -49,6 +50,7 @@ def create_app(container_factory: Callable[[], Container] = build_container) -> 
     app.include_router(search_router)
     app.include_router(photo_labels_router)
     app.include_router(metrics_router)
+    app.include_router(summary_reviews_router)
 
     @app.get("/health/live")
     async def live() -> LiveOut:

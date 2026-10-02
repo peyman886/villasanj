@@ -51,6 +51,7 @@ from villasanj.discovery.infrastructure.eval_cases import load_cases
 from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.enrichment.application.features import MeasureFeatureClaims
 from villasanj.enrichment.application.photo_tags import EvaluatePhotoTags, PhotoQueueExists
+from villasanj.enrichment.application.summary_review import SummaryQueueExists
 from villasanj.enrichment.application.truth import CheckSeaClaims
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore
 from villasanj.enrichment.infrastructure.features import load_amenity_map
@@ -614,6 +615,47 @@ def enrichment_coastline_load() -> None:
 
     if not asyncio.run(_with_container(run)):
         raise typer.Exit(code=1)
+
+
+@enrichment_app.command("summary-queue")
+def enrichment_summary_queue(
+    name: Annotated[str, typer.Option(help="Queue name, e.g. summaries-v1.")] = "summaries-v1",
+    n: Annotated[int, typer.Option(min=1, max=100, help="Listings to review.")] = 20,
+) -> None:
+    """Draw the listings whose review summaries the owner judges (M10 criterion 3), once."""
+
+    async def run(container: Container) -> bool:
+        try:
+            items = await container.summary_review_queue().run(name, n)
+        except SummaryQueueExists:
+            typer.echo(f"queue {name} exists: queues are drawn once")
+            return False
+        typer.echo(f"queue={name} listings={len(items)} review at /label/summaries")
+        return bool(items)
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@enrichment_app.command("summary-review-eval")
+def enrichment_summary_review_eval(
+    queue: Annotated[str, typer.Option(help="Queue name.")] = "summaries-v1",
+    labeler: Annotated[str, typer.Option(help="Who reviewed.")] = "owner",
+) -> None:
+    """Faithful summaries among those the owner reviewed (target: at least 18 of 20)."""
+
+    async def run(container: Container) -> bool:
+        r = await container.summary_review_eval().run(queue, labeler)
+        target = {None: "not all reviewed yet", True: "met", False: "NOT met"}[r.meets_target]
+        typer.echo(
+            f"queue={r.queue} reviewed={r.reviewed}/{r.total} faithful={r.faithful} "
+            f"target(>=18/20)={target}"
+        )
+        for listing_id, note in r.unfaithful:
+            typer.echo(f"  UNFAITHFUL {listing_id}: {note or '-'}")
+        return True
+
+    asyncio.run(_with_container(run))
 
 
 @enrichment_app.command("places-load")

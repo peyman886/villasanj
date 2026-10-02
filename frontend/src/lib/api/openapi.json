@@ -1934,6 +1934,126 @@
         "title": "SummaryPointOut",
         "type": "object"
       },
+      "SummaryReviewIn": {
+        "properties": {
+          "external_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "External Id",
+            "type": "string"
+          },
+          "faithful": {
+            "title": "Faithful",
+            "type": "boolean"
+          },
+          "labeler": {
+            "default": "owner",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Labeler",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "platform": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Platform",
+            "type": "string"
+          },
+          "queue": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Queue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "platform",
+          "external_id",
+          "faithful"
+        ],
+        "title": "SummaryReviewIn",
+        "type": "object"
+      },
+      "SummaryReviewTaskOut": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "external_id": {
+            "title": "External Id",
+            "type": "string"
+          },
+          "faithful": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Faithful"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "queue": {
+            "title": "Queue",
+            "type": "string"
+          },
+          "reviewed": {
+            "title": "Reviewed",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queue",
+          "position",
+          "total",
+          "reviewed",
+          "done",
+          "platform",
+          "external_id",
+          "faithful",
+          "note"
+        ],
+        "title": "SummaryReviewTaskOut",
+        "type": "object"
+      },
       "TagOut": {
         "properties": {
           "code": {
@@ -2875,6 +2995,110 @@
         "summary": "Search Explanation",
         "tags": [
           "search"
+        ]
+      }
+    },
+    "/summary-reviews": {
+      "post": {
+        "operationId": "post_verdict_summary_reviews_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummaryReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Verdict",
+        "tags": [
+          "summary-reviews"
+        ]
+      }
+    },
+    "/summary-reviews/task": {
+      "get": {
+        "operationId": "get_task_summary_reviews_task_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "queue",
+            "required": false,
+            "schema": {
+              "default": "summaries-v1",
+              "title": "Queue",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "labeler",
+            "required": false,
+            "schema": {
+              "default": "owner",
+              "title": "Labeler",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "position",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryReviewTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Task",
+        "tags": [
+          "summary-reviews"
         ]
       }
     }

@@ -136,6 +136,11 @@ async def get_metrics(request: Request) -> MetricsOut:
     gold = await container.labeling().progress("gold-v1", "owner")
     if gold is not None:
         labelling.append(LabellingOut(queue="gold-v1", total=gold[0], labelled=gold[1]))
+    summaries = await container.summary_reviewing().task("summaries-v1", "owner")
+    if summaries is not None:
+        labelling.append(
+            LabellingOut(queue="summaries-v1", total=summaries.total, labelled=summaries.reviewed)
+        )
     photos_task = await container.photo_labeling().task("photos-v1", "owner")
     if photos_task is not None:
         labelling.append(

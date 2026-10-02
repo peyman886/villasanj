@@ -42,6 +42,11 @@ from villasanj.enrichment.application.photo_tags import (
 )
 from villasanj.enrichment.application.places import MeasurePlaceDistances
 from villasanj.enrichment.application.review_summary import SummarizeReviews
+from villasanj.enrichment.application.summary_review import (
+    BuildSummaryReviewQueue,
+    EvaluateSummaryReviews,
+    SummaryReviewing,
+)
 from villasanj.enrichment.application.truth import (
     CheckDistanceClaims,
     CheckListingClaims,
@@ -52,6 +57,7 @@ from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.enrichment.infrastructure.photo_tags import PgPhotoQueueStore, PgPhotoTagStore
 from villasanj.enrichment.infrastructure.places import PgPlaceDistanceStore, PgPlaces
 from villasanj.enrichment.infrastructure.siglip import SigLip2Tagger
+from villasanj.enrichment.infrastructure.summary_review import PgSummaryReviewStore
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
 from villasanj.entity_resolution.application.judge import JudgePairs
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
@@ -325,6 +331,21 @@ class Container:
 
     def photo_labeling(self) -> PhotoLabeling:
         return PhotoLabeling(self.photo_queues(), self.clock)
+
+    def summary_review_queue(self) -> BuildSummaryReviewQueue:
+        return BuildSummaryReviewQueue(
+            self.listings,
+            self.listings,
+            PgSummaryReviewStore(self.engine),
+            self.clock,
+            sorted(self.crawl.adapters),
+        )
+
+    def summary_reviewing(self) -> SummaryReviewing:
+        return SummaryReviewing(PgSummaryReviewStore(self.engine), self.clock)
+
+    def summary_review_eval(self) -> EvaluateSummaryReviews:
+        return EvaluateSummaryReviews(PgSummaryReviewStore(self.engine))
 
     def review_summaries(self) -> SummarizeReviews:
         return SummarizeReviews(self.llm.client, self.listings)

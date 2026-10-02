@@ -710,7 +710,7 @@ export function ReviewsSection({
   );
 }
 
-const reviewAnchor = (id: string) => `review-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+export const reviewAnchor = (id: string) => `review-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
 type SummaryPoint = { text: string; review_ids: string[]; single_opinion: boolean };
 

@@ -182,7 +182,8 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `discovery eval-understanding <cases.jsonl> [--dry-run]` (M8 crit. 1 harness), `enrichment coast`,
 `enrichment truth-sea`, `enrichment places-load` / `places` / `truth-distances`, `discovery drive-times` (OSRM up), `enrichment tag-photos` / `photo-queue` /
 `photo-tags-eval` (SigLIP 2 tags, gated by labels at `/label/photos`). Search page: `/search`.
-Labelling UI: `http://localhost:3300/label` (stack) or `npm run dev` with `API_URL` set.
+Labelling UIs (stack on 3300): `/label` (ER pairs, gold-v1), `/label/photos` (photos-v1), `/label/summaries`
+(summaries-v1, M10 blind review); `/metrics` shows progress. Host dev: `npm run dev` with `API_URL` set.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.
 On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0.1:5433).
