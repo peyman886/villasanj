@@ -8,6 +8,7 @@ come with M5's canonical villas; prices stay per listing either way (product rul
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -17,10 +18,12 @@ from villasanj.catalog.domain.listing import CalendarObservation, Listing, Listi
 from villasanj.catalog.domain.review import ListingReview
 from villasanj.discovery.application.routing import DriveTime, Origin
 from villasanj.enrichment.application.coast import CoastDistance
+from villasanj.enrichment.application.review_summary import CitedPoint
 from villasanj.entrypoints.container import Container
 from villasanj.pricing.domain.offer import Offer
 from villasanj.pricing.domain.quote import NightCharge, StayRequest
 from villasanj.shared.application.errors import ConfigurationError
+from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.domain.errors import DomainError
 from villasanj.shared.domain.fa_format import fa_metres_range, fa_minutes_range
 from villasanj.shared.domain.money import MoneyRange
@@ -30,6 +33,7 @@ from villasanj.shared.domain.stay import DateRange, GuestCount
 from villasanj.shared.infrastructure.scenarios import load_scenarios
 
 MAX_CALENDAR_DAYS = 120
+SUMMARY_BUDGET_USD = Decimal("0.02")
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 scenarios_router = APIRouter(tags=["scenarios"])
@@ -377,6 +381,54 @@ async def get_geo(platform: str, external_id: str, request: Request) -> GeoOut:
     coast = await container.coast_store().get(listing.id)
     drive = await container.drive_store().get(listing.id, origin.slug)
     return geo_out(listing, coast, drive, origin)
+
+
+class SummaryPointOut(BaseModel):
+    text: str  # verified: no digits, money words or measurable comparatives (ADR-0007)
+    review_ids: list[str]
+    single_opinion: bool  # decided from the citations, never by the model
+
+
+class ReviewSummaryOut(BaseModel):
+    pros: list[SummaryPointOut]
+    cons: list[SummaryPointOut]
+    reviews_given: int
+    source: Literal["llm"]
+
+
+@router.get("/{platform}/{external_id}/review-summary")
+async def get_review_summary(
+    platform: str, external_id: str, request: Request
+) -> ReviewSummaryOut | None:
+    """Pros and cons that cite their reviews (one cached LLM call); null with too few reviews."""
+    container = _container(request)
+    listing = await _listing(container, platform, external_id)
+    ctx = await container.jobs.start("review_summary", SUMMARY_BUDGET_USD, {})
+    status_ = JobStatus.FAILED
+    try:
+        summary = await container.review_summaries().for_listing(listing.id, ctx)
+        status_ = JobStatus.SUCCEEDED
+    finally:
+        await container.jobs.finish(ctx.job_id, status_)
+    if summary is None:
+        return None
+
+    def points(items: tuple[CitedPoint, ...]) -> list[SummaryPointOut]:
+        return [
+            SummaryPointOut(
+                text=p.text,
+                review_ids=[r.review_id for r in p.reviews],
+                single_opinion=p.single_opinion,
+            )
+            for p in items
+        ]
+
+    return ReviewSummaryOut(
+        pros=points(summary.pros),
+        cons=points(summary.cons),
+        reviews_given=summary.reviews_given,
+        source="llm",
+    )
 
 
 @scenarios_router.get("/scenarios")

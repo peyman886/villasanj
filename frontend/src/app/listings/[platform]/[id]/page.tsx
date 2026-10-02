@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import {
   apiClient,
@@ -16,6 +17,8 @@ import {
   Header,
   OffersSection,
   Photos,
+  ReviewSummarySection,
+  ReviewSummarySkeleton,
   ReviewsSection,
   type ScenarioOffers,
 } from "./sections";
@@ -108,7 +111,20 @@ export default async function ListingPage(props: {
         days={CALENDAR_DAYS}
         now={now}
       />
-      <ReviewsSection listing={listing} reviews={data.reviews} now={now} />
+      <ReviewsSection
+        listing={listing}
+        reviews={data.reviews}
+        now={now}
+        summary={
+          <Suspense fallback={<ReviewSummarySkeleton />}>
+            <ReviewSummarySection
+              platform={platform}
+              id={id}
+              order={Object.fromEntries(data.reviews.map((r, index) => [r.id, index + 1]))}
+            />
+          </Suspense>
+        }
+      />
     </main>
   );
 }

@@ -158,6 +158,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/listings/{platform}/{external_id}/review-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Review Summary
+         * @description Pros and cons that cite their reviews (one cached LLM call); null with too few reviews.
+         */
+        get: operations["get_review_summary_listings__platform___external_id__review_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/listings/{platform}/{external_id}/reviews": {
         parameters: {
             query?: never;
@@ -600,6 +620,20 @@ export interface components {
             /** Text */
             text: string | null;
         };
+        /** ReviewSummaryOut */
+        ReviewSummaryOut: {
+            /** Cons */
+            cons: components["schemas"]["SummaryPointOut"][];
+            /** Pros */
+            pros: components["schemas"]["SummaryPointOut"][];
+            /** Reviews Given */
+            reviews_given: number;
+            /**
+             * Source
+             * @constant
+             */
+            source: "llm";
+        };
         /** ScenarioOut */
         ScenarioOut: {
             /**
@@ -673,6 +707,15 @@ export interface components {
             platform: string;
             /** Url */
             url: string;
+        };
+        /** SummaryPointOut */
+        SummaryPointOut: {
+            /** Review Ids */
+            review_ids: string[];
+            /** Single Opinion */
+            single_opinion: boolean;
+            /** Text */
+            text: string;
         };
         /** TagOut */
         TagOut: {
@@ -931,6 +974,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OfferOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_summary_listings__platform___external_id__review_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: string;
+                external_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSummaryOut"] | null;
                 };
             };
             /** @description Validation Error */

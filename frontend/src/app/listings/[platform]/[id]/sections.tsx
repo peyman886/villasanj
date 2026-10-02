@@ -2,14 +2,15 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Sourced } from "@/components/sourced";
-import type {
-  CalendarNight,
-  Geo,
-  GeoRange,
-  Listing,
-  Offer,
-  Review,
-  Scenario,
+import {
+  apiClient,
+  type CalendarNight,
+  type Geo,
+  type GeoRange,
+  type Listing,
+  type Offer,
+  type Review,
+  type Scenario,
 } from "@/lib/api/client";
 import { cn } from "@/lib/cn";
 import { faPropertyType } from "@/lib/labeling";
@@ -480,10 +481,12 @@ export function ReviewsSection({
   listing,
   reviews,
   now,
+  summary,
 }: {
   listing: Listing;
   reviews: Review[];
   now: Date;
+  summary?: ReactNode;
 }) {
   const shown = reviews.slice(0, MAX_REVIEWS);
   return (
@@ -493,13 +496,17 @@ export function ReviewsSection({
         نظرهایی که صفحه‌ی آگهی در {listing.platform_name} نشان می‌داد ({faNumber(reviews.length)}{" "}
         نظر)؛ نام نویسنده‌ها ذخیره نمی‌شود.
       </p>
+      {summary}
       {shown.length === 0 ? (
         <p className="mt-4 text-sm text-stone-500">نظری ذخیره نشده است.</p>
       ) : (
         <ol className="mt-4 divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
           {shown.map((review, index) => (
-            <li key={review.id} className="p-4">
+            <li key={review.id} id={reviewAnchor(review.id)} className="scroll-mt-4 p-4">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
+                <span className="text-xs text-stone-500 tabular-nums">
+                  نظر {faNumber(index + 1)}
+                </span>
                 {review.rating === null ? (
                   <span className="text-stone-500">بدون امتیاز</span>
                 ) : (
@@ -536,4 +543,93 @@ export function ReviewsSection({
       ) : null}
     </section>
   );
+}
+
+const reviewAnchor = (id: string) => `review-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
+type SummaryPoint = { text: string; review_ids: string[]; single_opinion: boolean };
+
+function SummaryList({
+  title,
+  points,
+  order,
+}: {
+  title: string;
+  points: SummaryPoint[];
+  order: Record<string, number>; // review id -> its number in the list below
+}) {
+  if (points.length === 0) return null;
+  return (
+    <div>
+      <h3 className="text-sm font-medium text-stone-700">{title}</h3>
+      <ul className="mt-1 space-y-1.5 text-sm">
+        {points.map((point) => (
+          <li key={point.text} className="text-pretty">
+            {point.text}{" "}
+            <span className="text-xs text-stone-500">
+              {point.single_opinion ? "(نظر یک مهمان: " : "(بر اساس "}
+              {point.review_ids.map((id, index) => (
+                <span key={id}>
+                  {index > 0 ? "، " : ""}
+                  <a
+                    href={`#${reviewAnchor(id)}`}
+                    className={cn("underline underline-offset-4", FOCUS)}
+                  >
+                    نظر {faNumber(order[id] ?? index + 1)}
+                  </a>
+                </span>
+              ))}
+              )
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Pros and cons that cite their reviews; streamed in after the page (one cached LLM call). */
+export async function ReviewSummarySection({
+  platform,
+  id,
+  order,
+}: {
+  platform: string;
+  id: string;
+  order: Record<string, number>;
+}) {
+  let summary: {
+    pros: SummaryPoint[];
+    cons: SummaryPoint[];
+    reviews_given: number;
+  } | null = null;
+  try {
+    const { data } = await apiClient().GET("/listings/{platform}/{external_id}/review-summary", {
+      params: { path: { platform, external_id: id } },
+      cache: "no-store",
+    });
+    summary = data ?? null;
+  } catch {
+    summary = null;
+  }
+  if (!summary || (summary.pros.length === 0 && summary.cons.length === 0)) return null;
+  return (
+    <section aria-labelledby="summary-title" className="mt-4 rounded-lg bg-stone-100 p-4">
+      <h3 id="summary-title" className="font-medium text-balance">
+        خلاصه‌ی {faNumber(summary.reviews_given)} نظر اخیر
+      </h3>
+      <div className="mt-2 grid gap-4 sm:grid-cols-2">
+        <SummaryList title="خوب‌ها" points={summary.pros} order={order} />
+        <SummaryList title="ایرادها" points={summary.cons} order={order} />
+      </div>
+      <p className="mt-3 text-xs text-stone-500">
+        هر نکته به نظرهایی که آن را گفته‌اند پیوند دارد؛ متن خلاصه را مدل زبانی نوشته و پیش از نمایش
+        بررسی شده است.
+      </p>
+    </section>
+  );
+}
+
+export function ReviewSummarySkeleton() {
+  return <div aria-hidden="true" className="mt-4 h-28 animate-pulse rounded-lg bg-stone-100" />;
 }

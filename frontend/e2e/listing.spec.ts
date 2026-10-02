@@ -45,4 +45,16 @@ test.describe("listing page", () => {
     );
     expect(overflow).toBeLessThanOrEqual(0);
   });
+
+  test("summary points cite reviews that are on the page (M10)", async ({ page }) => {
+    const summary = page.locator("#summary-title");
+    await expect(summary).toBeVisible({ timeout: 60_000 }); // streamed after the page
+    const targets = await page
+      .locator("#summary-title ~ div a[href^='#review-']")
+      .evaluateAll((links) => links.map((a) => a.getAttribute("href") ?? ""));
+    expect(targets.length).toBeGreaterThan(0);
+    for (const target of new Set(targets)) {
+      await expect(page.locator(target)).toHaveCount(1);
+    }
+  });
 });

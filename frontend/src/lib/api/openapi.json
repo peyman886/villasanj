@@ -1133,6 +1133,41 @@
         "title": "ReviewOut",
         "type": "object"
       },
+      "ReviewSummaryOut": {
+        "properties": {
+          "cons": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryPointOut"
+            },
+            "title": "Cons",
+            "type": "array"
+          },
+          "pros": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryPointOut"
+            },
+            "title": "Pros",
+            "type": "array"
+          },
+          "reviews_given": {
+            "title": "Reviews Given",
+            "type": "integer"
+          },
+          "source": {
+            "const": "llm",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pros",
+          "cons",
+          "reviews_given",
+          "source"
+        ],
+        "title": "ReviewSummaryOut",
+        "type": "object"
+      },
       "ScenarioOut": {
         "properties": {
           "check_in": {
@@ -1355,6 +1390,32 @@
           "url"
         ],
         "title": "SourceOut",
+        "type": "object"
+      },
+      "SummaryPointOut": {
+        "properties": {
+          "review_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Review Ids",
+            "type": "array"
+          },
+          "single_opinion": {
+            "title": "Single Opinion",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "review_ids",
+          "single_opinion"
+        ],
+        "title": "SummaryPointOut",
         "type": "object"
       },
       "TagOut": {
@@ -1825,6 +1886,66 @@
           }
         },
         "summary": "Get Offer",
+        "tags": [
+          "listings"
+        ]
+      }
+    },
+    "/listings/{platform}/{external_id}/review-summary": {
+      "get": {
+        "description": "Pros and cons that cite their reviews (one cached LLM call); null with too few reviews.",
+        "operationId": "get_review_summary_listings__platform___external_id__review_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "title": "Platform",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "external_id",
+            "required": true,
+            "schema": {
+              "title": "External Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ReviewSummaryOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Review Summary Listings  Platform   External Id  Review Summary Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Review Summary",
         "tags": [
           "listings"
         ]

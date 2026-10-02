@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
@@ -17,16 +18,19 @@ from tests.unit.discovery.test_routing import Store as DriveStore
 from tests.unit.enrichment.test_coast import Store as CoastStore
 from tests.unit.pricing.test_quote import SNAPSHOT as CALENDAR_SNAPSHOT
 from tests.unit.pricing.test_quote import night
+from tests.unit.test_search_api import Jobs
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.catalog.domain.review import ListingReview
 from villasanj.discovery.application.routing import Origin
 from villasanj.enrichment.application.coast import CoastDistance
+from villasanj.enrichment.application.review_summary import CitedPoint, ReviewSummary
 from villasanj.enrichment.domain.geo import Blur
 from villasanj.entrypoints.api import listings as api
 from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container
 from villasanj.ingestion.domain.parsed import DatePrecision, ParsedReview
 from villasanj.pricing.application.offers import OfferBook
+from villasanj.shared.application.llm.types import JobContext
 from villasanj.shared.domain.geo import GeoPoint
 from villasanj.shared.domain.stay import DateRange
 
@@ -34,6 +38,9 @@ CONFIG = Path(__file__).resolve().parents[3] / "config"
 SNAPSHOT = "00000000-0000-0000-0000-000000000a11"
 LISTING = Listing.from_parsed(parsed(), SNAPSHOT, NOW)
 THU, FRI = date(2026, 10, 15), date(2026, 10, 16)
+
+
+ZWNJ = "\N{ZERO WIDTH NON-JOINER}"
 
 
 class Listings:
@@ -85,8 +92,22 @@ class Stub:
     def drive_store(self) -> DriveStore:
         return DriveStore()  # not routed
 
+    jobs = Jobs()
+    summary: ReviewSummary | None = None
+
+    def review_summaries(self) -> "Summaries":
+        return Summaries(self.summary)
+
     async def aclose(self) -> None:
         return None
+
+
+class Summaries:
+    def __init__(self, summary: ReviewSummary | None) -> None:
+        self.summary = summary
+
+    async def for_listing(self, listing_id: ListingId, ctx: JobContext) -> ReviewSummary | None:
+        return self.summary
 
 
 @pytest.fixture
@@ -190,3 +211,28 @@ def test_geo_comes_with_ranges_text_and_provenance(client: TestClient) -> None:
     assert "OpenStreetMap (osm-1)" in coast["provenance"]["note"]
     assert body["drive_s"] is None  # not routed: no time, never a guess
     assert body["origin"] == "میدان آزادی تهران"
+
+
+def test_review_summary_cites_reviews_and_is_null_with_too_few(client: TestClient) -> None:
+    path = f"/listings/{LISTING.id.platform}/{LISTING.id.external_id}/review-summary"
+    assert client.get(path).json() is None  # too few reviews with text: no summary
+    review = ListingReview.from_parsed(
+        LISTING, ParsedReview("R1", 5.0, "تمیز", None, None, False), SNAPSHOT, NOW
+    )
+    Stub.summary = ReviewSummary(
+        pros=(CitedPoint(f"مهمان{ZWNJ}ها از تمیزی راضی بودند", (review,)),),
+        cons=(),
+        reviews_given=3,
+        retried=False,
+        dropped=0,
+        models=("m",),
+        cost_usd=Decimal("0.001"),
+    )
+    try:
+        body = client.get(path).json()
+    finally:
+        Stub.summary = None
+    assert body["pros"] == [
+        {"text": f"مهمان{ZWNJ}ها از تمیزی راضی بودند", "review_ids": ["R1"], "single_opinion": True}
+    ]
+    assert (body["cons"], body["reviews_given"]) == ([], 3)
