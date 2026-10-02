@@ -989,6 +989,16 @@
             "title": "Nights",
             "type": "array"
           },
+          "per_person": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "provenance": {
             "$ref": "#/components/schemas/ProvenanceOut"
           },
@@ -1019,6 +1029,7 @@
           "status",
           "kind",
           "total",
+          "per_person",
           "caveats",
           "age_hours",
           "stale",
@@ -1393,6 +1404,16 @@
             "title": "Listing Id",
             "type": "string"
           },
+          "per_person": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "photo": {
             "anyOf": [
               {
@@ -1453,6 +1474,7 @@
           "title",
           "photo",
           "total",
+          "per_person",
           "total_provenance",
           "price_per_person_night_toman",
           "confirmed_features",

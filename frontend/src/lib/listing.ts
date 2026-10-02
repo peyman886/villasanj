@@ -93,6 +93,29 @@ export function faToman(money: Money): string {
   return `${low} تا ${numberFormat.format(money.high_toman)} تومان`;
 }
 
+const SHARE_STEP = 1_000; // a person's share is shown to the thousand toman
+
+/**
+ * Each person's share of a total ("نفری حدود ۱٬۲۳۴٬۰۰۰ تومان"), rounded to a thousand toman
+ * outwards for ranges and open totals (so the true share stays inside), to the nearest for an
+ * exact one (then said with «حدود» unless it is already round).
+ */
+export function faShare(share: Money): string {
+  const fmt = (toman: number) => numberFormat.format(toman);
+  const step = SHARE_STEP * 10; // in rial: rial fields are exact, toman ones are rounded down
+  const down = (Math.floor(share.low_rial / step) * step) / 10;
+  if (share.high_rial === null) return `نفری دست‌کم ${fmt(down)} تومان`;
+  if (share.high_rial - share.low_rial <= 1) {
+    // an exact total, or one that does not divide evenly (its share is a one-rial range)
+    const nearest = (Math.round(share.low_rial / step) * step) / 10;
+    return nearest * 10 === share.low_rial
+      ? `نفری ${fmt(nearest)} تومان`
+      : `نفری حدود ${fmt(nearest)} تومان`;
+  }
+  const up = (Math.ceil(share.high_rial / step) * step) / 10;
+  return `نفری ${fmt(down)} تا ${fmt(up)} تومان`;
+}
+
 /** Toman in millions for tight cells ("۴٫۳"); the exact amount is always one click away. */
 export function faMillions(toman: number): string {
   return millionsFormat.format(toman / 1_000_000);

@@ -72,3 +72,26 @@ class TestMoneyRange:
         money_range = MoneyRange.between(Money(low), Money(high))
         assert money_range.contains(Money(c)) == (low <= c <= high)
         assert MoneyRange.at_least(Money(low)).contains(Money(c)) == (c >= low)
+
+
+def test_a_share_per_person_never_invents_a_cap() -> None:
+    total = MoneyRange.exact(Money.from_rial(100))
+    assert total.shared_by(4) == MoneyRange.exact(Money.from_rial(25))
+    assert total.shared_by(3) == MoneyRange.between(Money.from_rial(33), Money.from_rial(34))
+    open_total = MoneyRange.at_least(Money.from_rial(90))
+    assert open_total.shared_by(4) == MoneyRange.at_least(Money.from_rial(22))
+    with pytest.raises(InvalidMoney):
+        total.shared_by(0)
+
+
+@given(
+    st.integers(min_value=0, max_value=10**12),
+    st.integers(min_value=0, max_value=10**9),
+    st.integers(min_value=1, max_value=40),
+)
+def test_the_true_share_is_always_inside_the_rounded_one(low: int, extra: int, people: int) -> None:
+    total = MoneyRange.between(Money.from_rial(low), Money.from_rial(low + extra))
+    share = total.shared_by(people)
+    assert share.high is not None
+    assert share.low.amount_rial * people <= low
+    assert share.high.amount_rial * people >= low + extra

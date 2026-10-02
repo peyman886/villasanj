@@ -9,6 +9,7 @@ import {
   faDay,
   faMillions,
   faMonthYear,
+  faShare,
   faStayed,
   faToman,
   iranToday,
@@ -37,6 +38,19 @@ describe("money", () => {
     expect(faMillions(850_000)).toBe("۰٫۸۵");
   });
 
+  it("shares a total per person without narrowing what is known", () => {
+    const rial = (low: number, high: number | null) => ({
+      low_rial: low,
+      high_rial: high,
+      low_toman: Math.floor(low / 10),
+      high_toman: high === null ? null : Math.floor(high / 10),
+    });
+    expect(faShare(rial(12_500_000, 12_500_000))).toBe("نفری ۱٬۲۵۰٬۰۰۰ تومان");
+    expect(faShare(rial(12_343_333, 12_343_334))).toBe("نفری حدود ۱٬۲۳۴٬۰۰۰ تومان");
+    expect(faShare(rial(12_345_678, null))).toBe("نفری دست‌کم ۱٬۲۳۴٬۰۰۰ تومان");
+    expect(faShare(rial(10_005_000, 20_001_000))).toBe("نفری ۱٬۰۰۰٬۰۰۰ تا ۲٬۰۰۱٬۰۰۰ تومان");
+  });
+
   it("explains an offer without a total instead of inventing one", () => {
     const offer: Offer = {
       listing_id: "p:1",
@@ -46,6 +60,7 @@ describe("money", () => {
       status: "unavailable",
       kind: null,
       total: null,
+      per_person: null,
       caveats: [],
       age_hours: 2,
       stale: false,

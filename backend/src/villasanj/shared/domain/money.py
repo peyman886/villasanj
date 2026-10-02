@@ -104,3 +104,12 @@ class MoneyRange:
 
     def scale(self, factor: int) -> MoneyRange:
         return MoneyRange(self.low * factor, None if self.high is None else self.high * factor)
+
+    def shared_by(self, people: int) -> MoneyRange:
+        """Each person's share, rounded outwards to whole rial so the true share stays inside."""
+        people = _require_non_negative_int(people, "people")
+        if people == 0:
+            raise InvalidMoney("an amount cannot be shared by nobody")
+        low = Money(self.low.amount_rial // people)
+        high = None if self.high is None else Money(-(-self.high.amount_rial // people))
+        return MoneyRange(low, high)

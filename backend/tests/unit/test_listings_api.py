@@ -147,6 +147,8 @@ def test_offer_is_per_listing_with_its_components_and_age(client: TestClient) ->
     ).json()
     assert (body["status"], body["kind"], body["caveats"]) == ("bookable", "open", ["fees_unknown"])
     assert body["total"]["low_toman"] == 2_000_000
+    assert body["per_person"]["low_toman"] == 500_000  # 4 guests share it
+    assert body["per_person"]["high_toman"] is None  # an open total stays open per person
     assert body["total"]["high_toman"] is None  # fees unknown: ">= X"
     assert body["provenance"]["method"] == "derived"
     assert [n["price_provenance"]["method"] for n in body["nights"]] == ["observed", "observed"]

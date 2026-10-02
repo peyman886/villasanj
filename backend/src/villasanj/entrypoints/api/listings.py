@@ -143,6 +143,7 @@ class OfferOut(BaseModel):
     status: str
     kind: Literal["exact", "range", "open"] | None
     total: MoneyOut | None
+    per_person: MoneyOut | None  # the total shared by ``guests``, rounded outwards (group mode)
     caveats: list[str]
     age_hours: float
     stale: bool
@@ -431,6 +432,9 @@ def _offer_out(offer: Offer) -> OfferOut:
         status=quote.status.value,
         kind=quote.kind.value if quote.kind else None,
         total=MoneyOut.of(quote.total) if quote.total else None,
+        per_person=MoneyOut.of(quote.total.shared_by(quote.request.guests.value))
+        if quote.total
+        else None,
         caveats=sorted(c.value for c in quote.caveats),
         age_hours=round(offer.age / timedelta(hours=1), 2),
         stale=offer.stale,

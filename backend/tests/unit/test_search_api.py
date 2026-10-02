@@ -76,6 +76,9 @@ def test_search_returns_ranked_results_with_provenance(client: TestClient) -> No
     assert [r["listing_id"] for r in body["results"]] == ["p:pool", "p:contradicted"]
     first = body["results"][0]
     assert first["total"]["high_toman"] is None  # no fee policy: an open "at least" offer
+    guests = body["intent"]["guest_parts"][0]
+    assert first["per_person"]["low_toman"] * guests <= first["total"]["low_toman"]
+    assert first["per_person"]["high_toman"] is None
     assert first["total_provenance"]["method"] == "derived"
     assert [c["component"] for c in first["contributions"]] == ["price", "rating"]
     assert first["platform_name"] == "پلتفرم"

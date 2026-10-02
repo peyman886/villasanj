@@ -59,6 +59,7 @@ class ResultOut(BaseModel):
     title: str
     photo: str | None
     total: MoneyOut | None
+    per_person: MoneyOut | None  # the total shared by the group, rounded outwards
     total_provenance: ProvenanceOut
     price_per_person_night_toman: float | None
     confirmed_features: int
@@ -110,6 +111,9 @@ def _result_out(
         title=listing.title_norm,
         photo=listing.photos[0] if listing.photos else None,
         total=MoneyOut.of(total) if total else None,
+        per_person=MoneyOut.of(total.shared_by(offer.quote.request.guests.value))
+        if total
+        else None,
         total_provenance=ProvenanceOut.of(offer.quote.provenance),
         price_per_person_night_toman=ranked.price_per_person_night_toman,
         confirmed_features=ranked.confirmed,

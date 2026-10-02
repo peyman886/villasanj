@@ -624,6 +624,7 @@ export interface components {
             listing_id: string;
             /** Nights */
             nights: components["schemas"]["NightOut"][];
+            per_person: components["schemas"]["MoneyOut"] | null;
             provenance: components["schemas"]["ProvenanceOut"];
             /** Stale */
             stale: boolean;
@@ -770,6 +771,7 @@ export interface components {
             geo: components["schemas"]["GeoOut"] | null;
             /** Listing Id */
             listing_id: string;
+            per_person: components["schemas"]["MoneyOut"] | null;
             /** Photo */
             photo: string | null;
             /** Platform */

@@ -28,6 +28,7 @@ import {
   faDayOfMonth,
   faMillions,
   faNumber,
+  faShare,
   faStayed,
   faToman,
   offerText,
@@ -387,6 +388,20 @@ function OfferCell({
           <span className="font-normal text-stone-600">{offerText(offer)}</span>
         )}
       </p>
+      {offer.per_person && offer.guests > 1 ? (
+        <p className="text-xs text-stone-600 tabular-nums">
+          <Sourced
+            id={`${id}-share`}
+            label={`سهم هر نفر، ${label}`}
+            value={`${faShare(offer.per_person)}: جمع تقسیم بر ${faNumber(offer.guests)} نفر`}
+            provenance={offer.provenance}
+            sourceName={listing.platform_name}
+            now={now}
+          >
+            {faShare(offer.per_person)}
+          </Sourced>
+        </p>
+      ) : null}
       {offer.total && offer.status !== "bookable" ? (
         <p className="text-xs text-stone-600">{STATUS_TEXT[offer.status] ?? offer.status}</p>
       ) : null}
