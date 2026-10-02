@@ -6,7 +6,7 @@ JOB ?= llm-smoke
 
 .DEFAULT_GOAL := help
 .PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live openapi openapi-check lint fmt \
-	test-e2e osm-download osm-prepare routing-up routing-down geo \
+	test-e2e post-crawl osm-download osm-prepare routing-up routing-down geo \
 	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-scenarios crawl-status crawl-metrics reparse report match eval eval-hypotheses
 
 help: ## Show available targets
@@ -154,6 +154,17 @@ seed: ## Not needed yet: reference data is versioned config; demo dataset seed c
 match: ## Fingerprint + embed new photos, then blocking, evidence and scores for all pairs
 	cd backend && uv run villasanj catalog fingerprint-photos && uv run villasanj catalog embed-photos \
 		&& uv run villasanj er match
+
+post-crawl: ## After the photo crawl: hashes, embeddings, tags, match, gold-v1 + photos-v1 queues, report
+	@cd backend && for p in jabama shab; do \
+		uv run villasanj crawl status $$p | grep -Eq '(pending|in_progress)=[1-9]' \
+		&& { echo "$$p still has pending photos: wait for the crawl (queues are drawn once)"; exit 1; }; \
+	done; true
+	cd backend && uv run villasanj catalog fingerprint-photos && uv run villasanj catalog embed-photos \
+		&& uv run villasanj enrichment tag-photos && uv run villasanj er match \
+		&& uv run villasanj er queue --name gold-v1 \
+		&& uv run villasanj enrichment photo-queue --name photos-v1 \
+		&& uv run villasanj catalog photo-report
 
 eval: ## Matcher precision/recall against the owner's labels: make eval [QUEUE=gold-v1]
 	cd backend && uv run villasanj er evaluate --queue $(QUEUE)
