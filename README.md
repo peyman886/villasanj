@@ -19,10 +19,10 @@ was built ahead of its milestone and is marked provisional in [`docs/ROADMAP.md`
 | Crawl | Polite, ToS-audited crawlers for **jabama** and **shab** (the other platforms forbid crawling; ADR-0011). One request per host every ≥ 3 s, robots.txt honoured, stop on block, every response snapshotted. | 2,985 + 601 listings in the region, 281k calendar observations, 14.4k reviews, 17.9k photos selected (5 per listing) |
 | Normalize | Pure parsers from snapshots: rial/toman, Jalali dates, Persian text, platform quirks (e.g. jabama's `0` means "not set"). Place names through a curated gazetteer. | 0 parse failures on the second discovery pass |
 | Price | All-in offer per listing, stay and group, every component with provenance. Unknown fees give an open bound ("حداقل …"), never an invented cap. | every bookable offer is OPEN today: neither platform publishes its fees |
-| Understand | A Persian query becomes a structured intent (LLM). A verifier rejects any number the query did not say; dates are resolved by code against a sourced holiday calendar. | draft 50-query eval: 99.3% slots, 0 invented numbers (provisional until the owner reviews the set) |
-| Rank | Filters with a stated reason, cautions for unknowns, requested features confirmed first, then a transparent score (price per person and night, Bayesian rating). No commission factor. | `/search` |
-| Explain | The LLM writes Persian prose around fact slots (`{F1}`); code formats every number and decides every comparison; a verifier rejects digits and comparatives outside slots; a template is the fallback. | |
-| Truth check | Distance-to-the-sea claims against the OSM coastline, as ranges over the listing's blurred location; "contradicted" only when even the best case fails. | 170 of 1,909 jabama listings with a sea claim have one contradicted |
+| Understand | A Persian query becomes a structured intent (LLM). A verifier rejects any number the query did not say; dates are resolved by code against a sourced holiday calendar. | draft 50-query eval (gpt-5.4-mini, prompt v4): 100% slots, 0 invented numbers, p95 1.4 s; wishes it cannot measure are said back (provisional until the owner reviews the set) |
+| Rank | Filters with a stated reason, cautions for unknowns (including a contradicted claim), requested features confirmed first, then a transparent score (price per person and night, Bayesian rating). No commission factor; the rules are public at `/how-we-rank`. | `/search` |
+| Explain | The LLM writes Persian prose around fact slots (`{F1}`); code formats every number and decides every comparison; a verifier rejects digits, comparatives and availability stated as a fact; a template is the fallback. It streams in after the results. | 20 draft queries: 100% LLM text, 0% fallback; p95 6–10 s uncached (not yet the 4 s target) |
+| Truth check | Every published distance against the OSM coastline and OSM places (town centres can contradict; shops, restaurants and woods only support, the map lists only some), as ranges over the listing's blurred location; description features against the listing's own amenity list. "Contradicted" only when even the best case fails. Shown on each listing page. | listings with a contradicted distance claim: jabama 9.2% (8.1–10.5%), shab 1.9% |
 | Drive time | Free-flow OSRM times from Tehran on a clipped OSM graph, as a range over the blur circle. | 100% of 3,586 listings routed, median 4 h 21 min |
 | Match listings | Blocking (location + rooms, photo hashes, DINOv2 image embeddings), evidence, rule score, constrained clustering. | **not evaluated yet**: precision/recall come from the M3 gold set |
 
@@ -49,7 +49,8 @@ make up                 # db, migrations, api, web
 make health             # web=ok db=ok blob=ok llm=fake-ok (or llm=avalai-ok with a key)
 ```
 
-- Web: <http://localhost:3300> (`/search`, `/listings/<platform>/<id>`, `/label`) · API:
+- Web: <http://localhost:3300> (`/search`, `/listings/<platform>/<id>`, `/metrics`, `/how-we-rank`;
+  labelling: `/label`, `/label/photos`, `/label/summaries`, `/label/claims`) · API:
   <http://localhost:8800/docs> · Postgres: `127.0.0.1:5433`.
 - Without `AVALAI_API_KEY` the stack runs with a deterministic fake LLM provider.
 - Crawled snapshots and photos are never committed. A fresh clone has an empty catalog: crawl
@@ -64,7 +65,7 @@ make match                        # photo hashes + embeddings, blocking, evidenc
 cd backend && uv run villasanj er queue --name gold-v1   # draw the stratified labelling queue
 # label pairs at http://localhost:3300/label (keyboard: M / N / U)
 make eval                         # precision/recall with Wilson CIs against the labels
-make osm-download osm-prepare routing-up geo   # coastline, coast distances, drive times, sea check
+make osm-download osm-prepare routing-up geo   # coastline + places, distances, drive times, truth checks
 cd backend && uv run villasanj discovery search "ویلای استخردار در رامسر برای ۶ نفر آخر هفته بعد"
 cd backend && uv run villasanj llm spend       # LLM cost from the ledger (hard cap $30)
 ```

@@ -146,7 +146,7 @@ are in [`docs/sources/README.md`](sources/README.md).
 |---|---|---|
 | 1 | robots.txt, pacing and stop-on-block, unit + integration tested | ✅ 13 PoliteFetcher and 3 crawl-loop unit tests, plus a local-HTTP integration test of the real httpx + protego stack: disallowed paths are never requested (also after a redirect), Crawl-delay is honoured, and the user agent is sent. The integration test found that the first request after robots.txt ignored Crawl-delay. That is fixed, and neither platform publishes a Crawl-delay. A 429 storm now stops the run like a 403 streak does. A blocked platform stays blocked: the next live run refuses to start until the owner passes `--after-block`. |
 | 2 | jabama: every regional listing, parse ≥ 98%, failures quarantined | ✅ 2,952/2,952 stay pages that answered 200 were parsed (**100%**, 0 failures). ⚠️ Coverage gap: the search pages declare 2,800 (Ramsar) and 976 (Tonekabon) results, and we collected 2,772 and 973 unique stays. The missing 31 were never shown on a fetched page; result order shifting during the 3 h crawl is the likely cause, but it is not verified. Also excluded: 8 stays outside the region box, and 2 stays that answered 404 (removed). |
-| 3 | ≥ 6 trimmed fixtures per adapter | ✅ jabama 6 (search, last search page, page without flight data, stay, unpriced new stay, removed stay); shab 6 (sitemap, house, house outside the region, house without data, two calendar payload shapes). ⚠️ No reviews fixture: reviews are not parsed until M10. "Unusual price format": both platforms publish integer prices; their quirks are covered (jabama `0` = not set, shab in toman), and text prices are covered by the normalizer table. |
+| 3 | ≥ 6 trimmed fixtures per adapter | ✅ jabama 6 (search, last search page, page without flight data, stay, unpriced new stay, removed stay); shab 6 (sitemap, house, house outside the region, house without data, two calendar payload shapes). ⚠️ No reviews fixture at the time: reviews were not parsed until M10 (since 2026-10-01 both adapters have one: `stay_with_reviews.html`, `house_with_reviews.html`). "Unusual price format": both platforms publish integer prices; their quirks are covered (jabama `0` = not set, shab in toman), and text prices are covered by the normalizer table. |
 | 4 | Normalizer ≥ 60 table-driven cases | ✅ 111 cases: 39 money-text, 11 Persian-text, 28 gazetteer, 33 gazetteer-config. They include «۱۲٫۵ میلیون», «۱،۵۰۰،۰۰۰ تومان», ك/ي, ZWNJ variants and کلاردشت = کلار دشت = Kelardasht. |
 | 5 | `make reparse`: 0 network requests, identical row hashes | ✅ The ingest use case has no Fetcher, and a socket-blocking test proves it. The catalog was truncated and rebuilt twice from snapshots: incremental build, rebuild 1 and rebuild 2 gave identical hashes for 3,552 listings, 278,172 calendar observations, 0 parse failures and 199 photos. |
 | 6 | OCP proof | ✅ with one caveat. The shab commit `9a92fa9` touches 11 files: `sources/shab/**` (2), its contract test (2), 6 fixtures and **one** entry-point line in `pyproject.toml`. It needed one generic core extension first (`f5f9077`: calendars served on their own page, 8 files), which is stated openly. ⚠️ No `FeePolicy` row: fee policies arrive with the pricing engine (M3). |
@@ -160,10 +160,10 @@ Also delivered:
 
 LLM spend in M2: **$0** (no LLM calls).
 
-Tech debt carried forward:
-- A second pass over jabama search pages to close the 31-listing gap.
+Tech debt carried forward (status on 2026-10-02):
+- ~~A second pass over jabama search pages to close the 31-listing gap.~~ Done in M4's parallel work: 34 new stays, catalog 2,951 → 2,985.
 - 45 thumbnail requests from the crop experiment were not stored as snapshots, because it was a one-off script.
-- The parent city of `khazar-kenar` is a split vote (ramsar 7, tonekabon 1), and `chalkesh` has no parent (tie).
+- The parent city of `khazar-kenar` is a split vote (ramsar 7, tonekabon 1), and `chalkesh` has no parent (tie). Open: the gazetteer is precision-first, so this stays for the owner's curation.
 
 ## M3 — Hypothesis test (review with owner before continuing) — in progress
 
