@@ -14,6 +14,27 @@ const VERDICT_TEXT: Record<string, string> = {
   contradicted: "با نقشه نمی‌خواند",
 };
 const KIND_TEXT: Record<string, string> = { exact: "دقیق", range: "بازه", open: "حداقل" };
+const TARGET_TEXT: Record<string, string> = {
+  sea: "دریا",
+  city_center: "مرکز شهر",
+  supermarket: "سوپرمارکت",
+  bakery: "نانوایی",
+  restaurant: "رستوران",
+  medical: "مرکز درمانی",
+  forest: "جنگل",
+  shopping: "مراکز خرید",
+  recreation: "مراکز تفریحی",
+  shrine: "زیارتگاه",
+  other: "مقصدهای دیگر",
+  not_understood: "عبارت نامفهوم",
+};
+const CLAIM_COLUMNS = ["supported", "not_confirmed", "contradicted", "not_checked"];
+const CLAIM_COLUMN_TEXT: Record<string, string> = {
+  supported: "تأیید شد",
+  not_confirmed: "تأیید نشد",
+  contradicted: "با نقشه نمی‌خواند",
+  not_checked: "بررسی نشد",
+};
 
 function percent(value: number): string {
   return `${faNumber(Math.round(value * 1000) / 10)}٪`;
@@ -148,6 +169,26 @@ export default async function MetricsPage() {
             )
             .join(" · ")}
         </p>
+      </section>
+
+      <section aria-labelledby="claims" className="mt-8">
+        <h2 id="claims" className="text-lg font-semibold">
+          ادعاهای فاصله به تفکیک مقصد
+        </h2>
+        <p className="mt-1 text-sm text-pretty text-stone-600">
+          هر ادعای منتشرشده‌ی فاصله در برابر نقشه. «بررسی نشد» یعنی برای آن مقصد شاهدی نداریم.
+        </p>
+        {m.platforms.map((p) => (
+          <Table
+            key={p.platform}
+            caption={`ادعاهای فاصله در ${p.platform}`}
+            head={[p.platform, ...CLAIM_COLUMNS.map((c) => CLAIM_COLUMN_TEXT[c] ?? c)]}
+            rows={Object.entries(p.distance_verdicts).map(([target, counts]) => [
+              TARGET_TEXT[target] ?? target,
+              ...CLAIM_COLUMNS.map((c) => faNumber(counts[c] ?? 0)),
+            ])}
+          />
+        ))}
       </section>
 
       <section aria-labelledby="offers" className="mt-8">

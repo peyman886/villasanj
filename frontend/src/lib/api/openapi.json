@@ -1249,6 +1249,16 @@
             "title": "Distance Judged Listings",
             "type": "integer"
           },
+          "distance_verdicts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Distance Verdicts",
+            "type": "object"
+          },
           "drive_routed": {
             "title": "Drive Routed",
             "type": "integer"
@@ -1323,6 +1333,7 @@
           "distance_contradicted_listings",
           "distance_contradicted_low",
           "distance_contradicted_high",
+          "distance_verdicts",
           "sea_verdicts"
         ],
         "title": "PlatformOut",

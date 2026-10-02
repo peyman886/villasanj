@@ -807,6 +807,12 @@ export interface components {
             distance_contradicted_low: number;
             /** Distance Judged Listings */
             distance_judged_listings: number;
+            /** Distance Verdicts */
+            distance_verdicts: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
             /** Drive Routed */
             drive_routed: number;
             /** Listings */

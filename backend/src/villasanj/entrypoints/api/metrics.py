@@ -8,6 +8,7 @@ villas and the gold set, so they are not shown yet.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal
 
@@ -46,6 +47,7 @@ class PlatformOut(BaseModel):
     distance_contradicted_listings: int  # any target: sea, town centre (partial maps never)
     distance_contradicted_low: float
     distance_contradicted_high: float
+    distance_verdicts: dict[str, dict[str, int]]  # target -> verdict -> claims
     sea_verdicts: dict[str, int]
 
 
@@ -127,6 +129,7 @@ async def get_metrics(request: Request) -> MetricsOut:
                 distance_contradicted_listings=judged.listings_contradicted,
                 distance_contradicted_low=round(any_share.low, 4),
                 distance_contradicted_high=round(any_share.high, 4),
+                distance_verdicts=_by_target(judged.verdicts),
                 sea_verdicts=dict(sea.verdicts),
             )
         )
@@ -185,3 +188,12 @@ async def get_metrics(request: Request) -> MetricsOut:
         llm_cap_usd=float(container.llm.routing.project_budget_usd),
         labelling=labelling,
     )
+
+
+def _by_target(verdicts: Mapping[str, int]) -> dict[str, dict[str, int]]:
+    """``{"sea:supported": 3}`` as ``{"sea": {"supported": 3}}``."""
+    nested: dict[str, dict[str, int]] = {}
+    for key, count in sorted(verdicts.items()):
+        target, _, verdict = key.partition(":")
+        nested.setdefault(target, {})[verdict] = count
+    return nested
