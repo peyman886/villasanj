@@ -1,5 +1,11 @@
+import Link from "next/link";
+
 import { cn } from "@/lib/cn";
 import { apiBaseUrl, fetchHealth, toHealthView, type HealthView } from "@/lib/health";
+import { EXAMPLE_QUERIES } from "@/lib/search";
+
+const FOCUS =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700";
 
 const checkedAtFormat = new Intl.DateTimeFormat("fa-IR", {
   dateStyle: "medium",
@@ -28,6 +34,63 @@ export default async function HomePage() {
           نظرهای جمع‌شده و سنجش ادعاهای آگهی. هر عدد منبع و زمان مشاهده دارد.
         </p>
       </header>
+
+      <section aria-labelledby="start" className="flex flex-col gap-3">
+        <h2 id="start" className="text-lg font-semibold text-balance">
+          جستجو
+        </h2>
+        <form action="/search" method="get" role="search" className="flex gap-2">
+          <label htmlFor="home-q" className="sr-only">
+            جستجو
+          </label>
+          <input
+            id="home-q"
+            name="q"
+            placeholder="مثلاً ویلای استخردار در رامسر برای ۶ نفر آخر هفته‌ی بعد"
+            className={cn(
+              "min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2",
+              FOCUS,
+            )}
+          />
+          <button
+            type="submit"
+            className={cn(
+              "rounded-lg bg-emerald-800 px-4 py-2 font-medium text-white hover:bg-emerald-900",
+              FOCUS,
+            )}
+          >
+            جستجو
+          </button>
+        </form>
+        <ul className="flex flex-col gap-1.5 text-sm">
+          {EXAMPLE_QUERIES.map((q) => (
+            <li key={q}>
+              <Link
+                href={`/search?${new URLSearchParams({ q })}`}
+                className={cn("text-emerald-800 underline underline-offset-4", FOCUS)}
+              >
+                {q}
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm text-stone-600">
+          برچسب‌گذاری:{" "}
+          <Link
+            href="/label"
+            className={cn("text-emerald-800 underline underline-offset-4", FOCUS)}
+          >
+            جفت آگهی‌ها
+          </Link>{" "}
+          ·{" "}
+          <Link
+            href="/label/photos"
+            className={cn("text-emerald-800 underline underline-offset-4", FOCUS)}
+          >
+            عکس‌ها
+          </Link>
+        </p>
+      </section>
 
       <section
         aria-labelledby="system-status"
