@@ -21,6 +21,7 @@ from villasanj.discovery.domain.ranking import Ranked
 from villasanj.entrypoints.api.listings import GeoOut, MoneyOut, ProvenanceOut, geo_out
 from villasanj.entrypoints.container import Container
 from villasanj.shared.application.jobs import JobStatus
+from villasanj.shared.application.llm.types import JobContext
 from villasanj.shared.domain.slots import SLOT
 
 MAX_RESULTS = 20
@@ -34,6 +35,9 @@ class SearchIn(BaseModel):
     # Constraints the user removed: "dates", "nights", "guests", "bedrooms", "budget", "drive",
     # "place:<name>", "feature:<code>" (editable chips). Removing never adds a number.
     drop: list[str] = Field(default_factory=list, max_length=12)
+    # False: results only; the page then streams ``POST /search/explanation`` in after them, so
+    # the explanation's latency (one LLM call, ADR-0005) never holds the results back.
+    explain: bool = True
 
 
 class DatesOut(BaseModel):
@@ -169,10 +173,7 @@ async def search(body: SearchIn, request: Request) -> SearchOut:
     status = JobStatus.FAILED
     try:
         result = await container.search().run(body.query, ctx, body.drop)
-        names = {p: a.profile.display_name for p, a in container.crawl.adapters.items()}
-        why = await explain_first(
-            ExplainChoice(container.llm.client), result, names, container.clock.now(), ctx
-        )
+        why = await _explain(container, result, ctx) if body.explain else None
         status = JobStatus.SUCCEEDED
     finally:
         await container.jobs.finish(ctx.job_id, status)
@@ -203,9 +204,35 @@ async def search(body: SearchIn, request: Request) -> SearchOut:
         results=[_result_out(container, r, result, origin) for r in ranking.results[:MAX_RESULTS]]
         if ranking
         else [],
-        explanation=ExplanationOut(
-            source=why.source.value, text=why.rendered.text, segments=_segments(why)
-        )
-        if why
-        else None,
+        explanation=_explanation_out(why),
     )
+
+
+async def _explain(
+    container: Container, result: SearchResult, ctx: JobContext
+) -> Explanation | None:
+    names = {p: a.profile.display_name for p, a in container.crawl.adapters.items()}
+    return await explain_first(
+        ExplainChoice(container.llm.client), result, names, container.clock.now(), ctx
+    )
+
+
+def _explanation_out(why: Explanation | None) -> ExplanationOut | None:
+    if why is None:
+        return None
+    return ExplanationOut(source=why.source.value, text=why.rendered.text, segments=_segments(why))
+
+
+@router.post("/search/explanation")
+async def search_explanation(body: SearchIn, request: Request) -> ExplanationOut | None:
+    """Why the first result fits, for a search already shown (the understanding is cached)."""
+    container: Container = request.app.state.container
+    ctx = await container.jobs.start("search_explanation", SEARCH_BUDGET_USD, {})
+    status = JobStatus.FAILED
+    try:
+        result = await container.search().run(body.query, ctx, body.drop)
+        why = await _explain(container, result, ctx)
+        status = JobStatus.SUCCEEDED
+    finally:
+        await container.jobs.finish(ctx.job_id, status)
+    return _explanation_out(why)

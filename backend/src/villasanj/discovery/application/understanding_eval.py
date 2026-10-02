@@ -96,12 +96,13 @@ class UnderstandingReport:
             if not case.cache_hit and case.failure is None:
                 by_model[case.model].append(case.latency_ms)
         return {
-            model: (len(values), _percentile(values, 0.5), _percentile(values, PERCENTILE_95))
+            model: (len(values), percentile(values, 0.5), percentile(values, PERCENTILE_95))
             for model, values in sorted(by_model.items())
         }
 
 
-def _percentile(values: list[int], q: float) -> int:
+def percentile(values: list[int], q: float) -> int:
+    """The nearest-rank percentile of a non-empty list."""
     ordered = sorted(values)
     return ordered[min(len(ordered) - 1, round(q * (len(ordered) - 1)))]
 

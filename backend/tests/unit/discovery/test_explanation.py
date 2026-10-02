@@ -184,6 +184,15 @@ def test_the_availability_fact_says_how_old_the_observation_is() -> None:
 def test_availability_stated_as_a_state_is_rejected() -> None:
     codes = [v.code for v in check("این ویلا با {F3} برای {F1} در دسترس است.", slots())]
     assert codes == [ViolationCode.STATE_AS_FACT]
+    for state in (
+        "در دسترس قرار دارد",  # seen in a gemini-3.8-flash explanation, 2026-10-02
+        f"امکان{ZWNJ}پذیر می{ZWNJ}باشد",
+        "قابل رزرو است",
+    ):
+        found = [v.code for v in check(f"اقامت {{F3}} و {{F1}} {state}.", slots())]
+        assert found == [ViolationCode.STATE_AS_FACT], state
+    calm = check("طبق {F3} و {F1}، مبلغ نهایی ممکن است بیشتر شود.", slots())
+    assert ViolationCode.STATE_AS_FACT not in [v.code for v in calm]
     assert check("{F3} برای {F1}؛ {F4}.", slots()) == []
 
 

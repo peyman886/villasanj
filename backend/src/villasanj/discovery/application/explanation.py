@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 
@@ -138,6 +138,8 @@ class Explanation:
     retried: bool
     models: tuple[str, ...]
     cost_usd: Decimal
+    latency_ms: int = 0  # all calls, the retry included
+    cache_hit: bool = False  # the first answer came from the cache
 
 
 def build_slots(
@@ -262,6 +264,22 @@ def explanation_request(query: str, slots: Slots) -> LLMRequest[ExplanationOut]:
     )
 
 
+PLANNING_FACTS = 12  # a typical explanation: price, per person, stay, rating, features, geo, ...
+
+
+def planning_request(query: str) -> LLMRequest[ExplanationOut]:
+    """A representative explanation request for pricing a dry run (the real slots need a search,
+    which needs the understanding call; this one has the usual number of slots and lengths)."""
+    when = datetime(2026, 1, 1, tzinfo=UTC)
+    observed = Provenance(ProvenanceMethod.HUMAN, when)  # never shown: only priced
+    facts = {
+        f"F{i}": Fact(f"F{i}", "۱۲٬۳۴۵٬۶۷۸ تا ۱۳٬۴۵۶٬۷۸۹ تومان", observed)
+        for i in range(1, PLANNING_FACTS + 1)
+    }
+    meanings = dict.fromkeys(facts, "the total price of the stay for the whole group")
+    return explanation_request(query, Slots(facts, {}, meanings, ""))
+
+
 def _value(slots: Slots, slot: str) -> str:
     if slot in slots.facts:
         return slots.facts[slot].text
@@ -270,9 +288,9 @@ def _value(slots: Slots, slot: str) -> str:
 
 # Availability is an observation with an age (product rule 6): prose may not state it as a state;
 # the availability fact says when it was observed.
-_STATE_AS_FACT = re.compile(
-    "(در دسترس (?:است|هست|می باشد)|آزاد (?:است|هست)|خالی (?:است|هست)|قابل رزرو (?:است|هست))"
-)
+_J = f"[ {ZWNJ}]?"  # written joined, with a space or with a non-joiner
+_IS = f"(?:است|هست|هستند|می{_J}باشد|می{_J}باشند|قرار دارد|قرار دارند)"
+_STATE_AS_FACT = re.compile(f"((?:در دسترس|آزاد|خالی|قابل رزرو|امکان{_J}پذیر) {_IS})")
 
 
 def check(text: str, slots: Slots) -> list[Violation]:
@@ -294,7 +312,7 @@ class ExplainChoice:
     async def explain(self, query: str, slots: Slots, ctx: JobContext) -> Explanation:
         request = explanation_request(query, slots)
         response = await self._client.generate(request, ctx)
-        models, cost = [response.model], response.cost_usd
+        models, cost, latency = [response.model], response.cost_usd, response.latency_ms
         text, retried = response.value.text, False
         violations = check(text, slots)
         if violations:
@@ -315,15 +333,17 @@ class ExplainChoice:
             )
             models.append(again.model)
             cost += again.cost_usd
+            latency += again.latency_ms
             text, retried = again.value.text, True
             violations = check(text, slots)
         if violations:
-            rendered = render(slots.template, slots.facts, slots.comparisons)
-            return Explanation(
-                slots.template, rendered, slots, Source.TEMPLATE, retried, tuple(models), cost
-            )
+            text, source = slots.template, Source.TEMPLATE
+        else:
+            source = Source.LLM
         rendered = render(text, slots.facts, slots.comparisons)
-        return Explanation(text, rendered, slots, Source.LLM, retried, tuple(models), cost)
+        return Explanation(
+            text, rendered, slots, source, retried, tuple(models), cost, latency, response.cache_hit
+        )
 
 
 async def explain_first(

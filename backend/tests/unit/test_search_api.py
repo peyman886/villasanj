@@ -35,7 +35,7 @@ class Jobs:
 
 class Stub:
     def __init__(self, intent: SearchIntent, explanation: str) -> None:
-        self._search = search(intent)
+        self._intent = intent
         self.jobs = Jobs()
         self.clock = FixedClock()
         self.crawl = SimpleNamespace(
@@ -44,7 +44,7 @@ class Stub:
         self.llm = SimpleNamespace(client=ExplanationClient(explanation))
 
     def search(self) -> SearchListings:
-        return self._search
+        return search(self._intent)  # a new one per request, like the container
 
     def routing_origin(self) -> Origin:
         return ORIGIN
@@ -94,6 +94,15 @@ def test_the_explanation_comes_as_linkable_segments(client: TestClient) -> None:
     assert [s["slot"] for s in filled] == ["F3", "F1"]
     assert all(s["provenance"] is not None for s in filled)
     assert "".join(s["text"] for s in explanation["segments"]) == explanation["text"]
+
+
+def test_results_can_come_first_and_the_explanation_on_its_own(client: TestClient) -> None:
+    body = client.post("/search", json={"query": QUERY, "explain": False}).json()
+    assert body["explanation"] is None
+    assert body["results"]
+    explanation = client.post("/search/explanation", json={"query": QUERY}).json()
+    assert explanation["source"] == "llm"
+    assert [s["slot"] for s in explanation["segments"] if s["slot"]] == ["F3", "F1"]
 
 
 def test_open_questions_come_back_without_results() -> None:

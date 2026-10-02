@@ -25,7 +25,13 @@ from villasanj.catalog.infrastructure.repositories import (
     PgPhotoStatsQuery,
     PgPlaceNameQuery,
 )
-from villasanj.discovery.application.explanation import ExplainChoice, explain_first
+from villasanj.discovery.application.explanation import (
+    ExplainChoice,
+    Source,
+    explain_first,
+    planning_request,
+)
+from villasanj.discovery.application.explanation_eval import EvaluateExplanations
 from villasanj.discovery.application.hypotheses import render_markdown
 from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.application.understanding_eval import EvaluateUnderstanding
@@ -826,6 +832,58 @@ def discovery_search(
         return True
 
     asyncio.run(_with_container(run))
+
+
+@discovery_app.command("eval-explanations")
+def discovery_eval_explanations(
+    path: Annotated[Path, typer.Argument(help="JSON lines of queries (expected intents unused).")],
+    dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "0.20",
+    show_texts: Annotated[bool, typer.Option(help="Print every explanation for review.")] = False,
+) -> None:
+    """M10 criteria 2 and 4: LLM text vs template fallback, retries and latency per model."""
+
+    async def run(container: Container) -> bool:
+        queries = [c.query for c in load_cases(path)]
+        if dry_run:
+            understand = UnderstandQuery(container.llm.client, queries)
+            requests = [*understand.plan(), *(planning_request(q) for q in queries)]
+            estimate = await container.llm.dry_run.estimate(requests)
+            typer.echo(
+                f"queries={len(queries)} calls={estimate.calls} "
+                f"cache_hits={estimate.cache_hits} expected=${estimate.expected_usd:.6f} "
+                f"worst_case=${estimate.worst_case_usd:.6f} (explanations priced from a "
+                f"representative slot set; a retry is at most one more call each)"
+            )
+            return True
+        names = {p: a.profile.display_name for p, a in container.crawl.adapters.items()}
+        ctx = await container.jobs.start("eval_explanations", Decimal(budget_usd), {})
+        evaluate = EvaluateExplanations(
+            container.search(), ExplainChoice(container.llm.client), names, container.clock
+        )
+        report = await evaluate.run(queries, ctx)
+        await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
+        llm, template = report.share(Source.LLM), report.share(Source.TEMPLATE)
+        typer.echo(
+            f"queries={len(report.cases)} explained={len(report.explained)} "
+            f"llm_text={llm if llm is None else f'{llm:.1%}'} "
+            f"template_fallback={template if template is None else f'{template:.1%}'} "
+            f"retried={report.retried} failed={report.failures} cost=${report.cost_usd:.6f}"
+        )
+        for model, (calls, p50, p95) in report.latency_ms().items():
+            typer.echo(f"  latency {model}: uncached={calls} p50={p50}ms p95={p95}ms")
+        for case in report.cases:
+            if case.failure is not None:
+                typer.echo(f"  FAILED {case.failure}: {case.query}")
+            elif case.source is Source.TEMPLATE:
+                typer.echo(f"  TEMPLATE: {case.query}")
+            if show_texts and case.source is not None:
+                retried = " (retried)" if case.retried else ""
+                typer.echo(f"  [{case.source.value}{retried}] {case.query}\n      {case.text}")
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
 
 
 @discovery_app.command("eval-understanding")

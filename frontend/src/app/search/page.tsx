@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { Suspense } from "react";
+
 import { Sourced } from "@/components/sourced";
 import { apiClient } from "@/lib/api/client";
 import { cn } from "@/lib/cn";
@@ -30,13 +32,71 @@ type SearchParams = Record<string, string | string[] | undefined>;
 async function runSearch(query: string, drop: string[]): Promise<SearchOut | "error"> {
   try {
     const { data } = await apiClient().POST("/search", {
-      body: { query, drop },
+      body: { query, drop, explain: false }, // the explanation streams in after the results
       cache: "no-store",
     });
     return data ?? "error";
   } catch {
     return "error";
   }
+}
+
+type Explanation = NonNullable<SearchOut["explanation"]>;
+
+async function loadExplanation(query: string, drop: string[]): Promise<Explanation | null> {
+  try {
+    const { data } = await apiClient().POST("/search/explanation", {
+      body: { query, drop, explain: true },
+      cache: "no-store",
+    });
+    return data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Why the first result fits: one LLM call, streamed in after the results (ADR-0005). */
+async function WhySection({ query, drop, now }: { query: string; drop: string[]; now: Date }) {
+  const explanation = await loadExplanation(query, drop);
+  if (!explanation) return null;
+  return (
+    <section aria-labelledby="why-title" className="mt-6 rounded-lg bg-emerald-50 p-4">
+      <h2 id="why-title" className="font-semibold text-balance">
+        چرا گزینه‌ی اول؟
+      </h2>
+      <p className="mt-1.5 leading-8 text-pretty">
+        {displaySegments(explanation.segments).map((segment, index) =>
+          segment.slot && segment.provenance ? (
+            <Sourced
+              key={index}
+              id={`why-${index}`}
+              label={segment.text}
+              value={segment.text}
+              provenance={segment.provenance}
+              now={now}
+            >
+              {segment.text}
+              {segment.tail}
+            </Sourced>
+          ) : (
+            <span key={index}>{segment.text}</span>
+          ),
+        )}
+      </p>
+      {explanation.source === "template" ? (
+        <p className="mt-2 text-xs text-stone-600">این توضیح از قالب ثابت ساخته شد.</p>
+      ) : null}
+    </section>
+  );
+}
+
+function WhySkeleton() {
+  return (
+    <div className="mt-6 rounded-lg bg-emerald-50 p-4" role="status">
+      <p className="font-semibold">چرا گزینه‌ی اول؟</p>
+      <p className="mt-1.5 text-sm text-stone-600">در حال نوشتن توضیح از روی داده‌ها…</p>
+    </div>
+  );
 }
 
 function searchHref(query: string, drop: string[] = []): string {
@@ -196,34 +256,10 @@ function Results({ result, drop, now }: { result: SearchOut; drop: string[]; now
           ) : null}
         </section>
       ) : null}
-      {result.explanation ? (
-        <section aria-labelledby="why-title" className="mt-6 rounded-lg bg-emerald-50 p-4">
-          <h2 id="why-title" className="font-semibold text-balance">
-            چرا گزینه‌ی اول؟
-          </h2>
-          <p className="mt-1.5 leading-8 text-pretty">
-            {displaySegments(result.explanation.segments).map((segment, index) =>
-              segment.slot && segment.provenance ? (
-                <Sourced
-                  key={index}
-                  id={`why-${index}`}
-                  label={segment.text}
-                  value={segment.text}
-                  provenance={segment.provenance}
-                  now={now}
-                >
-                  {segment.text}
-                  {segment.tail}
-                </Sourced>
-              ) : (
-                <span key={index}>{segment.text}</span>
-              ),
-            )}
-          </p>
-          {result.explanation.source === "template" ? (
-            <p className="mt-2 text-xs text-stone-600">این توضیح از قالب ثابت ساخته شد.</p>
-          ) : null}
-        </section>
+      {result.results.length > 0 && result.dates ? (
+        <Suspense fallback={<WhySkeleton />}>
+          <WhySection query={result.query} drop={drop} now={now} />
+        </Suspense>
       ) : null}
       {result.results.length > 0 ? (
         <section aria-labelledby="results-title" className="mt-8">

@@ -182,3 +182,36 @@ Follow-up (same day): gpt-5.4-mini guessed a basis for budgets that state none (
 which hid the budget question in search. A deterministic guard now keeps a basis only when the
 query names it (A19). Re-scored from the cached gpt-5.4-mini answers ($0): slots 98.6%, exact
 96%, 0 invented; latency is the uncached run's above.
+
+
+## Amendment (explanation bake-off, 2026-10-02): `gemini-3.8-flash` stays; the explanation streams
+
+M10 criterion 4 asks for explanation latency p95 ≤ 4 s uncached; criterion 2 for the verifier pass
+and fallback rates. `discovery eval-explanations` runs the 50 draft queries through search and
+explains the first result (20 queries produce one; the rest lack dates or results). Each model
+alone, prompt v3, 03:08–03:40 UTC; latency includes the retry when there was one:
+
+| Model | LLM text | Template | Retried | p50 | p95 | Cost / 20 |
+|---|---|---|---|---|---|---|
+| **gemini-3.8-flash** (kept) | 100% | 0% | 4 | 6.4 s | 10.6 s | $0.014 |
+| gemini-3.5-flash-lite | 100% | 0% | 7 | 1.5 s | 3.0 s | $0.006 |
+| gemini-3.1-flash-lite | 100% | 0% | 11 | 2.6 s | 3.3 s | $0.006 |
+| gpt-5.4-mini | 90% | 10% | 5 | 3.1 s | 4.9 s | $0.033 |
+| gpt-4.1-mini | 80% | 20% | 14 | 3.5 s | 4.3 s | $0.013 |
+
+Every text shown passed the verifier (a failing one is replaced by the template), so the
+choice is about the prose. Reading the texts side by side
+(`docs/reference/explanation-bakeoff-2026-10-02.md`): gemini-3.8-flash writes grammatical Persian
+that ties the facts together; the flash-lite models meet the latency target but drop slots into
+broken sentences («دارای همه‌ی شب‌ها … آزاد بود … است»); gpt-5.4-mini repeats facts it has
+already slotted. gemini-3.8-flash's output is short (mean 63 tokens, no reasoning at low
+effort), so its latency is the provider's, not ours.
+
+Decision: keep gemini-3.8-flash and take the explanation off the results' critical path. The
+search page asks `POST /search` with `explain: false` (1.1 s with a cached understanding) and
+streams `POST /search/explanation` in under Suspense. **M10 criterion 4 is not met** for the
+explanation itself (p95 6.1–10.6 s uncached on 2026-10-02); results no longer wait for it. The
+review found one verifier gap, «در دسترس قرار دارد» stated as a fact, now rejected with its
+variants. `expected_output_tokens` for the task is 120 (was 350) from these measurements. Re-run
+the bake-off at a busier hour and after the owner reviews the texts; a prompt that makes a lite
+model's prose acceptable would meet the target.

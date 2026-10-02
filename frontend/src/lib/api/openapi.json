@@ -1644,6 +1644,11 @@
             "title": "Drop",
             "type": "array"
           },
+          "explain": {
+            "default": true,
+            "title": "Explain",
+            "type": "boolean"
+          },
           "query": {
             "maxLength": 300,
             "minLength": 2,
@@ -2708,6 +2713,56 @@
           }
         },
         "summary": "Search",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/search/explanation": {
+      "post": {
+        "description": "Why the first result fits, for a search already shown (the understanding is cached).",
+        "operationId": "search_explanation_search_explanation_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ExplanationOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Search Explanation Search Explanation Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Explanation",
         "tags": [
           "search"
         ]
