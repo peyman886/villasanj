@@ -847,6 +847,7 @@ def discovery_eval_understanding(
         typer.echo(
             f"cases={len(report.cases)} slot_accuracy={report.slot_accuracy:.1%} "
             f"exact_match={report.exact_match:.1%} invented_numbers={report.invented} "
+            f"failed_cases={report.failures} "
             f"retried={sum(c.retried for c in report.cases)} "
             f"dropped_fields={sum(len(c.dropped) for c in report.cases)} "
             f"cost=${report.cost_usd:.6f}"

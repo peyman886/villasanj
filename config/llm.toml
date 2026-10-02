@@ -48,8 +48,10 @@ temperature = 0.0
 concurrency = 8
 
 [tasks.query_understanding]
-model = "gemini-3.1-flash-lite"
-fallbacks = ["gpt-5.4-mini"]
+# gpt-5.4-mini after the 2026-10-02 bake-off (ADR-0005): the only candidate meeting M8 criterion 1's
+# latency (p95 1.3 s) with >= 90% slots and 0 invented numbers on the 50-query draft.
+model = "gpt-5.4-mini"
+fallbacks = ["gemini-3.1-flash-lite"]
 max_output_tokens = 800
 expected_output_tokens = 250
 temperature = 0.0

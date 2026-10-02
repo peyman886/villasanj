@@ -154,3 +154,26 @@ explanation, no truncation, and the same factual content (the verifier passed al
 Latency was 2.4–5.4 s, so M10 criterion 4 (p95 ≤ 4 s uncached) is **not** guaranteed by the
 setting: it depends on the provider's response time and is measured on the real query set in M10.
 Cached explanations are instant. Provisional, like the summary setting.
+
+## Amendment (query understanding bake-off, 2026-10-02): `gpt-5.4-mini` for `query_understanding`
+
+M8 criterion 1 asks for slot accuracy ≥ 90%, 0 invented numeric constraints and p95 latency
+≤ 3 s uncached, reported per model. On the 50-query draft (`eval/query-understanding/draft-v1.jsonl`,
+written by the agent; **provisional until the owner reviews it**), prompt v3, each model alone (no
+fallback), the same hour:
+
+| Model | Slots | Exact | Invented | Failed | p50 | p95 | Cost / 50 queries |
+|---|---|---|---|---|---|---|---|
+| gemini-3.1-flash-lite (previous) | 99.3% | 98% | 0 | 0 | 2.9 s | 5.5 s | $0.018 |
+| **gpt-5.4-mini** (chosen) | 97.9% | 94% | 0 | 0 | 1.0 s | 1.3 s | $0.062 |
+| gemini-3.5-flash-lite | 95.8% | 92% | 0 | 0 | 1.0 s | 2.0 s | $0.026 |
+| gpt-4.1-mini | 95.1% | 90% | 0 | 0 | 1.3 s | 2.6 s | $0.014 |
+| claude-haiku-4-5 | 90.1% | 84% | 0 | 4 | 2.6 s | 15.1 s | $0.118 |
+
+flash-lite's lead in accuracy is partly the prompt: it was tuned on flash-lite's mistakes. Only
+gpt-5.4-mini meets all three targets with margin; its misses are arguable («ماه عسل» not read as a
+couple, a basis inferred for «زیر ۱۵ میلیون» over three nights, «۴۵ دقیقه تا ساحل» read as near the
+sea). Haiku returned fields outside the schema on four queries (`check_in`, `bedrooms`), which the
+validator rejected on every retry. `config/llm.toml` now routes `query_understanding` to gpt-5.4-mini
+with gemini-3.1-flash-lite as the fallback (~$0.0012 per query). Re-run the bake-off after the owner
+reviews the draft set; the decision may change.

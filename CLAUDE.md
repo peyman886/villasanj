@@ -111,8 +111,9 @@ Context files (local):
 - Account facts (2026-10-01): AvalAI **tier 3**; Gemini bills ~1,090 tokens/image regardless of
   size → use composite grids; `gemini-embedding-001` reports 0 usage → ledger marks it estimated;
   `finish_reason=length` on reasoning models = error. Project hard cap **$30**.
-- Current routing: bulk/latency tasks → `gemini-3.1-flash-lite`; ER judge, review summary, explanation →
-  `gemini-3.8-flash`; fallbacks → `gpt-5.4-mini`; embeddings → `gemini-embedding-001` @768
+- Current routing: query understanding → `gpt-5.4-mini` (bake-off 2026-10-02, fallback flash-lite);
+  other bulk tasks → `gemini-3.1-flash-lite`; ER judge, review summary, explanation → `gemini-3.8-flash`
+  (`reasoning_effort = "low"` for summary and explanation); fallbacks → `gpt-5.4-mini`; embeddings → `gemini-embedding-001` @768
   (fallback `text-embedding-3-small`). `gpt-5-nano` is excluded (failed the extraction probe).
 
 ## Crawling rules (ADR-0008)

@@ -51,6 +51,7 @@ async def test_the_report_counts_wrong_missing_and_extra_slots() -> None:
     assert report.per_slot["dates.which"] == (1, 2)
     assert report.slot_accuracy == pytest.approx(5 / 7)  # 3 of 3, then 2 of 4
     assert report.exact_match == 0.5
+    assert "-" not in report.latency_ms()  # a failed case has no latency to report
     assert report.invented == 0
     assert report.cost_usd == Decimal("0.002")
     assert report.latency_ms() == {"model-a": (2, 5, 5)}
@@ -74,3 +75,35 @@ def test_cases_load_from_json_lines(tmp_path: Path) -> None:
 def test_the_draft_cases_in_the_repository_load() -> None:
     path = Path(__file__).parents[4] / "eval" / "query-understanding" / "draft-v0.jsonl"
     assert len(load_cases(path)) >= 10
+
+
+class FailingOnce:
+    """A client whose answer for one query never passes validation."""
+
+    def __init__(self, bad_query: str, answer: SearchIntent) -> None:
+        self.bad_query, self.answer = bad_query, answer
+
+    async def generate(
+        self, request: object, ctx: JobContext, *, model: str | None = None
+    ) -> object:
+        from villasanj.shared.application.errors import LLMOutputInvalid
+        from villasanj.shared.application.llm.types import LLMResponse, TokenUsage
+
+        text = request.messages[-1].text  # type: ignore[attr-defined]
+        if self.bad_query in text:
+            raise LLMOutputInvalid("extra fields")
+        return LLMResponse(self.answer, "m", TokenUsage(1, 1), Decimal("0.001"), False, 1, 5)
+
+
+async def test_a_query_without_a_usable_answer_is_a_failed_case_not_a_crash() -> None:
+    cases = [
+        EvalCase("آخر هفته", SearchIntent(dates=DateSpec(kind="weekend"))),
+        EvalCase("امشب", SearchIntent(dates=DateSpec(kind="tonight"))),
+    ]
+    client = FailingOnce("امشب", SearchIntent(dates=DateSpec(kind="weekend")))
+    report = await EvaluateUnderstanding(UnderstandQuery(client)).run(cases, CTX)  # type: ignore[arg-type]
+    assert report.failures == 1
+    failed = report.cases[1]
+    assert (failed.failure, failed.wrong) == ("LLMOutputInvalid", ("dates.kind",))
+    assert report.exact_match == 0.5
+    assert "-" not in report.latency_ms()  # a failed case has no latency to report

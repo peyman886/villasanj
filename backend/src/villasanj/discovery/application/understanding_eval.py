@@ -16,6 +16,7 @@ from decimal import Decimal
 
 from villasanj.discovery.application.intent import SearchIntent, verify_intent
 from villasanj.discovery.application.understanding import UnderstandQuery
+from villasanj.shared.application.errors import LLMError
 from villasanj.shared.application.llm.types import JobContext
 
 PERCENTILE_95 = 0.95
@@ -61,6 +62,7 @@ class CaseResult:
     latency_ms: int
     cache_hit: bool
     model: str
+    failure: str | None = None  # the model gave no usable answer (counted, every slot wrong)
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,11 +85,15 @@ class UnderstandingReport:
     def invented(self) -> int:
         return sum(c.invented for c in self.cases)
 
+    @property
+    def failures(self) -> int:
+        return sum(c.failure is not None for c in self.cases)
+
     def latency_ms(self) -> dict[str, tuple[int, int, int]]:
         """Per model: (uncached calls, p50, p95) in milliseconds."""
         by_model: dict[str, list[int]] = defaultdict(list)
         for case in self.cases:
-            if not case.cache_hit:
+            if not case.cache_hit and case.failure is None:
                 by_model[case.model].append(case.latency_ms)
         return {
             model: (len(values), _percentile(values, 0.5), _percentile(values, PERCENTILE_95))
@@ -109,9 +115,30 @@ class EvaluateUnderstanding:
         per_slot: dict[str, list[int]] = defaultdict(lambda: [0, 0])
         cost = Decimal(0)
         for case in cases:
-            understanding = await self._understand.run(case.query, ctx)
+            expected = slot_values(case.expected)
+            try:
+                understanding = await self._understand.run(case.query, ctx)
+            except LLMError as error:  # e.g. output that never matched the schema
+                for name in expected:
+                    per_slot[name][1] += 1
+                results.append(
+                    CaseResult(
+                        query=case.query,
+                        expected=expected,
+                        got={},
+                        wrong=tuple(sorted(expected)),
+                        invented=0,
+                        retried=True,
+                        dropped=(),
+                        latency_ms=0,
+                        cache_hit=False,
+                        model="-",
+                        failure=type(error).__name__,
+                    )
+                )
+                continue
             cost += understanding.cost_usd
-            expected, got = slot_values(case.expected), slot_values(understanding.intent)
+            got = slot_values(understanding.intent)
             wrong = []
             for name in sorted(expected.keys() | got.keys()):
                 per_slot[name][1] += 1
