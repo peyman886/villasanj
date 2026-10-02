@@ -25,11 +25,9 @@ from villasanj.shared.application.blobs import BlobStore
 from villasanj.shared.application.clock import Clock
 
 HTTP_OK = 200
-TOP, MIDDLE, REST = (
-    23,
-    17,
-    17,
-)  # per tag and band: ~300 photos after tags overlap (measured: 20/15/15 gave 259)
+# Photos per tag drawn from each band of its ranking. Tags overlap (a photo can be top for two),
+# so 20/15/15 gave 259 photos; 23/17/17 aims at the ~300 the owner labels.
+TOP, MIDDLE, REST = 23, 17, 17
 MIDDLE_END = 300  # the middle band is ranks TOP..MIDDLE_END
 
 
