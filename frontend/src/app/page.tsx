@@ -88,6 +88,13 @@ export default async function HomePage() {
             className={cn("text-emerald-800 underline underline-offset-4", FOCUS)}
           >
             عکس‌ها
+          </Link>{" "}
+          ·{" "}
+          <Link
+            href="/metrics"
+            className={cn("text-emerald-800 underline underline-offset-4", FOCUS)}
+          >
+            سنجه‌های پروژه
           </Link>
         </p>
       </section>

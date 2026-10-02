@@ -445,14 +445,15 @@ result.
 | Listing map: MapLibre, static, OSM raster tiles with attribution, the pin and its blur circle (dashed when assumed) (`4facc3d`, ADR-0003 amendment) | M7 scope (map) | ✅ done | a local basemap for the offline demo (M11 crit. 1) |
 | Photo tags: local SigLIP 2 zero-shot scores per image (pool, jacuzzi, sea_view, forest, fireplace, barbecue), a stratified labelling queue, `/label/photos`, per-tag thresholds at ≥ 85% precision or "not used" (`78f044c`) | M9 crit. 2 (infrastructure) | ✅ built; 12,143 images scored in 7 min (MPS) | the owner's ~300 photo labels (queue `photos-v1`, drawn after the crawl); only then can tags count as evidence |
 | Review summary on the listing page: streamed under Suspense, each point linked to its cited reviews, single opinions labelled (`a572572`) | M10 crit. 2 (listing level) | ✅ done; E2E checks the citations | villa-level summaries over merged reviews (M5); the owner's blind review (crit. 3) |
+| Metrics dashboard `GET /metrics` and `/metrics`: politeness per host (measured intervals), listings, photo coverage, coast and drive coverage, sea truth check, offers per scenario, LLM spend vs the cap, labelling progress; computed per request by the same use cases as the CLI reports | M11 scope (dashboard, partial) | ✅ partial | overlap, precision with CI and hidden nights (M3 gold set, M5 villas) |
 
 Still blocked or waiting:
 - **M3:** photo crawl (jabama, ~11 h left on 2026-10-01 17:00 UTC) → `make match` → gold-v1 → owner labels → eval → H1–H3 → review.
 - **M4:** new adapters (no written permission); wider region (H1).
 - **M5:** Splink / supervised model, judge bake-off, ablations, human review queue for UNSURE, clustering on real data — all need the gold set.
 - **M6 crit. 3:** direct-quote comparison: no public quote source found on either platform.
-- **M8:** the 50-query eval set needs the owner's review before its result counts; the latency target is not met yet; retrieval eval (crit. 2) and villa-level ranking need M5.
-- **M9:** sea claims are judged (ADR-0013); other targets need OSM POIs; the 60-description claim eval and the 300-photo tag eval need hand labels; photo tags (SigLIP) not started.
+- **M8:** the 50-query eval set needs the owner's review before its result counts; the latency target is met by gpt-5.4-mini on the draft set (p95 1.3 s, ADR-0005 amendment) but is provisional with the set; retrieval eval (crit. 2) and villa-level ranking need M5.
+- **M9:** sea claims are judged (ADR-0013); other targets need OSM POIs; the 60-description claim eval and the 300-photo tag eval need hand labels; photo tags are scored (SigLIP 2) but get no threshold before those labels.
 - **M10–M11:** not started beyond the pieces above.
 
 ---

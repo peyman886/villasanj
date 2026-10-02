@@ -278,6 +278,53 @@
         "title": "HealthOut",
         "type": "object"
       },
+      "HostOut": {
+        "properties": {
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "median_interval_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Interval S"
+          },
+          "min_interval_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Interval S"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "responses": {
+            "title": "Responses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "platform",
+          "host",
+          "responses",
+          "min_interval_s",
+          "median_interval_s"
+        ],
+        "title": "HostOut",
+        "type": "object"
+      },
       "Label": {
         "enum": [
           "match",
@@ -348,6 +395,29 @@
           "labeled_at"
         ],
         "title": "LabelOut",
+        "type": "object"
+      },
+      "LabellingOut": {
+        "properties": {
+          "labelled": {
+            "title": "Labelled",
+            "type": "integer"
+          },
+          "queue": {
+            "title": "Queue",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queue",
+          "total",
+          "labelled"
+        ],
+        "title": "LabellingOut",
         "type": "object"
       },
       "ListingOut": {
@@ -581,6 +651,70 @@
         "title": "LocationOut",
         "type": "object"
       },
+      "MetricsOut": {
+        "properties": {
+          "computed_at": {
+            "format": "date-time",
+            "title": "Computed At",
+            "type": "string"
+          },
+          "hosts": {
+            "items": {
+              "$ref": "#/components/schemas/HostOut"
+            },
+            "title": "Hosts",
+            "type": "array"
+          },
+          "labelling": {
+            "items": {
+              "$ref": "#/components/schemas/LabellingOut"
+            },
+            "title": "Labelling",
+            "type": "array"
+          },
+          "llm_cap_usd": {
+            "title": "Llm Cap Usd",
+            "type": "number"
+          },
+          "llm_spend": {
+            "items": {
+              "$ref": "#/components/schemas/SpendOut"
+            },
+            "title": "Llm Spend",
+            "type": "array"
+          },
+          "llm_total_usd": {
+            "title": "Llm Total Usd",
+            "type": "number"
+          },
+          "offers": {
+            "items": {
+              "$ref": "#/components/schemas/OffersOut"
+            },
+            "title": "Offers",
+            "type": "array"
+          },
+          "platforms": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformOut"
+            },
+            "title": "Platforms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "computed_at",
+          "hosts",
+          "platforms",
+          "offers",
+          "llm_spend",
+          "llm_total_usd",
+          "llm_cap_usd",
+          "labelling"
+        ],
+        "title": "MetricsOut",
+        "type": "object"
+      },
       "MoneyOut": {
         "description": "Rial is exact; toman is for display. ``high`` null means \"at least ``low``\".",
         "properties": {
@@ -752,6 +886,55 @@
         "title": "OfferOut",
         "type": "object"
       },
+      "OffersOut": {
+        "properties": {
+          "by_kind": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Kind",
+            "type": "object"
+          },
+          "by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Status",
+            "type": "object"
+          },
+          "guests": {
+            "title": "Guests",
+            "type": "integer"
+          },
+          "listings": {
+            "title": "Listings",
+            "type": "integer"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "scenario": {
+            "title": "Scenario",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "platform",
+          "scenario",
+          "guests",
+          "listings",
+          "by_status",
+          "by_kind",
+          "stale"
+        ],
+        "title": "OffersOut",
+        "type": "object"
+      },
       "PhotoLabelIn": {
         "properties": {
           "labeler": {
@@ -859,6 +1042,72 @@
           "tags"
         ],
         "title": "PhotoTaskOut",
+        "type": "object"
+      },
+      "PlatformOut": {
+        "properties": {
+          "coast_measured": {
+            "title": "Coast Measured",
+            "type": "integer"
+          },
+          "drive_routed": {
+            "title": "Drive Routed",
+            "type": "integer"
+          },
+          "listings": {
+            "title": "Listings",
+            "type": "integer"
+          },
+          "photo_coverage": {
+            "title": "Photo Coverage",
+            "type": "number"
+          },
+          "photos_downloaded": {
+            "title": "Photos Downloaded",
+            "type": "integer"
+          },
+          "photos_selected": {
+            "title": "Photos Selected",
+            "type": "integer"
+          },
+          "photos_unfinished": {
+            "title": "Photos Unfinished",
+            "type": "integer"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "sea_claim_listings": {
+            "title": "Sea Claim Listings",
+            "type": "integer"
+          },
+          "sea_contradicted_listings": {
+            "title": "Sea Contradicted Listings",
+            "type": "integer"
+          },
+          "sea_verdicts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Sea Verdicts",
+            "type": "object"
+          }
+        },
+        "required": [
+          "platform",
+          "listings",
+          "photos_selected",
+          "photos_downloaded",
+          "photos_unfinished",
+          "photo_coverage",
+          "coast_measured",
+          "drive_routed",
+          "sea_claim_listings",
+          "sea_contradicted_listings",
+          "sea_verdicts"
+        ],
+        "title": "PlatformOut",
         "type": "object"
       },
       "ProbeOut": {
@@ -1390,6 +1639,39 @@
           "url"
         ],
         "title": "SourceOut",
+        "type": "object"
+      },
+      "SpendOut": {
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "task": {
+            "title": "Task",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task",
+          "model",
+          "calls",
+          "failed",
+          "cost_usd"
+        ],
+        "title": "SpendOut",
         "type": "object"
       },
       "SummaryPointOut": {
@@ -2004,6 +2286,27 @@
         "summary": "Get Reviews",
         "tags": [
           "listings"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "get_metrics_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Metrics",
+        "tags": [
+          "metrics"
         ]
       }
     },

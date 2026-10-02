@@ -198,6 +198,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Metrics */
+        get: operations["get_metrics_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/photo-labels": {
         parameters: {
             query?: never;
@@ -367,6 +384,19 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** HostOut */
+        HostOut: {
+            /** Host */
+            host: string;
+            /** Median Interval S */
+            median_interval_s: number | null;
+            /** Min Interval S */
+            min_interval_s: number | null;
+            /** Platform */
+            platform: string;
+            /** Responses */
+            responses: number;
+        };
         /**
          * Label
          * @enum {string}
@@ -391,6 +421,15 @@ export interface components {
             labeled_at: string;
             /** Pair */
             pair: string;
+        };
+        /** LabellingOut */
+        LabellingOut: {
+            /** Labelled */
+            labelled: number;
+            /** Queue */
+            queue: string;
+            /** Total */
+            total: number;
         };
         /** ListingOut */
         ListingOut: {
@@ -444,6 +483,28 @@ export interface components {
             lon: number;
             /** Radius M */
             radius_m: number | null;
+        };
+        /** MetricsOut */
+        MetricsOut: {
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+            /** Hosts */
+            hosts: components["schemas"]["HostOut"][];
+            /** Labelling */
+            labelling: components["schemas"]["LabellingOut"][];
+            /** Llm Cap Usd */
+            llm_cap_usd: number;
+            /** Llm Spend */
+            llm_spend: components["schemas"]["SpendOut"][];
+            /** Llm Total Usd */
+            llm_total_usd: number;
+            /** Offers */
+            offers: components["schemas"]["OffersOut"][];
+            /** Platforms */
+            platforms: components["schemas"]["PlatformOut"][];
         };
         /**
          * MoneyOut
@@ -504,6 +565,27 @@ export interface components {
             status: string;
             total: components["schemas"]["MoneyOut"] | null;
         };
+        /** OffersOut */
+        OffersOut: {
+            /** By Kind */
+            by_kind: {
+                [key: string]: number;
+            };
+            /** By Status */
+            by_status: {
+                [key: string]: number;
+            };
+            /** Guests */
+            guests: number;
+            /** Listings */
+            listings: number;
+            /** Platform */
+            platform: string;
+            /** Scenario */
+            scenario: string;
+            /** Stale */
+            stale: number;
+        };
         /** PhotoLabelIn */
         PhotoLabelIn: {
             /**
@@ -543,6 +625,33 @@ export interface components {
             total: number;
             /** Url */
             url: string;
+        };
+        /** PlatformOut */
+        PlatformOut: {
+            /** Coast Measured */
+            coast_measured: number;
+            /** Drive Routed */
+            drive_routed: number;
+            /** Listings */
+            listings: number;
+            /** Photo Coverage */
+            photo_coverage: number;
+            /** Photos Downloaded */
+            photos_downloaded: number;
+            /** Photos Selected */
+            photos_selected: number;
+            /** Photos Unfinished */
+            photos_unfinished: number;
+            /** Platform */
+            platform: string;
+            /** Sea Claim Listings */
+            sea_claim_listings: number;
+            /** Sea Contradicted Listings */
+            sea_contradicted_listings: number;
+            /** Sea Verdicts */
+            sea_verdicts: {
+                [key: string]: number;
+            };
         };
         /** ProbeOut */
         ProbeOut: {
@@ -707,6 +816,19 @@ export interface components {
             platform: string;
             /** Url */
             url: string;
+        };
+        /** SpendOut */
+        SpendOut: {
+            /** Calls */
+            calls: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Failed */
+            failed: number;
+            /** Model */
+            model: string;
+            /** Task */
+            task: string;
         };
         /** SummaryPointOut */
         SummaryPointOut: {
@@ -1047,6 +1169,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_metrics_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsOut"];
                 };
             };
         };

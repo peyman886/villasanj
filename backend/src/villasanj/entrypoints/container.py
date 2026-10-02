@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from villasanj.catalog.application.embeddings import EmbedPhotos, ImageEmbedder
 from villasanj.catalog.application.ingest import IngestListingSnapshots
 from villasanj.catalog.application.photos import EnqueueListingPhotos, FingerprintPhotos
+from villasanj.catalog.application.reports import PhotoPipelineReport
 from villasanj.catalog.infrastructure.dinov2 import DinoV2Embedder
 from villasanj.catalog.infrastructure.gazetteer_file import load_gazetteer
 from villasanj.catalog.infrastructure.imaging import ImagehashHasher
@@ -19,6 +20,7 @@ from villasanj.catalog.infrastructure.repositories import (
     PgEmbeddingStore,
     PgListingRepository,
     PgPhotoRepository,
+    PgPhotoStatsQuery,
     StoredPhotoBytes,
 )
 from villasanj.discovery.application.dates import BuildHolidayCalendar
@@ -39,6 +41,7 @@ from villasanj.enrichment.application.photo_tags import (
     TagPhotos,
 )
 from villasanj.enrichment.application.review_summary import SummarizeReviews
+from villasanj.enrichment.application.truth import CheckSeaClaims
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore, PgCoastline
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.enrichment.infrastructure.photo_tags import PgPhotoQueueStore, PgPhotoTagStore
@@ -63,6 +66,7 @@ from villasanj.ingestion.infrastructure.repositories import (
     PgFrontierRepository,
     PgSnapshotRepository,
 )
+from villasanj.ingestion.infrastructure.stats import PgCrawlStatsQuery
 from villasanj.pricing.application.offers import OfferBook
 from villasanj.pricing.application.quotes import QuoteStays
 from villasanj.pricing.infrastructure.fees_file import load_fee_policies
@@ -78,6 +82,7 @@ from villasanj.shared.application.llm.ports import LLMCacheStore, LLMLedger, Raw
 from villasanj.shared.application.llm.retrying import RetryingInvoker
 from villasanj.shared.application.llm.routing import LLMRouting, ModelCatalog
 from villasanj.shared.application.llm.structured import StructuredOutputInvoker
+from villasanj.shared.domain.stay import StayScenario
 from villasanj.shared.infrastructure.blob_store import LocalFsBlobStore
 from villasanj.shared.infrastructure.clock import SystemClock
 from villasanj.shared.infrastructure.db.engine import create_engine
@@ -85,6 +90,7 @@ from villasanj.shared.infrastructure.db.repositories import (
     PgJobRepository,
     PgLLMCache,
     PgLLMLedger,
+    PgLLMSpendQuery,
 )
 from villasanj.shared.infrastructure.health_probes import (
     BlobStoreProbe,
@@ -95,6 +101,7 @@ from villasanj.shared.infrastructure.llm.avalai import AvalAIProvider
 from villasanj.shared.infrastructure.llm.config import load_catalog, load_routing
 from villasanj.shared.infrastructure.llm.fake import FakeLLMProvider
 from villasanj.shared.infrastructure.logging import configure_logging
+from villasanj.shared.infrastructure.scenarios import load_scenarios
 from villasanj.shared.infrastructure.settings import Settings
 
 
@@ -223,6 +230,21 @@ class Container:
 
     def routing_origin(self) -> Origin:
         return load_origin(self.settings.routing_origin_path)
+
+    def crawl_stats(self) -> PgCrawlStatsQuery:
+        return PgCrawlStatsQuery(self.engine)
+
+    def photo_pipeline(self) -> PhotoPipelineReport:
+        return PhotoPipelineReport(self.crawl_stats(), PgPhotoStatsQuery(self.engine))
+
+    def sea_truth(self) -> CheckSeaClaims:
+        return CheckSeaClaims(self.listings, self.coast_store())
+
+    def llm_spend(self) -> PgLLMSpendQuery:
+        return PgLLMSpendQuery(self.engine)
+
+    def scenarios(self) -> list[StayScenario]:
+        return load_scenarios(self.settings.scenarios_path)
 
     def coast_store(self) -> PgCoastDistanceStore:
         return PgCoastDistanceStore(self.engine)
