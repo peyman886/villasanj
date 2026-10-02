@@ -905,6 +905,9 @@ export interface components {
             geo: components["schemas"]["GeoOut"] | null;
             /** Listing Id */
             listing_id: string;
+            listing_provenance: components["schemas"]["ProvenanceOut"];
+            /** Mentions */
+            mentions: string[];
             per_person: components["schemas"]["MoneyOut"] | null;
             /** Photo */
             photo: string | null;
@@ -1012,6 +1015,8 @@ export interface components {
             results: components["schemas"]["ResultOut"][];
             /** Total Results */
             total_results: number;
+            /** Unhandled */
+            unhandled: string[];
             /** Unresolved Places */
             unresolved_places: string[];
         };

@@ -124,3 +124,22 @@ def test_the_ranking_rules_page_reads_the_numbers_from_the_code(client: TestClie
         500,
     )
     assert body["origin"] == ORIGIN.name_fa
+
+
+def test_unhandled_wishes_are_said_back_and_matched_in_the_listing_text() -> None:
+    from dataclasses import replace
+
+    from tests.unit.discovery.test_search import LISTINGS
+    from villasanj.discovery.application.search import mentioned
+
+    pool = LISTINGS[0]
+    duplex = replace(pool, description_norm="ویلای دوبلکس با حیاط")
+    assert mentioned(["دوبلکس", "حیاط بزرگ"], duplex) == ("دوبلکس",)
+    assert mentioned(["سونا"], replace(pool, description_norm="نزدیک سونامی")) == ()
+    intent = WEEKEND.model_copy(update={"unhandled": ["دوبلکس"]})
+    query = "ویلای دوبلکس استخردار در رامسر برای ۴ نفر آخر هفته زیر ۵ میلیون"
+    for test_client in client_for(intent):
+        body = test_client.post("/search", json={"query": query, "explain": False}).json()
+        assert body["unhandled"] == ["دوبلکس"]
+        assert all(r["mentions"] == [] for r in body["results"])  # no listing says it
+        assert all(r["listing_provenance"]["method"] == "observed" for r in body["results"])

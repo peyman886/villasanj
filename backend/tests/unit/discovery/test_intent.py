@@ -160,3 +160,12 @@ def test_intents_without_a_budget_or_basis_are_unchanged() -> None:
     assert with_stated_basis(plain, "ویلا") is plain
     unknown = SearchIntent.model_validate({"budget": {"max_toman": 5, "basis": "unknown"}})
     assert with_stated_basis(unknown, "زیر ۵ میلیون") is unknown
+
+
+def test_unhandled_wishes_must_be_verbatim_and_are_dropped_one_by_one() -> None:
+    query = "ویلای دوبلکس با حیاط بزرگ در رامسر"
+    intent = SearchIntent(unhandled=["دوبلکس", "حیاط بزرگ", "سونا"])
+    (violation,) = verify_intent(intent, query)
+    assert violation.code is ViolationCode.SPAN_NOT_IN_SOURCE
+    kept, dropped = drop_violations(intent, query)
+    assert (kept.unhandled, dropped) == (["دوبلکس", "حیاط بزرگ"], ("unhandled",))

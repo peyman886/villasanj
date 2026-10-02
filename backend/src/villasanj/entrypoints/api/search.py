@@ -74,6 +74,8 @@ class ResultOut(BaseModel):
     contributions: list[ContributionOut]
     cautions: list[str]
     geo: GeoOut | None
+    mentions: list[str]  # the query's unhandled wishes this listing's own text mentions
+    listing_provenance: ProvenanceOut  # the listing page those words were read from
 
 
 class SegmentOut(BaseModel):
@@ -95,6 +97,7 @@ class SearchOut(BaseModel):
     missing: list[str]
     places: list[str]
     unresolved_places: list[str]
+    unhandled: list[str]  # wishes the search cannot measure: said back, never used to rank
     budget_readings: dict[str, int] | None
     excluded: dict[str, int]
     total_results: int
@@ -136,6 +139,8 @@ def _result_out(
         ],
         cautions=sorted(ranked.warnings),
         geo=_geo(result, key, origin),
+        mentions=list(result.mentions.get(key, ())),
+        listing_provenance=ProvenanceOut.of(listing.provenance),
     )
 
 
@@ -220,6 +225,7 @@ async def search(body: SearchIn, request: Request) -> SearchOut:
         missing=list(result.missing),
         places=[p.name_fa for p in result.places],
         unresolved_places=list(result.unresolved_places),
+        unhandled=list(result.understanding.intent.unhandled),
         budget_readings=dict(ranking.budget_readings)
         if ranking and ranking.budget_readings
         else None,

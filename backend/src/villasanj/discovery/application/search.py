@@ -49,6 +49,7 @@ from villasanj.shared.application.clock import Clock
 from villasanj.shared.application.llm.types import JobContext
 from villasanj.shared.domain.errors import DomainError
 from villasanj.shared.domain.jalali import iran_today
+from villasanj.shared.domain.persian_text import ZWNJ, normalize_persian
 from villasanj.shared.domain.stay import GuestCount
 
 
@@ -73,6 +74,8 @@ class SearchResult:
     listings: Mapping[str, Listing] = field(default_factory=dict)
     geo: Mapping[str, Geo] = field(default_factory=dict)
     drive_coverage: Mapping[int, int] = field(default_factory=dict)  # hours -> results
+    # The query's unhandled wishes each result's own text mentions (the host's word, not checked)
+    mentions: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +178,11 @@ class SearchListings:
                 )
         wants = _requirements(intent, dates)
         ranking = rank(candidates, wants)
+        mentions = {
+            key: found
+            for key, listing in listings.items()
+            if (found := mentioned(intent.unhandled, listing))
+        }
         coverage = (
             drive_coverage(candidates, wants) if any(c.drive_minutes for c in candidates) else {}
         )
@@ -189,6 +197,7 @@ class SearchListings:
             listings,
             geos,
             coverage,
+            mentions,
         )
 
     def _places(self, intent: SearchIntent) -> tuple[tuple[Place, ...], tuple[str, ...]]:
@@ -278,3 +287,13 @@ def _requirements(intent: SearchIntent, dates: ResolvedDates) -> Requirements:
         features=tuple(Feature(f) for f in intent.features),
         max_drive_minutes=intent.max_drive.minutes if intent.max_drive else None,
     )
+
+
+def _words(text: str) -> str:
+    return " ".join(normalize_persian(text).replace(ZWNJ, " ").split())
+
+
+def mentioned(wishes: Sequence[str], listing: Listing) -> tuple[str, ...]:
+    """The wishes the listing's own title or description mentions, word for word."""
+    text = f" {_words(f'{listing.title_norm or ""} {listing.description_norm or ""}')} "
+    return tuple(w for w in wishes if f" {_words(w)} " in text)

@@ -135,6 +135,9 @@ class SearchIntent(BaseModel):
     max_drive: DriveLimit | None = None  # from Tehran
     places: list[str] = Field(default_factory=list, max_length=5)  # destinations, verbatim
     features: list[Feature] = Field(default_factory=list, max_length=8)
+    # Wishes no field can hold («دوبلکس», «حیاط بزرگ»), verbatim: said back to the user, never
+    # used to filter or rank (nothing measures them).
+    unhandled: list[str] = Field(default_factory=list, max_length=5)
 
     @property
     def guests(self) -> int | None:
@@ -173,6 +176,9 @@ def field_violations(intent: SearchIntent, query: str) -> dict[str, list[Violati
     for place in intent.places:
         if spans := verify_span(place, query):
             problems.setdefault("places", []).extend(spans)
+    for wish in intent.unhandled:
+        if spans := verify_span(wish, query):
+            problems.setdefault("unhandled", []).extend(spans)
     return problems
 
 
@@ -205,6 +211,8 @@ def drop_violations(intent: SearchIntent, query: str) -> tuple[SearchIntent, tup
     for field in problems:
         if field == "places":
             update[field] = [p for p in intent.places if not verify_span(p, query)]
+        elif field == "unhandled":
+            update[field] = [w for w in intent.unhandled if not verify_span(w, query)]
         elif field == "guest_parts":
             update[field] = []
         else:

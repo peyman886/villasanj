@@ -226,3 +226,14 @@ $0.0540 against $0.0346 spent (+56%): `expected_output_tokens = 500` against a m
 292 (reasoning included, low effort). Set to 300 from that sample, then checked on 24 **other**
 listings: estimate $0.0363, spent $0.0352 (+3%). All 48 summaries passed the verifier on the
 first try (0 retries, 0 dropped points).
+
+
+## Amendment (query understanding prompt v4, 2026-10-02): wishes are said back, not dropped
+
+The intent had no place for wishes outside its fields («دوبلکس», «حیاط بزرگ», «سونا»), so they
+disappeared silently. Prompt v4 adds `unhandled`: short phrases copied from the query, checked
+verbatim like places (a phrase not in the query is dropped). Search says them back («این خواسته‌ها
+را نمی‌توانیم بسنجیم») and marks the results whose own text mentions one word for word; they
+never filter or rank. On the 50-query draft (provisional, agent-written), gpt-5.4-mini with v4
+and the basis guard: slots 100%, exact 100%, 0 invented, p95 1.4 s uncached, $0.067. `unhandled`
+itself is not scored yet: the draft has no expected values for it.

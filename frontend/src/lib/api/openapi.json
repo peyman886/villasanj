@@ -1509,6 +1509,16 @@
             "title": "Listing Id",
             "type": "string"
           },
+          "listing_provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "mentions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mentions",
+            "type": "array"
+          },
           "per_person": {
             "anyOf": [
               {
@@ -1586,7 +1596,9 @@
           "score",
           "contributions",
           "cautions",
-          "geo"
+          "geo",
+          "mentions",
+          "listing_provenance"
         ],
         "title": "ResultOut",
         "type": "object"
@@ -1851,6 +1863,13 @@
             "title": "Total Results",
             "type": "integer"
           },
+          "unhandled": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unhandled",
+            "type": "array"
+          },
           "unresolved_places": {
             "items": {
               "type": "string"
@@ -1866,6 +1885,7 @@
           "missing",
           "places",
           "unresolved_places",
+          "unhandled",
           "budget_readings",
           "excluded",
           "total_results",

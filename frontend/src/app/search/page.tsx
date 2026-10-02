@@ -222,6 +222,13 @@ function Results({ result, drop, now }: { result: SearchOut; drop: string[]; now
             این مکان را نمی‌شناسیم و در جستجو لحاظ نشد: {result.unresolved_places.join("، ")}
           </p>
         ) : null}
+        {result.unhandled.length > 0 ? (
+          <p className="mt-2 text-sm text-pretty text-stone-600">
+            این خواسته‌ها را نمی‌توانیم بسنجیم و در رتبه‌بندی اثری ندارند:{" "}
+            {result.unhandled.map((w) => `«${w}»`).join("، ")}. روی هر نتیجه می‌گوییم اگر خود آگهی
+            از آن نوشته باشد.
+          </p>
+        ) : null}
       </section>
       {result.missing.length > 0 || choices.length > 0 ? (
         <section
@@ -382,6 +389,19 @@ function ResultCard({ result, rank, now }: { result: SearchResultOut; rank: numb
                 </span>
               ) : null,
             )}
+          </p>
+        ) : null}
+        {result.mentions.length > 0 ? (
+          <p className="text-xs text-stone-600">
+            <Sourced
+              id={`mentions-${id}`}
+              label="متن آگهی"
+              provenance={result.listing_provenance}
+              sourceName={result.platform_name}
+              now={now}
+            >
+              در متن آگهی آمده: {result.mentions.map((w) => `«${w}»`).join("، ")}
+            </Sourced>
           </p>
         ) : null}
         {result.cautions.length > 0 ? (

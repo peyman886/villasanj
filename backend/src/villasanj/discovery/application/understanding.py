@@ -30,7 +30,7 @@ from villasanj.shared.application.llm.types import (
 from villasanj.shared.domain.slots import Violation
 
 QUERY_PROMPT_ID = "query_understanding"
-QUERY_PROMPT_VERSION = "3"  # bump whenever SYSTEM_PROMPT or RETRY_TEMPLATE changes (a test pins it)
+QUERY_PROMPT_VERSION = "4"  # bump whenever SYSTEM_PROMPT or RETRY_TEMPLATE changes (a test pins it)
 
 SYSTEM_PROMPT = """\
 You turn a Persian villa-rental search query (Iran, northern provinces) into a JSON search intent.
@@ -65,7 +65,11 @@ of a drive («از تهران», «از رشت») is not a place, and neither is
 
 Features the villa should have, as codes: pool «استخر», jacuzzi «جکوزی», near_sea «نزدیک دریا» or
 «ساحلی», sea_view «ویو دریا», forest «جنگلی», fireplace «شومینه», parking «پارکینگ»,
-barbecue «باربیکیو». near_sea only when the query asks to be near the sea or the beach."""
+barbecue «باربیکیو». near_sea only when the query asks to be near the sea or the beach.
+
+Other wishes no field above can hold («دوبلکس», «حیاط بزرگ», «سونا», «ویلای چوبی») go in
+unhandled as short phrases copied exactly from the query. Never put a place, a date, a number, a
+group size or a listed feature there, and leave out words that are not a wish («ویلا», «اجاره»)."""
 
 RETRY_TEMPLATE = """\
 Your answer broke these rules:

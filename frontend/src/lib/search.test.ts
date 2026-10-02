@@ -17,6 +17,7 @@ function result(overrides: Partial<SearchOut> = {}): SearchOut {
     missing: [],
     places: [],
     unresolved_places: [],
+    unhandled: [],
     budget_readings: null,
     excluded: {},
     total_results: 0,
