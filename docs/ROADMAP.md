@@ -466,12 +466,13 @@ result.
 | Claim labelling tool `/label/claims` (migration 0013): queue `claims-v1` of 60 descriptions (≥ 80 characters) drawn once (`enrichment claim-queue`); for each, the owner marks every feature has / has not / shared / says nothing, without seeing the rules' output; `enrichment claims-eval` scores claim-level precision and recall with Wilson CIs, overall and per feature; progress on `/metrics`. Rehearsed end to end, rehearsal deleted | M9 crit. 1 | ✅ built; **waits for the owner's labels** | — |
 
 Still blocked or waiting:
+- **M1 crit. 8:** compare the ledger with the AvalAI dashboard (needs the owner's dashboard access).
 - **M3:** owner labels gold-v1 (362 pairs drawn 2026-10-02) at `/label` → eval → threshold → H1–H3 → review.
-- **M4:** new adapters (no written permission); wider region (H1).
+- **M4:** new adapters (no written permission); wider region (H1); the same-window scenario capture (crit. 3) runs after M3 so the catalog under gold-v1 does not change.
 - **M5:** Splink / supervised model, judge bake-off, ablations, human review queue for UNSURE, clustering on real data — all need the gold set.
 - **M6 crit. 3:** direct-quote comparison: no public quote source found on either platform.
-- **M8:** the 50-query eval set needs the owner's review before its result counts; the latency target is met by gpt-5.4-mini on the draft set (p95 1.3 s, ADR-0005 amendment) but is provisional with the set; retrieval eval (crit. 2) and villa-level ranking need M5.
-- **M9:** distance claims are judged against the coastline and OSM places (ADR-0013 and its amendment); the 60-description claim eval (`/label/claims`, claims-v1 drawn) and the 300-photo tag eval need hand labels; photo tags are scored (SigLIP 2) but get no threshold before those labels.
+- **M8:** the 50-query eval set needs the owner's review before its result counts; the latency target is met by gpt-5.4-mini on the draft set (p95 1.4 s with prompt v4, ADR-0005 amendments) but is provisional with the set; retrieval eval (crit. 2) and villa-level ranking need M5.
+- **M9:** distance claims are judged against the coastline and OSM places (ADR-0013 and its amendment); the 60-description claim eval (`/label/claims`, claims-v1 drawn) and the photo tag eval (`/label/photos`, photos-v1: 336 photos drawn) need hand labels; photo tags are scored (SigLIP 2) but get no threshold before those labels.
 - **M10:** the blind review of 20 summaries (`/label/summaries`) is the owner's; explanation latency (crit. 4) is not met uncached.
 - **M11:** offline basemap and `make demo` (needs a basemap download the owner approves), storyboard rehearsal with final data.
 
