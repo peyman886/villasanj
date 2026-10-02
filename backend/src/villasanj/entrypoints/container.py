@@ -41,7 +41,7 @@ from villasanj.enrichment.application.photo_tags import (
     TagPhotos,
 )
 from villasanj.enrichment.application.review_summary import SummarizeReviews
-from villasanj.enrichment.application.truth import CheckSeaClaims
+from villasanj.enrichment.application.truth import CheckListingClaims, CheckSeaClaims
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore, PgCoastline
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.enrichment.infrastructure.photo_tags import PgPhotoQueueStore, PgPhotoTagStore
@@ -239,6 +239,9 @@ class Container:
 
     def sea_truth(self) -> CheckSeaClaims:
         return CheckSeaClaims(self.listings, self.coast_store())
+
+    def listing_claims(self) -> CheckListingClaims:
+        return CheckListingClaims(load_amenity_map(self.settings.features_path), self.coast_store())
 
     def llm_spend(self) -> PgLLMSpendQuery:
         return PgLLMSpendQuery(self.engine)

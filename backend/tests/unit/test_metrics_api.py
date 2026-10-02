@@ -118,6 +118,8 @@ def test_metrics_report_every_platform_with_its_coverage_and_truth_check(
     assert alpha["photo_coverage"] == 0.75
     assert (alpha["coast_measured"], alpha["drive_routed"]) == (2, 1)  # unrouted pins not counted
     assert (alpha["sea_claim_listings"], alpha["sea_contradicted_listings"]) == (2, 1)
+    assert alpha["sea_measured_listings"] == 2
+    assert 0.0 < alpha["sea_contradicted_low"] < 0.5 < alpha["sea_contradicted_high"] < 1.0
     assert alpha["sea_verdicts"] == {"supported": 2, "contradicted": 1}
     assert (beta["listings"], beta["photos_selected"], beta["photo_coverage"]) == (1, 0, 0.0)
 

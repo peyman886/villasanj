@@ -60,6 +60,20 @@ export const AVAILABILITY_TEXT: Record<string, string> = {
   unknown: "نامعلوم",
 };
 
+/** Truth-check verdicts (product rule 5: «تأیید نشد», never an accusation). */
+export const CLAIM_VERDICT_TEXT: Record<string, string> = {
+  contradicted: "با نقشه نمی‌خواند",
+  inconsistent: "با فهرست امکانات نمی‌خواند",
+  not_confirmed: "تأیید نشد",
+  supported: "تأیید شد",
+  consistent: "با فهرست امکانات می‌خواند",
+  shared: "امکان مشاع",
+  not_checked: "بررسی نشد",
+};
+
+/** Display order: what needs a look first. */
+export const CLAIM_VERDICT_ORDER = Object.keys(CLAIM_VERDICT_TEXT);
+
 export const METHOD_TEXT: Record<Provenance["method"], string> = {
   observed: "مشاهده‌شده در صفحه‌ی پلتفرم",
   derived: "محاسبه‌شده از مقادیر مشاهده‌شده",

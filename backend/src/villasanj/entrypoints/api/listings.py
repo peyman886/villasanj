@@ -19,15 +19,27 @@ from villasanj.catalog.domain.review import ListingReview
 from villasanj.discovery.application.routing import DriveTime, Origin
 from villasanj.enrichment.application.coast import CoastDistance
 from villasanj.enrichment.application.review_summary import CitedPoint
+from villasanj.enrichment.application.truth import (
+    DistanceClaimCheck,
+    FeatureClaimCheck,
+    ListingTruth,
+)
+from villasanj.enrichment.domain.distance_claims import ClaimTarget, Verdict
+from villasanj.enrichment.domain.features import (
+    NEAR_SEA_M,
+    Agreement,
+    FeatureEvidence,
+    Polarity,
+)
 from villasanj.entrypoints.container import Container
 from villasanj.pricing.domain.offer import Offer
 from villasanj.pricing.domain.quote import NightCharge, StayRequest
 from villasanj.shared.application.errors import ConfigurationError
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.domain.errors import DomainError
-from villasanj.shared.domain.fa_format import fa_metres_range, fa_minutes_range
+from villasanj.shared.domain.fa_format import fa_metres, fa_metres_range, fa_minutes_range
 from villasanj.shared.domain.money import MoneyRange
-from villasanj.shared.domain.persian_text import ZWNJ
+from villasanj.shared.domain.persian_text import ZWNJ, to_persian_digits
 from villasanj.shared.domain.provenance import Provenance, ProvenanceMethod
 from villasanj.shared.domain.stay import DateRange, GuestCount
 from villasanj.shared.infrastructure.scenarios import load_scenarios
@@ -174,15 +186,19 @@ class GeoOut(BaseModel):
     origin: str | None
 
 
+def _map_provenance(listing: Listing, computed: datetime, what: str, dataset: str) -> ProvenanceOut:
+    derived = Provenance(ProvenanceMethod.DERIVED, computed, derived_from=(listing.provenance,))
+    return ProvenanceOut.of(
+        derived,
+        f"{what}، از نقشه{ZWNJ}ی OpenStreetMap ({dataset}) و نقطه{ZWNJ}ی منتشرشده{ZWNJ}ی آگهی",
+    )
+
+
 def geo_out(
     listing: Listing, coast: CoastDistance | None, drive: DriveTime | None, origin: Origin
 ) -> GeoOut:
     def provenance(computed: datetime, what: str, dataset: str) -> ProvenanceOut:
-        derived = Provenance(ProvenanceMethod.DERIVED, computed, derived_from=(listing.provenance,))
-        return ProvenanceOut.of(
-            derived,
-            f"{what}، از نقشه{ZWNJ}ی OpenStreetMap ({dataset}) و نقطه{ZWNJ}ی منتشرشده{ZWNJ}ی آگهی",
-        )
+        return _map_provenance(listing, computed, what, dataset)
 
     return GeoOut(
         coast_m=GeoRangeOut(
@@ -204,6 +220,143 @@ def geo_out(
         if drive and drive.low_s is not None and drive.high_s is not None
         else None,
         origin=origin.name_fa,
+    )
+
+
+ClaimVerdict = Literal[
+    "supported",  # independent evidence (the map) agrees
+    "consistent",  # the listing's own amenity list says the same (the host's word twice)
+    "not_confirmed",  # «تأیید نشد»
+    "inconsistent",  # the listing's own amenity list says the opposite
+    "contradicted",  # even the best case of the evidence cannot reach the claim
+    "shared",  # a facility of the complex: says nothing about the villa
+    "not_checked",  # no evidence for this kind of claim yet, or wording not understood
+]
+_MODE_FA = {"walk": "پیاده", "car": "با ماشین", "unknown": ""}
+
+
+class DistanceClaimOut(BaseModel):
+    text: str  # as published, digits shown in Persian
+    target: str
+    verdict: ClaimVerdict
+    evidence: str  # built by code from measured values
+    radius_assumed: bool
+    provenance: ProvenanceOut  # the listing page that published the claim
+    evidence_provenance: ProvenanceOut | None
+
+
+class FeatureClaimOut(BaseModel):
+    feature: str
+    span: str  # verbatim from the description
+    polarity: Literal["has", "has_not"]
+    verdict: ClaimVerdict
+    evidence: str
+    provenance: ProvenanceOut
+    evidence_provenance: ProvenanceOut | None
+
+
+class ClaimsOut(BaseModel):
+    distances: list[DistanceClaimOut]
+    features: list[FeatureClaimOut]
+
+
+def _measured(coast: CoastDistance) -> str:
+    return f"نقشه: {fa_metres_range(coast.low_m, coast.high_m)} تا ساحل در خط مستقیم"
+
+
+def _distance_out(
+    listing: Listing, check: DistanceClaimCheck, coast: CoastDistance | None
+) -> DistanceClaimOut:
+    raw, claim, assessment = check.raw, check.claim, check.assessment
+    mode = _MODE_FA[raw.mode.value]
+    text = f"{raw.target_fa}: {to_persian_digits(raw.value_text)}" + (f" {mode}" if mode else "")
+    verdict: ClaimVerdict = "not_checked"
+    evidence_provenance = None
+    if claim is None:
+        evidence = "این عبارت را نتوانستیم به فاصله تبدیل کنیم."
+    elif claim.target is not ClaimTarget.SEA:
+        evidence = f"برای این مقصد هنوز داده{ZWNJ}ی نقشه نداریم."
+    elif assessment is None or coast is None:
+        evidence = f"فاصله{ZWNJ}ی این آگهی تا ساحل اندازه{ZWNJ}گیری نشده است."
+    else:
+        evidence_provenance = _map_provenance(
+            listing, coast.computed_at, "فاصله تا خط ساحل", coast.dataset
+        )
+        claim_high = assessment.claimed_m[1]
+        if assessment.verdict is Verdict.SUPPORTED:
+            verdict = "supported"
+            evidence = f"{_measured(coast)}؛ همه{ZWNJ}ی محدوده{ZWNJ}ی مکان آگهی با ادعا جور است."
+        elif assessment.verdict is Verdict.CONTRADICTED and claim_high is not None:
+            verdict = "contradicted"
+            evidence = (
+                f"{_measured(coast)}، اما این ادعا حتی با سخاوتمندانه{ZWNJ}ترین برداشت "
+                f"حداکثر {fa_metres(claim_high)} است."
+            )
+        else:
+            verdict = "not_confirmed"
+            evidence = f"{_measured(coast)}؛ با این شواهد نمی{ZWNJ}شود گفت درست است یا نه."
+    return DistanceClaimOut(
+        text=text,
+        target=claim.target.value if claim else ClaimTarget.OTHER.value,
+        verdict=verdict,
+        evidence=evidence,
+        radius_assumed=check.radius_assumed,
+        provenance=ProvenanceOut.of(
+            listing.provenance, f"از بخش فاصله{ZWNJ}ها در صفحه{ZWNJ}ی آگهی"
+        ),
+        evidence_provenance=evidence_provenance,
+    )
+
+
+def _feature_out(
+    listing: Listing, check: FeatureClaimCheck, coast: CoastDistance | None
+) -> FeatureClaimOut:
+    claim, evidence_provenance = check.claim, None
+    verdict: ClaimVerdict
+    if claim.shared:
+        verdict = "shared"
+        evidence = f"امکانی مشاع است؛ درباره{ZWNJ}ی خود ویلا چیزی نمی{ZWNJ}گوید."
+    elif check.map_evidence is not None and coast is not None:
+        evidence_provenance = _map_provenance(
+            listing, coast.computed_at, "فاصله تا خط ساحل", coast.dataset
+        )
+        if check.map_evidence is FeatureEvidence.MEASURED:
+            verdict = "supported"
+            evidence = f"{_measured(coast)}؛ همه{ZWNJ}ی محدوده کمتر از {fa_metres(NEAR_SEA_M)} است."
+        else:  # a vague word: the map can support it, never contradict it
+            verdict = "not_confirmed"
+            evidence = (
+                f"{_measured(coast)}. «نزدیک» اندازه{ZWNJ}ی مشخصی ندارد، "
+                f"پس این را رد نمی{ZWNJ}کنیم."
+            )
+    elif check.agreement is Agreement.AGREES:
+        verdict = "consistent"
+        evidence = f"فهرست امکانات همین آگهی هم همین را می{ZWNJ}گوید؛ هر دو گفته{ZWNJ}ی میزبان است."
+    elif check.agreement is Agreement.AMENITIES_DISAGREE:
+        verdict = "inconsistent"
+        evidence = (
+            "فهرست امکانات همین آگهی آن را ندارد."
+            if claim.polarity is Polarity.HAS
+            else "فهرست امکانات همین آگهی آن را دارد."
+        )
+    else:
+        verdict = "not_confirmed"
+        evidence = f"فهرست امکانات آگهی چیزی درباره{ZWNJ}اش نمی{ZWNJ}گوید و شاهد دیگری نداریم."
+    return FeatureClaimOut(
+        feature=claim.feature.value,
+        span=claim.span,
+        polarity="has" if claim.polarity is Polarity.HAS else "has_not",
+        verdict=verdict,
+        evidence=evidence,
+        provenance=ProvenanceOut.of(listing.provenance, "از متن توضیحات آگهی"),
+        evidence_provenance=evidence_provenance,
+    )
+
+
+def claims_out(listing: Listing, truth: ListingTruth) -> ClaimsOut:
+    return ClaimsOut(
+        distances=[_distance_out(listing, c, truth.coast) for c in truth.distances],
+        features=[_feature_out(listing, c, truth.coast) for c in truth.features],
     )
 
 
@@ -381,6 +534,14 @@ async def get_geo(platform: str, external_id: str, request: Request) -> GeoOut:
     coast = await container.coast_store().get(listing.id)
     drive = await container.drive_store().get(listing.id, origin.slug)
     return geo_out(listing, coast, drive, origin)
+
+
+@router.get("/{platform}/{external_id}/claims")
+async def get_claims(platform: str, external_id: str, request: Request) -> ClaimsOut:
+    """The listing's own claims, each beside its evidence; what has none yet says so."""
+    container = _container(request)
+    listing = await _listing(container, platform, external_id)
+    return claims_out(listing, await container.listing_claims().run(listing))
 
 
 class SummaryPointOut(BaseModel):

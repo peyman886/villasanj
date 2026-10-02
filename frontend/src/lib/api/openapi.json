@@ -70,6 +70,30 @@
         "title": "CalendarNightOut",
         "type": "object"
       },
+      "ClaimsOut": {
+        "properties": {
+          "distances": {
+            "items": {
+              "$ref": "#/components/schemas/DistanceClaimOut"
+            },
+            "title": "Distances",
+            "type": "array"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureClaimOut"
+            },
+            "title": "Features",
+            "type": "array"
+          }
+        },
+        "required": [
+          "distances",
+          "features"
+        ],
+        "title": "ClaimsOut",
+        "type": "object"
+      },
       "ContributionOut": {
         "properties": {
           "component": {
@@ -134,6 +158,63 @@
         "title": "DatesOut",
         "type": "object"
       },
+      "DistanceClaimOut": {
+        "properties": {
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "evidence_provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProvenanceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "radius_assumed": {
+            "title": "Radius Assumed",
+            "type": "boolean"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "supported",
+              "consistent",
+              "not_confirmed",
+              "inconsistent",
+              "contradicted",
+              "shared",
+              "not_checked"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "target",
+          "verdict",
+          "evidence",
+          "radius_assumed",
+          "provenance",
+          "evidence_provenance"
+        ],
+        "title": "DistanceClaimOut",
+        "type": "object"
+      },
       "ExplanationOut": {
         "properties": {
           "segments": {
@@ -162,6 +243,67 @@
           "segments"
         ],
         "title": "ExplanationOut",
+        "type": "object"
+      },
+      "FeatureClaimOut": {
+        "properties": {
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "evidence_provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProvenanceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feature": {
+            "title": "Feature",
+            "type": "string"
+          },
+          "polarity": {
+            "enum": [
+              "has",
+              "has_not"
+            ],
+            "title": "Polarity",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "span": {
+            "title": "Span",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "supported",
+              "consistent",
+              "not_confirmed",
+              "inconsistent",
+              "contradicted",
+              "shared",
+              "not_checked"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "feature",
+          "span",
+          "polarity",
+          "verdict",
+          "evidence",
+          "provenance",
+          "evidence_provenance"
+        ],
+        "title": "FeatureClaimOut",
         "type": "object"
       },
       "GeoOut": {
@@ -1082,8 +1224,20 @@
             "title": "Sea Claim Listings",
             "type": "integer"
           },
+          "sea_contradicted_high": {
+            "title": "Sea Contradicted High",
+            "type": "number"
+          },
           "sea_contradicted_listings": {
             "title": "Sea Contradicted Listings",
+            "type": "integer"
+          },
+          "sea_contradicted_low": {
+            "title": "Sea Contradicted Low",
+            "type": "number"
+          },
+          "sea_measured_listings": {
+            "title": "Sea Measured Listings",
             "type": "integer"
           },
           "sea_verdicts": {
@@ -1104,7 +1258,10 @@
           "coast_measured",
           "drive_routed",
           "sea_claim_listings",
+          "sea_measured_listings",
           "sea_contradicted_listings",
+          "sea_contradicted_low",
+          "sea_contradicted_high",
           "sea_verdicts"
         ],
         "title": "PlatformOut",
@@ -2033,6 +2190,58 @@
           }
         },
         "summary": "Get Calendar",
+        "tags": [
+          "listings"
+        ]
+      }
+    },
+    "/listings/{platform}/{external_id}/claims": {
+      "get": {
+        "description": "The listing's own claims, each beside its evidence; what has none yet says so.",
+        "operationId": "get_claims_listings__platform___external_id__claims_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "title": "Platform",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "external_id",
+            "required": true,
+            "schema": {
+              "title": "External Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Claims",
         "tags": [
           "listings"
         ]

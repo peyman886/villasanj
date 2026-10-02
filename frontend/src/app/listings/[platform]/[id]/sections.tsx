@@ -5,6 +5,7 @@ import { Sourced } from "@/components/sourced";
 import {
   apiClient,
   type CalendarNight,
+  type Claims,
   type Geo,
   type GeoRange,
   type Listing,
@@ -17,6 +18,8 @@ import { faPropertyType } from "@/lib/labeling";
 import {
   AVAILABILITY_TEXT,
   CAVEAT_TEXT,
+  CLAIM_VERDICT_ORDER,
+  CLAIM_VERDICT_TEXT,
   STATUS_TEXT,
   WEEKDAY_HEADERS,
   calendarWeeks,
@@ -29,6 +32,7 @@ import {
   faToman,
   offerText,
 } from "@/lib/listing";
+import { FEATURE_TEXT } from "@/lib/search";
 
 export type ScenarioOffers = { scenario: Scenario; offers: (Offer | null)[] };
 
@@ -162,6 +166,152 @@ export function GeoFacts({ geo, now }: { geo: Geo | null; now: Date }) {
         ) : null,
       )}
     </dl>
+  );
+}
+
+type ClaimRow = {
+  key: string;
+  verdict: string;
+  claim: ReactNode;
+  evidence: string;
+  evidenceProvenance: Claims["distances"][number]["evidence_provenance"];
+  radiusAssumed: boolean;
+};
+
+const VERDICT_STYLE: Record<string, string> = {
+  contradicted: "border-amber-300 bg-amber-50 text-amber-900",
+  inconsistent: "border-amber-300 bg-amber-50 text-amber-900",
+  supported: "border-emerald-300 bg-emerald-50 text-emerald-900",
+};
+
+function VerdictBadge({ verdict }: { verdict: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-block shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium",
+        VERDICT_STYLE[verdict] ?? "border-stone-300 bg-stone-50 text-stone-700",
+      )}
+    >
+      {CLAIM_VERDICT_TEXT[verdict] ?? verdict}
+    </span>
+  );
+}
+
+function ClaimItem({ row, now }: { row: ClaimRow; now: Date }) {
+  return (
+    <li className="flex flex-col gap-1.5 p-3 sm:flex-row sm:items-start sm:gap-3">
+      <VerdictBadge verdict={row.verdict} />
+      <div className="min-w-0 text-sm">
+        <p className="font-medium text-pretty">{row.claim}</p>
+        <p className="mt-0.5 text-pretty text-stone-600">
+          {row.evidenceProvenance ? (
+            <Sourced
+              id={`claim-evidence-${row.key}`}
+              label="شاهد"
+              value={row.evidence}
+              provenance={row.evidenceProvenance}
+              now={now}
+            >
+              {row.evidence}
+            </Sourced>
+          ) : (
+            row.evidence
+          )}
+        </p>
+        {row.radiusAssumed ? (
+          <p className="mt-0.5 text-xs text-stone-500">
+            پلتفرم دقت نقطه را اعلام نکرده؛ تا ۵۰۰ متر خطا فرض شده.
+          </p>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+/** «پارکینگ ندارد: »; nothing when the quoted words already name the feature. */
+function featureLabel(feature: string, span: string, polarity: string): string {
+  const label = FEATURE_TEXT[feature] ?? feature;
+  if (polarity === "has_not") return `${label} ندارد: `;
+  return span.includes(label) ? "" : `${label}: `;
+}
+
+/** The listing's own claims beside their evidence (M9 truth check, listing level). */
+export function ClaimsSection({
+  listing,
+  claims,
+  now,
+}: {
+  listing: Listing;
+  claims: Claims | null;
+  now: Date;
+}) {
+  if (!claims || claims.distances.length + claims.features.length === 0) return null;
+  const rows: ClaimRow[] = [
+    ...claims.distances.map((c, index) => ({
+      key: `d${index}`,
+      verdict: c.verdict,
+      claim: (
+        <Sourced id={`claim-d${index}`} label="ادعای آگهی" provenance={c.provenance} now={now}>
+          {c.text}
+        </Sourced>
+      ),
+      evidence: c.evidence,
+      evidenceProvenance: c.evidence_provenance,
+      radiusAssumed: c.radius_assumed && c.evidence_provenance !== null,
+    })),
+    ...claims.features.map((c, index) => ({
+      key: `f${index}`,
+      verdict: c.verdict,
+      claim: (
+        <>
+          {featureLabel(c.feature, c.span, c.polarity)}
+          <Sourced id={`claim-f${index}`} label="ادعای آگهی" provenance={c.provenance} now={now}>
+            «{c.span}»
+          </Sourced>
+        </>
+      ),
+      evidence: c.evidence,
+      evidenceProvenance: c.evidence_provenance,
+      radiusAssumed: false,
+    })),
+  ].sort((a, b) => CLAIM_VERDICT_ORDER.indexOf(a.verdict) - CLAIM_VERDICT_ORDER.indexOf(b.verdict));
+  const checked = rows.filter((r) => r.verdict !== "not_checked");
+  const unchecked = rows.filter((r) => r.verdict === "not_checked");
+  const counts = CLAIM_VERDICT_ORDER.map(
+    (verdict) => [verdict, rows.filter((r) => r.verdict === verdict).length] as const,
+  ).filter(([, count]) => count > 0);
+  return (
+    <section aria-labelledby="claims-title" className="mt-10">
+      <SectionTitle id="claims-title">حقیقت‌سنجی ادعاها</SectionTitle>
+      <p className="mt-1 max-w-prose text-sm text-pretty text-stone-600">
+        ادعاهای خود آگهی در {listing.platform_name}، هر کدام کنار شاهدش. «تأیید نشد» یعنی شاهد کافی
+        نداریم، نه اینکه ادعا نادرست است.
+      </p>
+      <p className="mt-2 text-sm text-stone-700 tabular-nums">
+        {counts
+          .map(([verdict, count]) => `${CLAIM_VERDICT_TEXT[verdict]}: ${faNumber(count)}`)
+          .join(" · ")}
+      </p>
+      {checked.length > 0 ? (
+        <ul className="mt-3 divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
+          {checked.map((row) => (
+            <ClaimItem key={row.key} row={row} now={now} />
+          ))}
+        </ul>
+      ) : null}
+      {unchecked.length > 0 ? (
+        <details className="mt-3 rounded-lg border border-stone-200 bg-white">
+          <summary className={cn("cursor-pointer p-3 text-sm text-stone-700", FOCUS)}>
+            ادعاهای بررسی‌نشده ({faNumber(unchecked.length)})
+          </summary>
+          <ul className="divide-y divide-stone-200 border-t border-stone-200">
+            {unchecked.map((row) => (
+              <ClaimItem key={row.key} row={row} now={now} />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </section>
   );
 }
 
@@ -566,7 +716,7 @@ function SummaryList({
         {points.map((point) => (
           <li key={point.text} className="text-pretty">
             {point.text}{" "}
-            <span className="text-xs text-stone-500">
+            <span className="text-xs text-stone-600">
               {point.single_opinion ? "(نظر یک مهمان: " : "(بر اساس "}
               {point.review_ids.map((id, index) => (
                 <span key={id}>
@@ -622,7 +772,7 @@ export async function ReviewSummarySection({
         <SummaryList title="خوب‌ها" points={summary.pros} order={order} />
         <SummaryList title="ایرادها" points={summary.cons} order={order} />
       </div>
-      <p className="mt-3 text-xs text-stone-500">
+      <p className="mt-3 text-xs text-stone-600">
         هر نکته به نظرهایی که آن را گفته‌اند پیوند دارد؛ متن خلاصه را مدل زبانی نوشته و پیش از نمایش
         بررسی شده است.
       </p>

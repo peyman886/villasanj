@@ -37,7 +37,10 @@ class PlatformOut(BaseModel):
     coast_measured: int
     drive_routed: int
     sea_claim_listings: int
+    sea_measured_listings: int  # with a sea claim and a measured coast distance
     sea_contradicted_listings: int
+    sea_contradicted_low: float  # Wilson 95% interval of the share among measured listings (H4)
+    sea_contradicted_high: float
     sea_verdicts: dict[str, int]
 
 
@@ -91,6 +94,7 @@ async def get_metrics(request: Request) -> MetricsOut:
     for platform in platforms:
         photo = photos.get(platform)
         sea = await truth.run(platform)
+        share = sea.contradicted_share()
         rows.append(
             PlatformOut(
                 platform=platform,
@@ -107,7 +111,10 @@ async def get_metrics(request: Request) -> MetricsOut:
                     ).values()
                 ),
                 sea_claim_listings=sea.listings_with_claim,
+                sea_measured_listings=sea.listings_with_claim - sea.without_distance,
                 sea_contradicted_listings=sea.listings_contradicted,
+                sea_contradicted_low=round(share.low, 4),
+                sea_contradicted_high=round(share.high, 4),
                 sea_verdicts=dict(sea.verdicts),
             )
         )

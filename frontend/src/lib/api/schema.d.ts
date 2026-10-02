@@ -118,6 +118,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/listings/{platform}/{external_id}/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Claims
+         * @description The listing's own claims, each beside its evidence; what has none yet says so.
+         */
+        get: operations["get_claims_listings__platform___external_id__claims_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/listings/{platform}/{external_id}/geo": {
         parameters: {
             query?: never;
@@ -310,6 +330,13 @@ export interface components {
             price: components["schemas"]["MoneyOut"] | null;
             provenance: components["schemas"]["ProvenanceOut"];
         };
+        /** ClaimsOut */
+        ClaimsOut: {
+            /** Distances */
+            distances: components["schemas"]["DistanceClaimOut"][];
+            /** Features */
+            features: components["schemas"]["FeatureClaimOut"][];
+        };
         /** ContributionOut */
         ContributionOut: {
             /** Component */
@@ -334,6 +361,24 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** DistanceClaimOut */
+        DistanceClaimOut: {
+            /** Evidence */
+            evidence: string;
+            evidence_provenance: components["schemas"]["ProvenanceOut"] | null;
+            provenance: components["schemas"]["ProvenanceOut"];
+            /** Radius Assumed */
+            radius_assumed: boolean;
+            /** Target */
+            target: string;
+            /** Text */
+            text: string;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "consistent" | "not_confirmed" | "inconsistent" | "contradicted" | "shared" | "not_checked";
+        };
         /** ExplanationOut */
         ExplanationOut: {
             /** Segments */
@@ -345,6 +390,27 @@ export interface components {
             source: "llm" | "template";
             /** Text */
             text: string;
+        };
+        /** FeatureClaimOut */
+        FeatureClaimOut: {
+            /** Evidence */
+            evidence: string;
+            evidence_provenance: components["schemas"]["ProvenanceOut"] | null;
+            /** Feature */
+            feature: string;
+            /**
+             * Polarity
+             * @enum {string}
+             */
+            polarity: "has" | "has_not";
+            provenance: components["schemas"]["ProvenanceOut"];
+            /** Span */
+            span: string;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "consistent" | "not_confirmed" | "inconsistent" | "contradicted" | "shared" | "not_checked";
         };
         /** GeoOut */
         GeoOut: {
@@ -646,8 +712,14 @@ export interface components {
             platform: string;
             /** Sea Claim Listings */
             sea_claim_listings: number;
+            /** Sea Contradicted High */
+            sea_contradicted_high: number;
             /** Sea Contradicted Listings */
             sea_contradicted_listings: number;
+            /** Sea Contradicted Low */
+            sea_contradicted_low: number;
+            /** Sea Measured Listings */
+            sea_measured_listings: number;
             /** Sea Verdicts */
             sea_verdicts: {
                 [key: string]: number;
@@ -1028,6 +1100,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CalendarNightOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_claims_listings__platform___external_id__claims_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: string;
+                external_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimsOut"];
                 };
             };
             /** @description Validation Error */

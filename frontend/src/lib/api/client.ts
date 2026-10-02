@@ -14,6 +14,7 @@ export type Provenance = components["schemas"]["ProvenanceOut"];
 export type Scenario = components["schemas"]["ScenarioOut"];
 export type Geo = components["schemas"]["GeoOut"];
 export type GeoRange = components["schemas"]["GeoRangeOut"];
+export type Claims = components["schemas"]["ClaimsOut"];
 
 export function apiClient(baseUrl: string = apiBaseUrl(), fetchImpl?: typeof fetch) {
   return createClient<paths>({ baseUrl, ...(fetchImpl ? { fetch: fetchImpl } : {}) });

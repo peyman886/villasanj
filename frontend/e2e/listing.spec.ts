@@ -16,6 +16,15 @@ test.describe("listing page", () => {
     expect(await expectProvenanceOn(page, 10)).toBe(10);
   });
 
+  test("claims sit beside their evidence in calm words (M9)", async ({ page }) => {
+    const section = page.locator("[aria-labelledby=claims-title]");
+    await expect(section).toBeVisible();
+    await expect(section.locator("li").first()).toBeVisible();
+    for (const word of ["دروغ", "تقلب", "نادرست است", "غلط"]) {
+      await expect(section.locator("li", { hasText: word })).toHaveCount(0);
+    }
+  });
+
   test("no serious or critical accessibility violations (M7 criterion 4)", async ({ page }) => {
     const results = await new AxeBuilder({ page }).analyze();
     const critical = results.violations.filter((v) =>

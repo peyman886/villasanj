@@ -11,7 +11,7 @@ type Metrics = components["schemas"]["MetricsOut"];
 const VERDICT_TEXT: Record<string, string> = {
   supported: "تأیید شد",
   not_confirmed: "تأیید نشد",
-  contradicted: "رد شد",
+  contradicted: "با نقشه نمی‌خواند",
 };
 const KIND_TEXT: Record<string, string> = { exact: "دقیق", range: "بازه", open: "حداقل" };
 
@@ -111,8 +111,8 @@ export default async function MetricsPage() {
             "عکس دانلودشده",
             "فاصله تا ساحل",
             "زمان رانندگی",
-            "ادعای دریا",
-            "دست‌کم یک ادعای ردشده",
+            "ادعای فاصله تا دریا",
+            "دست‌کم یک ادعا ناسازگار با نقشه",
           ]}
           rows={m.platforms.map((p) => [
             p.platform,
@@ -121,10 +121,17 @@ export default async function MetricsPage() {
             faNumber(p.coast_measured),
             faNumber(p.drive_routed),
             faNumber(p.sea_claim_listings),
-            `${faNumber(p.sea_contradicted_listings)} (${percent(p.sea_claim_listings ? p.sea_contradicted_listings / p.sea_claim_listings : 0)})`,
+            p.sea_measured_listings
+              ? `${faNumber(p.sea_contradicted_listings)} از ${faNumber(p.sea_measured_listings)} (${percent(p.sea_contradicted_listings / p.sea_measured_listings)}؛ ${percent(p.sea_contradicted_low)} تا ${percent(p.sea_contradicted_high)})`
+              : "—",
           ])}
         />
-        <p className="mt-2 text-xs text-stone-500">
+        <p className="mt-2 text-xs text-pretty text-stone-500">
+          سهم ناسازگار با نقشه فقط میان آگهی‌هایی است که فاصله‌شان تا ساحل اندازه‌گیری شده؛ داخل
+          پرانتز، بازه‌ی اطمینان ۹۵٪ (Wilson). ناسازگار یعنی حتی نزدیک‌ترین نقطه‌ی ممکن و
+          سخاوتمندانه‌ترین برداشت از ادعا به هم نمی‌رسند.
+        </p>
+        <p className="mt-1 text-xs text-stone-500">
           حکم ادعاهای دریا:{" "}
           {m.platforms
             .map(

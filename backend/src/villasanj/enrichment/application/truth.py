@@ -1,10 +1,16 @@
-"""Truth check of published "distance to the sea" claims (ROADMAP M9 criterion 3; listing level).
+"""Truth check of a listing's claims (ROADMAP M9 criteria 3 and 4; listing level).
 
-Evidence is the measured straight-line distance from the listing's blur circle to the OSM
-coastline (``enrichment.coast_distance``). The verdict rule is ``assess``: CONTRADICTED only when
-every reading of the claim fails even in the best case, SUPPORTED only when every reading holds
-anywhere in the circle, otherwise «تأیید نشد». Verdicts that rest on an assumed blur radius (a
-platform that publishes none) are counted separately so they can be shown with that caveat.
+Distance-to-the-sea claims are judged against the measured straight-line distance from the
+listing's blur circle to the OSM coastline (``enrichment.coast_distance``). The verdict rule is
+``assess``: CONTRADICTED only when every reading of the claim fails even in the best case,
+SUPPORTED only when every reading holds anywhere in the circle, otherwise «تأیید نشد». Verdicts
+that rest on an assumed blur radius (a platform that publishes none) are counted separately so
+they can be shown with that caveat.
+
+Feature claims in the description are compared with the same listing's amenity list, which is
+the host's word too: agreeing is consistency, not proof, and silence is «تأیید نشد». "Near the
+sea" words are vague, so the map can support them (A17) but never contradicts them. Photo tags
+join as evidence once their thresholds come from labels; other platforms' fields with M5.
 """
 
 from __future__ import annotations
@@ -13,8 +19,9 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from villasanj.catalog.application.reading import ListingReader
-from villasanj.catalog.domain.listing import ListingId
+from villasanj.catalog.domain.listing import Listing, ListingId
 from villasanj.enrichment.application.coast import CoastDistance, CoastDistanceStore
+from villasanj.enrichment.application.features import AmenityMap
 from villasanj.enrichment.domain.distance_claims import (
     Assessment,
     ClaimTarget,
@@ -23,6 +30,17 @@ from villasanj.enrichment.domain.distance_claims import (
     assess,
     parse_claim,
 )
+from villasanj.enrichment.domain.features import (
+    Agreement,
+    DescriptionClaim,
+    Feature,
+    FeatureEvidence,
+    against_amenities,
+    extract_claims,
+    near_sea_evidence,
+)
+from villasanj.entity_resolution.domain.evaluation import Interval, wilson
+from villasanj.ingestion.domain.parsed import ParsedDistanceClaim
 
 SAMPLES = 8
 
@@ -45,6 +63,10 @@ class SeaTruthReport:
     verdicts_with_assumed_radius: Counter[str] = field(default_factory=Counter)
     by_mode: Counter[str] = field(default_factory=Counter)  # "car:contradicted", ...
     contradicted: list[SeaVerdict] = field(default_factory=list)  # first few, to check by hand
+
+    def contradicted_share(self) -> Interval:
+        """H4 for sea claims: listings with a contradicted claim among those measured (Wilson)."""
+        return wilson(self.listings_contradicted, self.listings_with_claim - self.without_distance)
 
 
 def sea_verdicts(
@@ -94,3 +116,53 @@ class CheckSeaClaims:
                 ):
                     report.contradicted.append(verdict)
         return report
+
+
+@dataclass(frozen=True, slots=True)
+class DistanceClaimCheck:
+    raw: ParsedDistanceClaim
+    claim: DistanceClaim | None  # ``None``: wording not understood (never guessed)
+    assessment: Assessment | None  # ``None``: not judged (no evidence for the target yet)
+    radius_assumed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class FeatureClaimCheck:
+    claim: DescriptionClaim
+    agreement: Agreement  # against the same listing's amenity list
+    map_evidence: FeatureEvidence | None = None  # near-sea words only: the coastline's answer
+
+
+@dataclass(frozen=True, slots=True)
+class ListingTruth:
+    listing_id: ListingId
+    distances: tuple[DistanceClaimCheck, ...]
+    features: tuple[FeatureClaimCheck, ...]
+    coast: CoastDistance | None
+
+
+class CheckListingClaims:
+    """Every claim of one listing with its evidence; what has no evidence yet says so."""
+
+    def __init__(self, amenities: AmenityMap, distances: CoastDistanceStore) -> None:
+        self._amenities = amenities
+        self._distances = distances
+
+    async def run(self, listing: Listing) -> ListingTruth:
+        coast = await self._distances.get(listing.id)
+        distances = []
+        for raw in listing.distance_claims:
+            parsed = parse_claim(raw)
+            if parsed is None or parsed.target is not ClaimTarget.SEA or coast is None:
+                distances.append(DistanceClaimCheck(raw, parsed, None))
+                continue
+            assessment = assess(parsed, (coast.low_m, coast.high_m))
+            distances.append(DistanceClaimCheck(raw, parsed, assessment, coast.blur.assumed))
+        stated = self._amenities.features_of(listing)
+        features = []
+        for said in extract_claims(listing.description_norm or ""):
+            on_map = None
+            if said.feature is Feature.NEAR_SEA and coast is not None:
+                on_map = near_sea_evidence(coast.low_m, coast.high_m)
+            features.append(FeatureClaimCheck(said, against_amenities(said, stated), on_map))
+        return ListingTruth(listing.id, tuple(distances), tuple(features), coast)

@@ -69,3 +69,10 @@ def fa_metres_range(low_m: float, high_m: float) -> str:
     low_km = (low_m // KM_STEP) * KM_STEP / METRES_PER_KM
     high_km = -(-high_m // KM_STEP) * KM_STEP / METRES_PER_KM
     return f"{fa_decimal(low_km)} تا {fa_decimal(high_km)} کیلومتر"
+
+
+def fa_metres(metres: float) -> str:
+    """«۵۵۰ متر» or «۱۰ کیلومتر»: one bound, rounded up (it is a limit someone may reach)."""
+    if metres < METRES_PER_KM:
+        return f"{fa_int(int(-(-metres // METRE_STEP) * METRE_STEP))} متر"
+    return f"{fa_decimal(-(-metres // KM_STEP) * KM_STEP / METRES_PER_KM)} کیلومتر"

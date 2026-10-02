@@ -638,10 +638,16 @@ def enrichment_truth_sea() -> None:
                 f"{k}={v}" for k, v in sorted(r.verdicts_with_assumed_radius.items())
             )
             modes = " ".join(f"{k}={v}" for k, v in sorted(r.by_mode.items()))
+            share = r.contradicted_share()
+            h4 = (
+                f" ({share.estimate:.1%}, 95% CI {share.low:.1%}-{share.high:.1%})"
+                if share.estimate is not None
+                else ""
+            )
             typer.echo(
                 f"{platform:<7} listings_with_sea_claim={r.listings_with_claim} "
                 f"no_distance={r.without_distance} "
-                f"listings_with_a_contradiction={r.listings_contradicted} verdicts[{verdicts}]"
+                f"listings_with_a_contradiction={r.listings_contradicted}{h4} verdicts[{verdicts}]"
             )
             typer.echo(f"    by_mode[{modes}]")
             if assumed:

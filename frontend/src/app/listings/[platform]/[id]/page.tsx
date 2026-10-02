@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import {
   apiClient,
   type CalendarNight,
+  type Claims,
   type Geo,
   type Listing,
   type Review,
@@ -14,6 +15,7 @@ import { addDays, iranToday } from "@/lib/listing";
 
 import {
   CalendarSection,
+  ClaimsSection,
   Header,
   OffersSection,
   Photos,
@@ -36,6 +38,7 @@ type PageData = {
   calendarStart: string;
   reviews: Review[];
   geo: Geo | null;
+  claims: Claims | null;
 };
 
 async function load(platform: string, externalId: string, now: Date): Promise<PageData | null> {
@@ -47,7 +50,7 @@ async function load(platform: string, externalId: string, now: Date): Promise<Pa
   });
   if (!listing.data) return null;
   const start = iranToday(now);
-  const [scenarios, calendar, reviews, geo] = await Promise.all([
+  const [scenarios, calendar, reviews, geo, claims] = await Promise.all([
     api.GET("/scenarios", NO_STORE),
     api.GET("/listings/{platform}/{external_id}/calendar", {
       params: { path, query: { start, end: addDays(start, CALENDAR_DAYS) } },
@@ -55,6 +58,7 @@ async function load(platform: string, externalId: string, now: Date): Promise<Pa
     }),
     api.GET("/listings/{platform}/{external_id}/reviews", { params: { path }, ...NO_STORE }),
     api.GET("/listings/{platform}/{external_id}/geo", { params: { path }, ...NO_STORE }),
+    api.GET("/listings/{platform}/{external_id}/claims", { params: { path }, ...NO_STORE }),
   ]);
   const offers = await Promise.all(
     (scenarios.data ?? []).map(async (scenario) => ({
@@ -80,6 +84,7 @@ async function load(platform: string, externalId: string, now: Date): Promise<Pa
     calendarStart: start,
     reviews: reviews.data ?? [],
     geo: geo.data ?? null,
+    claims: claims.data ?? null,
   };
 }
 
@@ -103,6 +108,7 @@ export default async function ListingPage(props: {
         />
       ) : null}
       <Photos listing={listing} />
+      <ClaimsSection listing={listing} claims={data.claims} now={now} />
       <OffersSection listing={listing} scenarios={data.scenarios} now={now} />
       <CalendarSection
         listing={listing}

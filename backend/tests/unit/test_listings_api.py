@@ -1,6 +1,8 @@
 """Listing API: provenance is part of every DTO that carries a number or a claim (ADR-0007)."""
 
+import asyncio
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -23,12 +25,21 @@ from villasanj.catalog.domain.listing import CalendarObservation, Listing, Listi
 from villasanj.catalog.domain.review import ListingReview
 from villasanj.discovery.application.routing import Origin
 from villasanj.enrichment.application.coast import CoastDistance
+from villasanj.enrichment.application.features import AmenityMap
 from villasanj.enrichment.application.review_summary import CitedPoint, ReviewSummary
+from villasanj.enrichment.application.truth import CheckListingClaims
+from villasanj.enrichment.domain.features import Feature
 from villasanj.enrichment.domain.geo import Blur
 from villasanj.entrypoints.api import listings as api
 from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container
-from villasanj.ingestion.domain.parsed import DatePrecision, ParsedReview
+from villasanj.ingestion.domain.parsed import (
+    DatePrecision,
+    ParsedAmenity,
+    ParsedDistanceClaim,
+    ParsedReview,
+    TravelMode,
+)
 from villasanj.pricing.application.offers import OfferBook
 from villasanj.shared.application.llm.types import JobContext
 from villasanj.shared.domain.geo import GeoPoint
@@ -91,6 +102,9 @@ class Stub:
 
     def drive_store(self) -> DriveStore:
         return DriveStore()  # not routed
+
+    def listing_claims(self) -> CheckListingClaims:
+        return CheckListingClaims(AmenityMap({}), self.coast_store())
 
     jobs = Jobs()
     summary: ReviewSummary | None = None
@@ -211,6 +225,44 @@ def test_geo_comes_with_ranges_text_and_provenance(client: TestClient) -> None:
     assert "OpenStreetMap (osm-1)" in coast["provenance"]["note"]
     assert body["drive_s"] is None  # not routed: no time, never a guess
     assert body["origin"] == "میدان آزادی تهران"
+
+
+def test_claims_come_with_a_verdict_evidence_and_both_provenances(client: TestClient) -> None:
+    body = client.get(f"/listings/{LISTING.id.platform}/{LISTING.id.external_id}/claims").json()
+    (sea,) = body["distances"]
+    assert sea["text"] == "فاصله از دریا: زیر ۵ دقیقه با ماشین"
+    assert sea["verdict"] == "supported"  # 0.5-1.3 km: within any reading of five minutes by car
+    assert sea["evidence"].startswith("نقشه: ۰٫۵ تا ۱٫۳ کیلومتر تا ساحل")
+    assert sea["provenance"]["method"] == "observed"
+    assert sea["evidence_provenance"]["method"] == "derived"
+    (pool,) = body["features"]
+    assert (pool["feature"], pool["span"], pool["polarity"]) == ("pool", "استخر", "has")
+    assert pool["verdict"] == "not_confirmed"  # the amenity list is silent: «تأیید نشد»
+    assert pool["evidence_provenance"] is None
+    assert client.get("/listings/example/0/claims").status_code == 404
+
+
+def test_claim_texts_never_accuse() -> None:
+    walk = (ParsedDistanceClaim("فاصله از دریا", "زیر 5 دقیقه", TravelMode.WALK),)
+    listing = Listing.from_parsed(
+        parsed(description="استخر ندارد، لب دریا", distance_claims=walk), SNAPSHOT, NOW
+    )  # the amenity list says it has a pool, the map says 3 km
+    far = CoastDistance(listing.id, "osm-1", 3000.0, 2600.0, 3400.0, Blur(400, False), NOW)
+    store = CoastStore()
+    store.rows = [far]
+    truth = asyncio.run(
+        CheckListingClaims(AmenityMap({"example": {"pool": Feature.POOL}}), store).run(
+            replace(listing, amenities=(ParsedAmenity("pool", "استخر", True),))
+        )
+    )
+    out = api.claims_out(listing, truth)
+    verdicts = {c.verdict for c in out.distances} | {c.verdict for c in out.features}
+    assert verdicts == {"contradicted", "inconsistent", "not_confirmed"}
+    near = next(c for c in out.features if c.feature == "near_sea")
+    assert near.verdict == "not_confirmed"  # a vague word is never contradicted by the map
+    texts = " ".join([*(c.evidence for c in out.distances), *(c.evidence for c in out.features)])
+    for word in ("دروغ", "تقلب", "نادرست", "غلط"):
+        assert word not in texts
 
 
 def test_review_summary_cites_reviews_and_is_null_with_too_few(client: TestClient) -> None:

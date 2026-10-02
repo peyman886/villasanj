@@ -12,11 +12,16 @@ export function sample<T>(items: T[], count: number, seed = 7): T[] {
   return picked;
 }
 
-/** Click numbers and assert each opens its provenance card, which Escape closes again. */
+/**
+ * Click numbers and assert each opens its provenance card, which Escape closes again. Only
+ * visible ones are sampled (a closed <details> keeps its values out of reach until opened).
+ */
 export async function expectProvenanceOn(page: Page, count: number): Promise<number> {
   const targets = await page
     .locator("[data-sourced]")
-    .evaluateAll((buttons) => buttons.map((b) => b.getAttribute("popovertarget") ?? ""));
+    .evaluateAll((buttons) =>
+      buttons.map((b) => (b.checkVisibility() ? (b.getAttribute("popovertarget") ?? "") : "")),
+    );
   const chosen = sample(
     targets.filter((t) => t),
     count,

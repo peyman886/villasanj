@@ -19,10 +19,15 @@ def test_money_ranges_never_invent_an_upper_bound() -> None:
 
 
 def test_time_and_distance_ranges_widen_to_round_values() -> None:
-    from villasanj.shared.domain.fa_format import fa_metres_range, fa_minutes_range
+    from villasanj.shared.domain.fa_format import fa_metres, fa_metres_range, fa_minutes_range
 
     assert fa_minutes_range(15_500, 15_800) == "۴ ساعت و ۱۵ دقیقه تا ۴ ساعت و ۲۵ دقیقه"
     assert fa_minutes_range(14_400, 14_400) == "حدود ۴ ساعت"
     assert fa_minutes_range(600, 1_190) == "۱۰ دقیقه تا ۲۰ دقیقه"
     assert fa_metres_range(620, 990) == "۶۰۰ تا ۱٬۰۰۰ متر"
     assert fa_metres_range(1_150, 1_951) == "۱٫۱ تا ۲ کیلومتر"
+    assert (fa_metres(501), fa_metres(10_000), fa_metres(1_020)) == (
+        "۵۵۰ متر",
+        "۱۰ کیلومتر",
+        "۱٫۱ کیلومتر",
+    )
