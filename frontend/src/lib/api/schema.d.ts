@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/claim-labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Labels */
+        post: operations["post_labels_claim_labels_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/claim-labels/task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Task */
+        get: operations["get_task_claim_labels_task_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/er/labels": {
         parameters: {
             query?: never;
@@ -423,6 +457,51 @@ export interface components {
             price: components["schemas"]["MoneyOut"] | null;
             provenance: components["schemas"]["ProvenanceOut"];
         };
+        /** ClaimLabelsIn */
+        ClaimLabelsIn: {
+            /** External Id */
+            external_id: string;
+            /**
+             * Labeler
+             * @default owner
+             */
+            labeler: string;
+            /** Platform */
+            platform: string;
+            /** Queue */
+            queue: string;
+            /** Stances */
+            stances: {
+                [key: string]: components["schemas"]["Stance"];
+            };
+        };
+        /** ClaimTaskOut */
+        ClaimTaskOut: {
+            /** Current */
+            current: {
+                [key: string]: components["schemas"]["Stance"];
+            };
+            /** Description */
+            description: string | null;
+            /** Done */
+            done: boolean;
+            /** External Id */
+            external_id: string;
+            /** Features */
+            features: components["schemas"]["Feature"][];
+            /** Labelled */
+            labelled: number;
+            /** Platform */
+            platform: string;
+            /** Position */
+            position: number;
+            /** Queue */
+            queue: string;
+            /** Title */
+            title: string | null;
+            /** Total */
+            total: number;
+        };
         /** ClaimsOut */
         ClaimsOut: {
             /** Distances */
@@ -484,6 +563,11 @@ export interface components {
             /** Text */
             text: string;
         };
+        /**
+         * Feature
+         * @enum {string}
+         */
+        Feature: "pool" | "jacuzzi" | "near_sea" | "sea_view" | "forest" | "fireplace" | "parking" | "barbecue";
         /** FeatureClaimOut */
         FeatureClaimOut: {
             /** Evidence */
@@ -1048,6 +1132,11 @@ export interface components {
             /** Task */
             task: string;
         };
+        /**
+         * Stance
+         * @enum {string}
+         */
+        Stance: "has" | "has_not" | "shared" | "none";
         /** SummaryPointOut */
         SummaryPointOut: {
             /** Review Ids */
@@ -1124,6 +1213,70 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    post_labels_claim_labels_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimLabelsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_task_claim_labels_task_get: {
+        parameters: {
+            query?: {
+                queue?: string;
+                labeler?: string;
+                position?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimTaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     record_label_er_labels_post: {
         parameters: {
             query?: never;

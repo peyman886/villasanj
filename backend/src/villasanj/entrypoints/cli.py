@@ -48,11 +48,13 @@ from villasanj.discovery.domain.dates import (
     resolve,
 )
 from villasanj.discovery.infrastructure.eval_cases import load_cases
+from villasanj.enrichment.application.claim_labels import ClaimQueueExists
 from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.enrichment.application.features import MeasureFeatureClaims
 from villasanj.enrichment.application.photo_tags import EvaluatePhotoTags, PhotoQueueExists
 from villasanj.enrichment.application.summary_review import SummaryQueueExists
 from villasanj.enrichment.application.truth import CheckSeaClaims
+from villasanj.enrichment.domain.claim_eval import ClaimCounts
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluationReport
@@ -615,6 +617,53 @@ def enrichment_coastline_load() -> None:
 
     if not asyncio.run(_with_container(run)):
         raise typer.Exit(code=1)
+
+
+@enrichment_app.command("claim-queue")
+def enrichment_claim_queue(
+    name: Annotated[str, typer.Option(help="Queue name, e.g. claims-v1.")] = "claims-v1",
+    n: Annotated[int, typer.Option(min=1, max=200, help="Descriptions to label.")] = 60,
+) -> None:
+    """Draw the descriptions whose feature claims the owner labels (M9 criterion 1), once."""
+
+    async def run(container: Container) -> bool:
+        try:
+            items = await container.claim_label_queue().run(name, n)
+        except ClaimQueueExists:
+            typer.echo(f"queue {name} exists: queues are drawn once")
+            return False
+        typer.echo(f"queue={name} descriptions={len(items)} label at /label/claims")
+        return bool(items)
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@enrichment_app.command("claims-eval")
+def enrichment_claims_eval(
+    queue: Annotated[str, typer.Option(help="Queue name.")] = "claims-v1",
+    labeler: Annotated[str, typer.Option(help="Who labelled.")] = "owner",
+) -> None:
+    """Claim-level precision and recall of the rules against the owner's labels (M9 crit. 1)."""
+
+    async def run(container: Container) -> bool:
+        r = await container.claim_eval().run(queue, labeler)
+
+        def line(name: str, c: ClaimCounts) -> str:
+            p = wilson(c.true_positive, c.true_positive + c.false_positive)
+            q = wilson(c.true_positive, c.true_positive + c.false_negative)
+            return (
+                f"  {name:<10} tp={c.true_positive} fp={c.false_positive} fn={c.false_negative} "
+                f"precision={_interval(p)} recall={_interval(q)}"
+            )
+
+        typer.echo(f"queue={r.queue} labelled={r.labelled}/{r.total} (targets: P>=90%, R>=80%)")
+        typer.echo(line("all", r.score.total))
+        for feature, counts in sorted(r.score.per_feature.items()):
+            typer.echo(line(feature.value, counts))
+        return True
+
+    asyncio.run(_with_container(run))
 
 
 @enrichment_app.command("summary-queue")

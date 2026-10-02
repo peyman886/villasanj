@@ -34,6 +34,11 @@ from villasanj.discovery.infrastructure.routing import (
     PgDriveTimeStore,
     load_origin,
 )
+from villasanj.enrichment.application.claim_labels import (
+    BuildClaimLabelQueue,
+    ClaimLabeling,
+    EvaluateClaimExtraction,
+)
 from villasanj.enrichment.application.coast import MeasureCoastDistances
 from villasanj.enrichment.application.photo_tags import (
     BuildPhotoTagQueue,
@@ -52,6 +57,7 @@ from villasanj.enrichment.application.truth import (
     CheckListingClaims,
     CheckSeaClaims,
 )
+from villasanj.enrichment.infrastructure.claim_labels import PgClaimLabelStore
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore, PgCoastline
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.enrichment.infrastructure.photo_tags import PgPhotoQueueStore, PgPhotoTagStore
@@ -331,6 +337,17 @@ class Container:
 
     def photo_labeling(self) -> PhotoLabeling:
         return PhotoLabeling(self.photo_queues(), self.clock)
+
+    def claim_label_queue(self) -> BuildClaimLabelQueue:
+        return BuildClaimLabelQueue(
+            self.listings, PgClaimLabelStore(self.engine), self.clock, sorted(self.crawl.adapters)
+        )
+
+    def claim_labeling(self) -> ClaimLabeling:
+        return ClaimLabeling(PgClaimLabelStore(self.engine), self.clock)
+
+    def claim_eval(self) -> EvaluateClaimExtraction:
+        return EvaluateClaimExtraction(self.listings, PgClaimLabelStore(self.engine))
 
     def summary_review_queue(self) -> BuildSummaryReviewQueue:
         return BuildSummaryReviewQueue(

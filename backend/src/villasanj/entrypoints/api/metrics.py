@@ -144,6 +144,11 @@ async def get_metrics(request: Request) -> MetricsOut:
         labelling.append(
             LabellingOut(queue="summaries-v1", total=summaries.total, labelled=summaries.reviewed)
         )
+    claims = await container.claim_labeling().task("claims-v1", "owner")
+    if claims is not None:
+        labelling.append(
+            LabellingOut(queue="claims-v1", total=claims.total, labelled=claims.labelled)
+        )
     photos_task = await container.photo_labeling().task("photos-v1", "owner")
     if photos_task is not None:
         labelling.append(

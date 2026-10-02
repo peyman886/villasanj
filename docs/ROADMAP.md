@@ -458,6 +458,7 @@ result.
 | Blind summary review tool `/label/summaries` (migration 0012): queue `summaries-v1` of 20 listings with ≥ 5 text reviews drawn once (`enrichment summary-queue`), the summary beside every raw review, faithful or not (keys Y/N) with a note, `enrichment summary-review-eval` against ≥ 18/20; progress on `/metrics`. Rehearsed end to end and the rehearsal queue deleted | M10 crit. 3 (listing level) | ✅ built; **waits for the owner's review** | villa-level summaries (M5) |
 | Public «چطور رتبه‌بندی می‌کنیم» page `/how-we-rank`, linked from search: what excludes (stated facts only), the order and the two weighted components, prices, truth-check meanings and rules, drive times, how the explanation is written; its numbers come from `GET /search/ranking` (the constants the code uses) | M8 scope ("how we rank" note, no commission factor) | ✅ done | weights tuned by M8's ranking eval |
 | Query wishes outside the schema said back (prompt v4, `unhandled`, verbatim-checked): search shows them as not measured and marks results whose own text mentions one; draft-set re-run 100% slots / 100% exact / p95 1.4 s (ADR-0005 amendment) | M8 crit. 1 (and honesty about what is not used) | ✅ done; provisional with the draft set | expected `unhandled` values in the owner-reviewed set |
+| Claim labelling tool `/label/claims` (migration 0013): queue `claims-v1` of 60 descriptions (≥ 80 characters) drawn once (`enrichment claim-queue`); for each, the owner marks every feature has / has not / shared / says nothing, without seeing the rules' output; `enrichment claims-eval` scores claim-level precision and recall with Wilson CIs, overall and per feature; progress on `/metrics`. Rehearsed end to end, rehearsal deleted | M9 crit. 1 | ✅ built; **waits for the owner's labels** | — |
 
 Still blocked or waiting:
 - **M3:** photo crawl (jabama, ~11 h left on 2026-10-01 17:00 UTC) → `make match` → gold-v1 → owner labels → eval → H1–H3 → review.
@@ -465,7 +466,7 @@ Still blocked or waiting:
 - **M5:** Splink / supervised model, judge bake-off, ablations, human review queue for UNSURE, clustering on real data — all need the gold set.
 - **M6 crit. 3:** direct-quote comparison: no public quote source found on either platform.
 - **M8:** the 50-query eval set needs the owner's review before its result counts; the latency target is met by gpt-5.4-mini on the draft set (p95 1.3 s, ADR-0005 amendment) but is provisional with the set; retrieval eval (crit. 2) and villa-level ranking need M5.
-- **M9:** distance claims are judged against the coastline and OSM places (ADR-0013 and its amendment); the 60-description claim eval and the 300-photo tag eval need hand labels; photo tags are scored (SigLIP 2) but get no threshold before those labels.
+- **M9:** distance claims are judged against the coastline and OSM places (ADR-0013 and its amendment); the 60-description claim eval (`/label/claims`, claims-v1 drawn) and the 300-photo tag eval need hand labels; photo tags are scored (SigLIP 2) but get no threshold before those labels.
 - **M10:** the blind review of 20 summaries (`/label/summaries`) is the owner's; explanation latency (crit. 4) is not met uncached.
 - **M11:** offline basemap and `make demo` (needs a basemap download the owner approves), storyboard rehearsal with final data.
 

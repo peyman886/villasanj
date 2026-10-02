@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response, status
 from pydantic import BaseModel
 
+from villasanj.entrypoints.api.claim_labels import router as claim_labels_router
 from villasanj.entrypoints.api.labeling import router as labeling_router
 from villasanj.entrypoints.api.listings import router as listings_router
 from villasanj.entrypoints.api.listings import scenarios_router
@@ -51,6 +52,7 @@ def create_app(container_factory: Callable[[], Container] = build_container) -> 
     app.include_router(photo_labels_router)
     app.include_router(metrics_router)
     app.include_router(summary_reviews_router)
+    app.include_router(claim_labels_router)
 
     @app.get("/health/live")
     async def live() -> LiveOut:

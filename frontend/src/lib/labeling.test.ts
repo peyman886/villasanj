@@ -8,6 +8,7 @@ import {
   shortcutFor,
   fetchTask,
 } from "./labeling";
+import { completeStances } from "./claim-labels";
 import { verdictFor } from "./summary-reviews";
 
 const key = (code: string, extra: Partial<Record<string, boolean>> = {}) => ({
@@ -104,5 +105,14 @@ describe("verdictFor", () => {
     expect(verdictFor(press("KeyN"))).toBe(false);
     expect(verdictFor(press("KeyY", { metaKey: true }))).toBeNull();
     expect(verdictFor(press("KeyM"))).toBeNull();
+  });
+});
+
+describe("completeStances", () => {
+  it("fills every feature, keeping what was said", () => {
+    expect(completeStances(["pool", "parking"], { pool: "has" })).toEqual({
+      pool: "has",
+      parking: "none",
+    });
   });
 });

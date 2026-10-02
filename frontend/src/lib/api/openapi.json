@@ -70,6 +70,139 @@
         "title": "CalendarNightOut",
         "type": "object"
       },
+      "ClaimLabelsIn": {
+        "properties": {
+          "external_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "External Id",
+            "type": "string"
+          },
+          "labeler": {
+            "default": "owner",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Labeler",
+            "type": "string"
+          },
+          "platform": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Platform",
+            "type": "string"
+          },
+          "queue": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Queue",
+            "type": "string"
+          },
+          "stances": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Stance"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "title": "Stances",
+            "type": "object"
+          }
+        },
+        "required": [
+          "queue",
+          "platform",
+          "external_id",
+          "stances"
+        ],
+        "title": "ClaimLabelsIn",
+        "type": "object"
+      },
+      "ClaimTaskOut": {
+        "properties": {
+          "current": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Stance"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "title": "Current",
+            "type": "object"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "external_id": {
+            "title": "External Id",
+            "type": "string"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "labelled": {
+            "title": "Labelled",
+            "type": "integer"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "queue": {
+            "title": "Queue",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queue",
+          "position",
+          "total",
+          "labelled",
+          "done",
+          "platform",
+          "external_id",
+          "title",
+          "description",
+          "features",
+          "current"
+        ],
+        "title": "ClaimTaskOut",
+        "type": "object"
+      },
       "ClaimsOut": {
         "properties": {
           "distances": {
@@ -244,6 +377,20 @@
         ],
         "title": "ExplanationOut",
         "type": "object"
+      },
+      "Feature": {
+        "enum": [
+          "pool",
+          "jacuzzi",
+          "near_sea",
+          "sea_view",
+          "forest",
+          "fireplace",
+          "parking",
+          "barbecue"
+        ],
+        "title": "Feature",
+        "type": "string"
       },
       "FeatureClaimOut": {
         "properties": {
@@ -1983,6 +2130,16 @@
         "title": "SpendOut",
         "type": "object"
       },
+      "Stance": {
+        "enum": [
+          "has",
+          "has_not",
+          "shared",
+          "none"
+        ],
+        "title": "Stance",
+        "type": "string"
+      },
       "SummaryPointOut": {
         "properties": {
           "review_ids": {
@@ -2194,6 +2351,110 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/claim-labels": {
+      "post": {
+        "operationId": "post_labels_claim_labels_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimLabelsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Labels",
+        "tags": [
+          "claim-labels"
+        ]
+      }
+    },
+    "/claim-labels/task": {
+      "get": {
+        "operationId": "get_task_claim_labels_task_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "queue",
+            "required": false,
+            "schema": {
+              "default": "claims-v1",
+              "title": "Queue",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "labeler",
+            "required": false,
+            "schema": {
+              "default": "owner",
+              "title": "Labeler",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "position",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Task",
+        "tags": [
+          "claim-labels"
+        ]
+      }
+    },
     "/er/labels": {
       "post": {
         "operationId": "record_label_er_labels_post",

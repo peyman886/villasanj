@@ -98,6 +98,13 @@ export default async function HomePage() {
           </Link>{" "}
           ·{" "}
           <Link
+            href="/label/claims"
+            className={cn("text-emerald-800 underline underline-offset-4", FOCUS)}
+          >
+            ادعاهای توضیحات
+          </Link>{" "}
+          ·{" "}
+          <Link
             href="/metrics"
             className={cn("text-emerald-800 underline underline-offset-4", FOCUS)}
           >

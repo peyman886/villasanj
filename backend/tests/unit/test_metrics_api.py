@@ -103,6 +103,9 @@ class Stub:
     def photo_labeling(self) -> Async:
         return Async(task=None)
 
+    def claim_labeling(self) -> Async:
+        return Async(task=SimpleNamespace(total=60, labelled=0) if self._labelled else None)
+
     def summary_reviewing(self) -> Async:
         task = SimpleNamespace(total=20, reviewed=3) if self._labelled else None
         return Async(task=task)
@@ -158,6 +161,7 @@ def test_metrics_report_politeness_offers_spend_and_labelling(client: TestClient
     assert body["labelling"] == [
         {"queue": "gold-v1", "total": 300, "labelled": 12},
         {"queue": "summaries-v1", "total": 20, "labelled": 3},
+        {"queue": "claims-v1", "total": 60, "labelled": 0},
     ]
 
 
