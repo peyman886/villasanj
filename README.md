@@ -4,27 +4,28 @@
 
 A Torob-style product for Iranian villa rentals (Ramsar–Tonekabon), built for the Torob "AI Product
 Engineer" challenge: **crawl offers → normalize messy data → rank by user intent → explain the best
-choice.** Each real villa is meant to get one page that brings its listings from different
-platforms together, with the all-in price for your dates and group, a calendar, reviews and a
+choice.** Each real villa gets one page that brings its listings from different platforms
+together, with the all-in price for your dates and group, a calendar, reviews and a
 truth check of what the listing claims. Every number shown has a source and an observation time.
 
-Status (2026-10-02): milestones M0–M2 delivered; **M3 (the entity-resolution hypothesis test) is
-open** and waits for the owner's hand labels of ~300 listing pairs. Work that does not depend on M3
-was built ahead of its milestone and is marked provisional in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Status (2026-10-03): M0–M3 done; M4–M11 complete as far as their dependencies allow, with the
+status of every acceptance criterion in [`docs/ROADMAP.md`](docs/ROADMAP.md). What remains is the
+owner's (reviews, labels, the LLM key's monthly limit) or blocked by others (new platforms).
 
 ## What works today
 
 | Step | What it does | Measured |
 |---|---|---|
-| Crawl | Polite, ToS-audited crawlers for **jabama** and **shab** (the other platforms forbid crawling; ADR-0011). One request per host every ≥ 3 s, robots.txt honoured, stop on block, every response snapshotted. | 2,985 + 601 listings in the region, 281k calendar observations, 14.4k reviews, 17.9k photos selected (5 per listing) |
+| Crawl | Polite, ToS-audited crawlers for **jabama** and **shab** (the other platforms forbid crawling; ADR-0011). One request per host every ≥ 3 s, robots.txt honoured, stop on block, every response snapshotted. | 2,987 + 601 listings in the region; every calendar captured again within one window on 2026-10-03 (jabama 3.2 h, shab 0.6 h); 14.4k reviews, 17.9k photos selected (5 per listing) |
 | Normalize | Pure parsers from snapshots: rial/toman, Jalali dates, Persian text, platform quirks (e.g. jabama's `0` means "not set"). Place names through a curated gazetteer. | 0 parse failures on the second discovery pass |
 | Price | All-in offer per listing, stay and group, every component with provenance. Unknown fees give an open bound ("حداقل …"), never an invented cap. | every bookable offer is OPEN today: neither platform publishes its fees |
 | Understand | A Persian query becomes a structured intent (LLM). A verifier rejects any number the query did not say; dates are resolved by code against a sourced holiday calendar. | draft 50-query eval (gpt-5.4-mini, prompt v4): 100% slots, 0 invented numbers, p95 1.4 s; wishes it cannot measure are said back (provisional until the owner reviews the set) |
 | Rank | Filters with a stated reason, cautions for unknowns (including a contradicted claim), requested features confirmed first, then a transparent score (price per person and night, Bayesian rating). No commission factor; the rules are public at `/how-we-rank`. | `/search` |
-| Explain | The LLM writes Persian prose around fact slots (`{F1}`); code formats every number and decides every comparison; a verifier rejects digits, comparatives and availability stated as a fact; a template is the fallback. It streams in after the results. | 20 draft queries: 100% LLM text, 0% fallback; p95 6–10 s uncached (not yet the 4 s target) |
-| Truth check | Every published distance against the OSM coastline and OSM places (town centres can contradict; shops, restaurants and woods only support, the map lists only some), as ranges over the listing's blurred location; description features against the listing's own amenity list. "Contradicted" only when even the best case fails. Shown on each listing page. | listings with a contradicted distance claim: jabama 9.2% (8.1–10.5%), shab 1.9% |
-| Drive time | Free-flow OSRM times from Tehran on a clipped OSM graph, as a range over the blur circle. | 100% of 3,586 listings routed, median 4 h 21 min |
-| Match listings | Blocking (location + rooms, photo hashes, DINOv2 image embeddings), evidence, rule score, constrained clustering. | **not evaluated yet**: precision/recall come from the M3 gold set |
+| Explain | The LLM writes Persian prose around fact slots (`{F1}`); code formats every number and decides every comparison; a verifier rejects digits, comparatives and availability stated as a fact; a template is the fallback, also when no model can answer. It streams in after the results. | 20 draft queries: 100% LLM text, 0% fallback; p95 6–10 s uncached (not yet the 4 s target) |
+| Truth check | Every published distance against the OSM coastline and OSM places (town centres can contradict; shops, restaurants and woods only support, the map lists only some), as ranges over the listing's blurred location; description features against the listing's own amenity list. "Contradicted" only when even the best case fails. Two listings of one villa that state a claim differently are shown side by side, never as which one is wrong. | H4 ([report](reports/h4-2026-10-03.md)): listings with a claim the map contradicts or the other platform states differently: jabama 9.8% (8.6–11.1%), shab 5.5% (3.9–7.6%) |
+| Drive time | Free-flow OSRM times from Tehran on a clipped OSM graph, as a range over the blur circle. | 100% of 3,588 listings routed |
+| Match listings | Blocking (location + rooms, photo hashes, DINOv2 image embeddings), evidence, a transparent rule score, constrained clustering (≤ 1 listing per platform). An LLM judge reads photo grids for close calls; until labels can verify it, it only orders a human queue (ADR-0014). | on 362 owner-labelled pairs: precision 98.1% (93.0–99.5%), recall 67.1% ([report](reports/er-eval-2026-10-03.md)) |
+| One villa | `/villas/<id>`: each platform's own offer side by side (never merged), both calendars with the nights free on one and taken on the other, where the listings disagree, every review with its platform and one cited summary. | 3,267 villas, 321 on both platforms; 21.1% of nights seen on both are free on one and taken on the other ([report](reports/hypotheses-2026-10-03-same-window.md)) |
 
 ## Principles (enforced in code and tests)
 
@@ -46,15 +47,27 @@ Requirements: Docker (Compose v2.24+), [uv](https://docs.astral.sh/uv/), Node.js
 cp .env.example .env    # optional: AVALAI_API_KEY for the real LLM gateway; CRAWL__CONTACT for live crawls
 make setup              # dependencies, git hooks, Docker images
 make up                 # db, migrations, api, web
-make health             # web=ok db=ok blob=ok llm=fake-ok (or llm=avalai-ok with a key)
+make health             # web=ok db=ok blob=ok llm=fake-ok (or llm=avalai-ok with a key); non-zero if degraded
 ```
 
-- Web: <http://localhost:3300> (`/search`, `/listings/<platform>/<id>`, `/metrics`, `/how-we-rank`;
-  labelling: `/label`, `/label/photos`, `/label/summaries`, `/label/claims`) · API:
+- Web: <http://localhost:3300> (`/search`, `/villas/<id>`, `/listings/<platform>/<id>`, `/metrics`,
+  `/how-we-rank`; labelling: `/label`, `/label?queue=er-human`, `/label/photos`, `/label/summaries`,
+  `/label/claims`) · API:
   <http://localhost:8800/docs> · Postgres: `127.0.0.1:5433`.
 - Without `AVALAI_API_KEY` the stack runs with a deterministic fake LLM provider.
 - Crawled snapshots and photos are never committed. A fresh clone has an empty catalog: crawl
   (`make crawl P=jabama LIVE=1`) or rebuild from your own snapshots (`make reparse`).
+
+## Offline demo
+
+```bash
+make demo-bundle        # dump the database, LLM cache included, into data/demo (~55 MB)
+make demo               # a separate stack on http://localhost:3400 from the bundle; cached LLM answers only
+make demo-down
+```
+
+The five-minute script is [`docs/demo-script.md`](docs/demo-script.md); every number in it names the
+generated report it comes from.
 
 ## Main flows
 
@@ -65,6 +78,8 @@ make match                        # photo hashes + embeddings, blocking, evidenc
 cd backend && uv run villasanj er queue --name gold-v1   # draw the stratified labelling queue
 # label pairs at http://localhost:3300/label (keyboard: M / N / U)
 make eval                         # precision/recall with Wilson CIs against the labels
+cd backend && uv run villasanj er report     # reports/er-eval-<date>.md (curve, policies, B-cubed, ablations)
+cd backend && uv run villasanj er villas     # canonical villas at config/er.toml's policy
 make osm-download osm-prepare routing-up geo   # coastline + places, distances, drive times, truth checks
 cd backend && uv run villasanj discovery search "ویلای استخردار در رامسر برای ۶ نفر آخر هفته بعد"
 cd backend && uv run villasanj llm spend       # LLM cost from the ledger (hard cap $30)
@@ -84,8 +99,9 @@ make help               # every target
 
 - [Architecture](docs/ARCHITECTURE.md): bounded contexts, layers, domain model, schema, ports, assumptions
 - [Roadmap](docs/ROADMAP.md): milestones, acceptance criteria, what was built ahead and what is blocked
-- [Decisions](docs/adr/README.md): ADRs 0001–0013 (LLM gateway and cost, provenance, crawling ethics,
-  entity resolution, image matching, geo evidence)
+- [Decisions](docs/adr/README.md): ADRs 0001–0014 (LLM gateway and cost, provenance, crawling ethics,
+  entity resolution, image matching, geo evidence, the ER decision policy)
+- [Reports](reports/): hypotheses H1–H3, the ER evaluation, H4 — generated from the database
 - [Sources](docs/sources/README.md): robots/ToS audit and what each platform publishes
 - [Labelling protocol](docs/er-labeling-protocol.md) (Persian) and the
   [research review](docs/research-review.md)
