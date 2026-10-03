@@ -22,7 +22,7 @@ hard cap $30). Estimates come from [ADR-0005](adr/0005-llm-model-selection-and-c
 | 0 | Understanding & design | $0.05 | ✅ approved 2026-10-01 |
 | 1 | Skeleton & LLM platform | $0.20 | ✅ delivered |
 | 2 | First vertical slice (jabama → shab) | $0.50 | ✅ approved 2026-10-01 |
-| 3 | Hypothesis test (ER baseline + pricing core + H1–H3) | $0.50 | **open**: gold-v1 drawn (362 pairs, 2026-10-02); waits for the owner's labels, then eval, H1–H3 and the mandatory re-prioritisation review |
+| 3 | Hypothesis test (ER baseline + pricing core + H1–H3) | $0.50 | ✅ completed 2026-10-03 (gold-v1 labelled, eval, H1–H3; priorities kept) |
 | 4 | Coverage: permission-gated adapters, wider region, scheduled scenario crawls | $0.50 | **partly started in parallel** with M3 (only parts independent of M3 results) |
 | 5 | Full ER | $8.00 | report + precision sign-off |
 | 6 | Pricing complete & offers | $0.50 | report |
@@ -165,7 +165,7 @@ Tech debt carried forward (status on 2026-10-02):
 - 45 thumbnail requests from the crop experiment were not stored as snapshots, because it was a one-off script.
 - The parent city of `khazar-kenar` is a split vote (ramsar 7, tonekabon 1), and `chalkesh` has no parent (tie). Open: the gazetteer is precision-first, so this stays for the owner's curation.
 
-## M3 — Hypothesis test (review with owner before continuing) — in progress
+## M3 — Hypothesis test (review with owner before continuing) ✅ (completed 2026-10-03)
 
 Scope: ER baseline (blocking: place + rooms ±1 and pHash LSH; features: photo set-to-set pHash matches
 weighted by photo document frequency, structural diffs, place, price ratio); **labelling UI** (Next.js,
@@ -236,6 +236,38 @@ Rehearsal (2026-10-02, **not a result**): `make match` on the photos downloaded 
 proves the path end to end and front-loads the embeddings (stored once per image), so after the
 crawl only the remaining photos are processed. The candidates are replaced by the post-crawl run
 before gold-v1 is built.
+
+---
+
+### M3 results (2026-10-03)
+
+The owner labelled all 362 pairs of gold-v1 (7.4 h in total, 73 s per pair on average). Match run
+`3425556d`, dataset `dd0bcb816434`. `make eval` gives identical output on a re-run.
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Gold set v1 ≥ 300 human labels, stratified, protocol, unsure rate | ✅ 362/362: 167 match, 191 non-match, 4 unsure (**1.1%**, 95% CI 0.4–2.8%). Strata: geo bands 90, photo bands 177, same-platform 45, wide net 50. Protocol: `docs/er-labeling-protocol.md`. |
+| 2 | Baseline P/R/F1 at the chosen threshold with Wilson CIs, blocking recall, confusion matrix, reproducible | ✅ Threshold **−0.25**, chosen by ADR-0009's rule (the lowest score whose precision ≥ 95% and Wilson low ≥ 92%). Cross-platform pairs, weighted by stratum: precision **98.1%** (93.0–99.5%), recall **67.1%** (44.6–83.8%). Confusion (unweighted): TP 123, FP 2, FN 3, TN 189. Blocking recall on gold matches 100% (83.0–100%). The 3 misses: two geo-band pairs whose five coverage photos share nothing (each weighs ~84 in the population, which is what pulls recall to 67%), one with shared photos but far-apart price, capacity and area. The 2 false positives share only low-weight (common) photos and an overlapping location: units of one complex. |
+| 3 | Pricing engine v1, 100% branch coverage on `pricing/domain` | ✅ enforced by `make test` since 2026-10-01. |
+| 4 | `reports/hypotheses-2026-10-02.md` with H1, H2, H3 | ✅ **H1:** 320 predicted pairs; corrected for precision and recall about **468** real pairs (range 355–601): 78% of shab listings and 16% of jabama listings have a partner; **15.0%** of distinct villas are on both platforms (11.0–20.1%). **H2:** median listed total higher/lower 1.08–1.10× on weekends and midweek, 1.24–1.30× on the holiday; p90 up to 2.25×; the cheaper platform changes between scenarios for 76 of 267 pairs (28%). **H3:** 21.8% of nights observed on both platforms < 6 h apart are free on one and taken on the other, in 163 of 320 pairs. |
+| 5 | Owner review: M4–M11 priorities confirmed or changed, recorded here | ✅ Owner's instruction (2026-10-03): complete M3, then every milestone as far as dependencies allow. The results support the plan as written (below). |
+
+Findings that change the plan:
+- **Recall is the gap, not precision.** Precision already meets M5's bar at the baseline; the
+  population loses matches where five coverage photos per listing do not overlap. M5's first work is
+  therefore recall: the gray-zone judge on close pairs without shared photos, and more photos only
+  where they decide a pair.
+- **Units of a complex.** 41 of the 45 same-platform pairs were labelled "same villa". Their titles
+  name different units («واحد ۴» / «واحد ۷», three vs two bedrooms, up to 946 m apart), so they look
+  like different units sold with the same photos, which the protocol (rule 2) labels `N` or `U`.
+  They are outside the cross-platform evaluation and the labels are left as they are; the owner may
+  want to re-check them. For the product it means photo identity alone can join two units of one
+  complex, so the judge and the cluster rules must look at unit numbers and structure as well.
+- **H1 is large enough**: no need to widen the region for ER (M4's "wider region" stays off).
+- **H3 is large**: hidden nights in half the matched pairs make the merged calendar (M7) worth it.
+
+Other labels collected with gold-v1 (used by later milestones): photos-v1 336 photos (M9 crit. 2),
+claims-v1 60 descriptions (M9 crit. 1), summaries-v1 20 summaries (M10 crit. 3: **20/20 faithful**).
 
 ---
 
@@ -467,7 +499,6 @@ result.
 
 Still blocked or waiting:
 - **M1 crit. 8:** compare the ledger with the AvalAI dashboard (needs the owner's dashboard access).
-- **M3:** owner labels gold-v1 (362 pairs drawn 2026-10-02) at `/label` → eval → threshold → H1–H3 → review.
 - **M4:** new adapters (no written permission); wider region (H1); the same-window scenario capture (crit. 3) runs after M3 so the catalog under gold-v1 does not change.
 - **M5:** Splink / supervised model, judge bake-off, ablations, human review queue for UNSURE, clustering on real data — all need the gold set.
 - **M6 crit. 3:** direct-quote comparison: no public quote source found on either platform.

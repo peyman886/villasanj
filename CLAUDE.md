@@ -25,13 +25,11 @@ Context files (local):
 - M1 (skeleton & LLM platform) delivered 2026-10-01.
 - M2 (first vertical slice: jabama → shab) delivered and approved 2026-10-01. Catalog: 2,951 jabama
   + 601 shab listings, 278k calendar observations; gazetteer v1 in `config/gazetteer.toml`.
-- **M3 in progress (started 2026-10-01).** Built: pricing engine v1, image embeddings (local
-  DINOv2-small, ADR-0012), ER baseline (blocking → evidence → rule score), stratified gold-set
-  queue, labelling UI at `/label`, evaluation and the H1–H3 report. The photo crawl finished
-  2026-10-02 (100% of selected photos on both platforms) and `make post-crawl` ran: match run
-  `3425556d`, dataset `dd0bcb816434`, **gold-v1 drawn with 362 pairs**. Waiting for: the
-  **owner's labels** (≥ 300 pairs, `docs/er-labeling-protocol.md`), then `make eval`, threshold
-  and `make eval-hypotheses`. Never declare precision/recall/threshold before the labels exist.
+- **M3 completed 2026-10-03.** gold-v1: 362 owner labels (1.1% unsure). Baseline matcher at
+  threshold −0.25: precision 98.1% (93.0–99.5%), recall 67.1% (44.6–83.8%), weighted by stratum;
+  blocking recall 100%. H1–H3 in `reports/hypotheses-2026-10-02.md`. Recall is the gap (close pairs
+  whose 5 coverage photos do not overlap); same-platform "matches" are units of one complex with
+  shared photos (ROADMAP "M3 results"). Also labelled: photos-v1, claims-v1, summaries-v1.
 - **M4 partly started in parallel** (owner's instruction): only parts independent of M3's final
   outputs. Done: scenario capture tool (built, not run while M3 is open), crawl metrics, photo
   report, inventory, a second discovery pass. Blocked: new adapters (no permission). Waiting for
