@@ -36,8 +36,8 @@ ps: ## Show service status
 	$(COMPOSE) ps -a
 
 health: ## End-to-end health: web -> api -> db, blob store, LLM provider
-	@curl -fsS "http://localhost:$(WEB_PORT)/api/health" \
-		| python3 -c 'import json, sys; print(json.load(sys.stdin)["summary"])'
+	@curl -sS "http://localhost:$(WEB_PORT)/api/health" \
+		| python3 -c 'import json, sys; h = json.load(sys.stdin); print(h["summary"]); sys.exit(h["status"] != "ok")'
 
 migrate: ## Apply database migrations
 	$(COMPOSE) run --rm migrate

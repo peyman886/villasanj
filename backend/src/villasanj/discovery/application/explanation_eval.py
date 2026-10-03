@@ -106,7 +106,8 @@ class EvaluateExplanations:
                     why.retried,
                     why.latency_ms,
                     why.cache_hit,
-                    why.models[-1],
+                    why.models[-1] if why.models else "-",
+                    failure=why.failure,  # no model answer: counted, though the template showed
                     text=why.rendered.text,
                 )
             )

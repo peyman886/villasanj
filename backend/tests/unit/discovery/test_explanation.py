@@ -21,6 +21,7 @@ from villasanj.discovery.domain.ranking import Candidate, Caution, Ranked, Requi
 from villasanj.enrichment.domain.features import Feature, FeatureEvidence
 from villasanj.pricing.domain.offer import Offer
 from villasanj.pricing.domain.quote import quote_stay
+from villasanj.shared.application.errors import LLMUnavailable
 from villasanj.shared.application.llm.types import (
     JobContext,
     LLMRequest,
@@ -138,6 +139,30 @@ async def test_digits_or_too_few_facts_are_retried_then_replaced_by_the_template
     feedback = client.requests[1].messages[-1].text
     assert "digit_outside_slot" in feedback
     assert "too_few_facts" in feedback
+
+
+class DownClient(ScriptedClient):
+    """Answers with its texts, then is unreachable (a spent key quota)."""
+
+    async def generate(
+        self, request: LLMRequest[Any], ctx: JobContext, *, model: str | None = None
+    ) -> LLMResponse[Any]:
+        if not self.texts:
+            raise LLMUnavailable("explanation: the LLM key's spending limit is reached")
+        return await super().generate(request, ctx, model=model)
+
+
+async def test_without_a_model_answer_the_template_still_explains() -> None:
+    result = await ExplainChoice(DownClient()).explain("ویلا", slots(), CTX)
+    assert (result.source, result.retried, result.models) == (Source.TEMPLATE, False, ())
+    assert result.rendered.text == template_only(slots()).text
+    assert result.cost_usd == 0
+
+
+async def test_a_retry_the_model_cannot_answer_falls_back_to_the_template() -> None:
+    client = DownClient("این ویلا ۲ خوابه و {F1} است")  # answers once, then is unreachable
+    result = await ExplainChoice(client).explain("ویلا", slots(), CTX)
+    assert (result.source, result.retried) == (Source.TEMPLATE, True)
 
 
 async def test_a_fixed_retry_is_used() -> None:

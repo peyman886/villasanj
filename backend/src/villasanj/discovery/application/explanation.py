@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 
+import structlog
 from pydantic import BaseModel, ConfigDict, Field
 
 from villasanj.catalog.domain.listing import Listing
@@ -25,6 +26,7 @@ from villasanj.discovery.domain.dates import describe_fa
 from villasanj.discovery.domain.ranking import Caution, Ranked
 from villasanj.enrichment.domain.features import Feature, FeatureEvidence
 from villasanj.pricing.domain.offer import Offer
+from villasanj.shared.application.errors import BudgetExceeded, LLMError
 from villasanj.shared.application.llm.ports import LLMClient
 from villasanj.shared.application.llm.types import (
     JobContext,
@@ -55,6 +57,8 @@ from villasanj.shared.domain.slots import (
     verify_text,
 )
 from villasanj.shared.domain.stay import DateRange
+
+log = structlog.get_logger(__name__)
 
 EXPLAIN_PROMPT_ID = "explain_choice"
 EXPLAIN_PROMPT_VERSION = "3"  # bump whenever SYSTEM_PROMPT or RETRY_TEMPLATE changes (pinned)
@@ -148,6 +152,7 @@ class Explanation:
     cost_usd: Decimal
     latency_ms: int = 0  # all calls, the retry included
     cache_hit: bool = False  # the first answer came from the cache
+    failure: str | None = None  # the model could not answer at all (the template stands in)
 
 
 def build_slots(
@@ -319,31 +324,51 @@ class ExplainChoice:
 
     async def explain(self, query: str, slots: Slots, ctx: JobContext) -> Explanation:
         request = explanation_request(query, slots)
-        response = await self._client.generate(request, ctx)
+        try:
+            response = await self._client.generate(request, ctx)
+        except (LLMError, BudgetExceeded) as error:
+            # No model answer (unreachable, spent budget, output never valid): the template,
+            # built by code from the same facts, still explains the choice.
+            log.warning("explanation.template_without_llm", error=type(error).__name__)
+            text = slots.template
+            rendered = render(text, slots.facts, slots.comparisons)
+            return Explanation(
+                text,
+                rendered,
+                slots,
+                Source.TEMPLATE,
+                False,
+                (),
+                Decimal(0),
+                failure=type(error).__name__,
+            )
         models, cost, latency = [response.model], response.cost_usd, response.latency_ms
         text, retried = response.value.text, False
         violations = check(text, slots)
         if violations:
             listed = "\n".join(f"- {v.code}: {v.detail}" for v in violations)
-            again = await self._client.generate(
-                LLMRequest(
-                    task=request.task,
-                    prompt_id=request.prompt_id,
-                    prompt_version=request.prompt_version,
-                    messages=(
-                        *request.messages,
-                        Message(Role.ASSISTANT, (TextPart(text),)),
-                        Message.user(RETRY_TEMPLATE.format(violations=listed)),
-                    ),
-                    output_schema=ExplanationOut,
+            retry = LLMRequest(
+                task=request.task,
+                prompt_id=request.prompt_id,
+                prompt_version=request.prompt_version,
+                messages=(
+                    *request.messages,
+                    Message(Role.ASSISTANT, (TextPart(text),)),
+                    Message.user(RETRY_TEMPLATE.format(violations=listed)),
                 ),
-                ctx,
+                output_schema=ExplanationOut,
             )
-            models.append(again.model)
-            cost += again.cost_usd
-            latency += again.latency_ms
-            text, retried = again.value.text, True
-            violations = check(text, slots)
+            try:
+                again = await self._client.generate(retry, ctx)
+            except (LLMError, BudgetExceeded):
+                again = None  # the first text stays rejected: the template below
+            retried = True
+            if again is not None:
+                models.append(again.model)
+                cost += again.cost_usd
+                latency += again.latency_ms
+                text = again.value.text
+                violations = check(text, slots)
         if violations:
             text, source = slots.template, Source.TEMPLATE
         else:
