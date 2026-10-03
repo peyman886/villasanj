@@ -1,0 +1,13 @@
+# Offline demo overrides (make demo, ROADMAP M11 criterion 1). Used with the project name
+# villasanj-demo, so the demo has its own database volume and containers; the dev stack and its
+# data are never touched. The API answers LLM calls from the restored cache only.
+services:
+  migrate:
+    environment:
+      LLM__PROVIDER: offline
+  api:
+    environment:
+      LLM__PROVIDER: offline   # cached answers only; a miss is a 503 and the page omits it
+      CRAWL__MODE: offline
+    volumes:
+      - ./data/demo/blobs:/data/blobs   # the demo needs no snapshots or photos

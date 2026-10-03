@@ -6,7 +6,7 @@ JOB ?= llm-smoke
 
 .DEFAULT_GOAL := help
 .PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live openapi openapi-check lint fmt \
-	test-e2e test-smoke basemap post-crawl osm-download osm-prepare routing-up routing-down geo \
+	test-e2e test-smoke basemap demo-bundle demo demo-down post-crawl osm-download osm-prepare routing-up routing-down geo \
 	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-scenarios crawl-status crawl-metrics reparse report match eval eval-hypotheses
 
 help: ## Show available targets
@@ -92,6 +92,16 @@ routing-down: ## Stop OSRM
 basemap: ## Offline basemap: a Protomaps extract of the region + glyphs + sprites (13 MB) in data/basemap
 	infra/basemap/prepare.sh
 
+demo-bundle: ## Dump the database (with the LLM cache) into data/demo for the offline demo
+	infra/demo/bundle.sh
+
+demo: ## Offline demo on :3400 from data/demo (own stack and volume; cached LLM answers only)
+	docker compose build migrate web
+	infra/demo/up.sh
+
+demo-down: ## Stop the offline demo (its volume stays; `docker volume rm villasanj-demo_pgdata` resets it)
+	docker compose -p villasanj-demo -f docker-compose.yml -f infra/demo/compose.demo.yml down
+
 geo: ## Coastline + places into PostGIS, distances, drive times, truth checks (OSRM must be up)
 	cd backend && uv run villasanj enrichment coastline-load && uv run villasanj enrichment coast \
 		&& uv run villasanj enrichment places-load && uv run villasanj enrichment places \
@@ -156,8 +166,8 @@ report: ## Catalog numbers: inventory, photo pipeline, scenario coverage, gazett
 crawl-metrics: ## Traffic per host with measured pacing, queue progress and recent runs (zero network)
 	cd backend && uv run villasanj crawl metrics
 
-seed: ## Not needed yet: reference data is versioned config; demo dataset seed comes in M11
-	@echo "make $@: nothing to seed. Region, scenarios and gazetteer live in config/*.toml and are read at use; a demo dataset seed is planned for M11 (docs/ROADMAP.md)."; exit 1
+seed: ## Nothing to seed: reference data is versioned config; the demo data is make demo-bundle
+	@echo "make $@: nothing to seed. Region, scenarios and gazetteer live in config/*.toml; the demo dataset is a database bundle (make demo-bundle, then make demo)."; exit 1
 
 match: ## Fingerprint + embed new photos, then blocking, evidence and scores for all pairs
 	cd backend && uv run villasanj catalog fingerprint-photos && uv run villasanj catalog embed-photos \

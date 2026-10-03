@@ -18,7 +18,7 @@ class LLMBudgetSettings(BaseModel):
 
 
 class LLMSettings(BaseModel):
-    provider: Literal["avalai", "fake"] = "fake"
+    provider: Literal["avalai", "fake", "offline"] = "fake"  # offline: cached answers only
     routing_file: str = "llm.toml"  # relative to config_dir
     models_file: str = "llm-models.json"  # relative to config_dir
     budget: LLMBudgetSettings = LLMBudgetSettings()

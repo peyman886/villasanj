@@ -140,6 +140,7 @@ from villasanj.shared.infrastructure.health_probes import (
 from villasanj.shared.infrastructure.llm.avalai import AvalAIProvider
 from villasanj.shared.infrastructure.llm.config import load_catalog, load_routing
 from villasanj.shared.infrastructure.llm.fake import FakeLLMProvider
+from villasanj.shared.infrastructure.llm.offline import OfflineProvider
 from villasanj.shared.infrastructure.logging import configure_logging
 from villasanj.shared.infrastructure.scenarios import load_scenarios
 from villasanj.shared.infrastructure.settings import Settings
@@ -527,6 +528,8 @@ class Container:
 def build_provider(settings: Settings, timeout_seconds: float) -> RawModelProvider:
     if settings.llm.provider == "fake":
         return FakeLLMProvider()
+    if settings.llm.provider == "offline":
+        return OfflineProvider(replays="avalai")
     if settings.avalai_api_key is None:
         raise ConfigurationError("LLM__PROVIDER=avalai requires AVALAI_API_KEY")
     return AvalAIProvider(settings.avalai_api_key, settings.avalai_base_url, timeout_seconds)
@@ -550,7 +553,9 @@ def build_llm_stack(
         structured, ledger, catalog, estimator, clock, routing.project_budget_usd
     )
     retrying = RetryingInvoker(governed, routing.retry, asyncio.sleep)
-    caching = CachingInvoker(retrying, cache, ledger, clock, provider.name)
+    # The offline demo replays the cache of the provider that wrote it (keys include its name).
+    namespace = provider.replays if isinstance(provider, OfflineProvider) else provider.name
+    caching = CachingInvoker(retrying, cache, ledger, clock, namespace)
     return LLMStack(
         routing=routing,
         catalog=catalog,
