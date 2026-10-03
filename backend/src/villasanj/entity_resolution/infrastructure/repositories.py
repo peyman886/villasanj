@@ -12,7 +12,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from villasanj.catalog.domain.listing import ListingId
+from villasanj.entity_resolution.application.judge import JUDGE_PROMPT_VERSION, Judgement
 from villasanj.entity_resolution.application.ports import MatchRun, ScoredCandidate
+from villasanj.entity_resolution.application.villas import StoredJudgement
 from villasanj.entity_resolution.domain.clustering import CanonicalVilla, VillaEvent
 from villasanj.entity_resolution.domain.evidence import PairEvidence, PhotoEvidence
 from villasanj.entity_resolution.domain.labels import Label, PairLabel, QueueItem
@@ -20,6 +22,7 @@ from villasanj.entity_resolution.domain.pairs import BlockingSource, PairKey
 from villasanj.entity_resolution.domain.scoring import Contribution, Score
 from villasanj.entity_resolution.infrastructure.tables import (
     candidate,
+    judgement,
     label,
     queue_item,
     run,
@@ -246,3 +249,55 @@ class PgVillaStore:
         return CanonicalVilla(
             rows[0].villa_id, frozenset(ListingId(r.platform, r.external_id) for r in rows)
         )
+
+
+_JUDGED_PAIR = frozenset({"left_platform", "left_id", "right_platform", "right_id"})
+
+
+class PgJudgementStore:
+    """The latest verdict per pair (a re-judged pair replaces its row)."""
+
+    def __init__(self, engine: AsyncEngine, clock: Clock) -> None:
+        self._engine = engine
+        self._clock = clock
+
+    async def save(self, judgements: Sequence[Judgement]) -> None:
+        now = self._clock.now()
+        for j in judgements:
+            values = {
+                "left_platform": j.key.left.platform,
+                "left_id": j.key.left.external_id,
+                "right_platform": j.key.right.platform,
+                "right_id": j.key.right.external_id,
+                "verdict": j.verdict.verdict,
+                "confidence": j.verdict.confidence,
+                "evidence": list(j.verdict.evidence),
+                "rationale": j.verdict.rationale,
+                "model": j.model,
+                "prompt_version": JUDGE_PROMPT_VERSION,
+                "judged_at": now,
+            }
+            statement = insert(judgement).values(values)
+            statement = statement.on_conflict_do_update(
+                index_elements=["left_platform", "left_id", "right_platform", "right_id"],
+                set_={
+                    k: statement.excluded[k] for k in values if not k.endswith(("platform", "_id"))
+                },
+            )
+            async with self._engine.begin() as conn:
+                await conn.execute(statement)
+
+    async def all(self) -> list[StoredJudgement]:
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(select(judgement))).all()
+        return [
+            StoredJudgement(
+                PairKey.of(
+                    ListingId(r.left_platform, r.left_id), ListingId(r.right_platform, r.right_id)
+                ),
+                r.verdict,
+                r.confidence,
+                r.model,
+            )
+            for r in rows
+        ]

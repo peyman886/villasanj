@@ -76,9 +76,15 @@ from villasanj.entity_resolution.application.judge import JudgePairs
 from villasanj.entity_resolution.application.judge_eval import EvaluateJudge
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
 from villasanj.entity_resolution.application.matching import MatchListings
+from villasanj.entity_resolution.application.villas import BuildVillas, EvaluateVillas
 from villasanj.entity_resolution.infrastructure.grid import PillowGridRenderer
 from villasanj.entity_resolution.infrastructure.photo_index import NumpyPhotoIndex
-from villasanj.entity_resolution.infrastructure.repositories import PgCandidateStore, PgLabelStore
+from villasanj.entity_resolution.infrastructure.repositories import (
+    PgCandidateStore,
+    PgJudgementStore,
+    PgLabelStore,
+    PgVillaStore,
+)
 from villasanj.ingestion.application.crawl import CrawlPlatform, SnapshotReplayFetcher
 from villasanj.ingestion.application.polite_fetcher import PoliteFetcher
 from villasanj.ingestion.application.ports import Fetcher, SourceAdapter
@@ -216,6 +222,22 @@ class Container:
 
     def evaluate_matcher(self) -> EvaluateMatcher:
         return EvaluateMatcher(self.candidates(), self.labels())
+
+    def judgements(self) -> PgJudgementStore:
+        return PgJudgementStore(self.engine, self.clock)
+
+    def build_villas(self) -> BuildVillas:
+        return BuildVillas(
+            self.candidates(),
+            self.labels(),
+            PgVillaStore(self.engine, self.clock),
+            self.listings,
+            sorted(self.crawl.adapters),
+            self.judgements(),
+        )
+
+    def villas_eval(self) -> EvaluateVillas:
+        return EvaluateVillas(self.build_villas(), self.labels())
 
     def judge_eval(self) -> EvaluateJudge:
         return EvaluateJudge(self.candidates(), self.labels(), self.judge())

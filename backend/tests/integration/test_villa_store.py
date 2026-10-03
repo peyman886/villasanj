@@ -60,3 +60,30 @@ async def test_the_database_rejects_two_listings_of_one_platform_in_a_villa(
                     "VALUES ('v-db', 'jabama', 'other')"
                 )
             )
+
+
+async def test_judgements_keep_the_latest_verdict_per_pair(engine: AsyncEngine) -> None:
+    from villasanj.entity_resolution.application.judge import Judgement, JudgeVerdict
+    from villasanj.entity_resolution.domain.pairs import PairKey
+    from villasanj.entity_resolution.infrastructure.repositories import PgJudgementStore
+
+    store = PgJudgementStore(engine, SteppingClock())
+    key = PairKey.of(ListingId("jabama", f"j-{id(engine)}"), ListingId("shab", f"j-{id(engine)}"))
+
+    def judged(verdict: str, confidence: float) -> Judgement:
+        return Judgement(
+            key,
+            JudgeVerdict(
+                verdict=verdict,
+                confidence=confidence,
+                evidence=["same_interior"],
+                rationale="same kitchen",
+            ),
+            "model-a",
+            False,
+        )
+
+    await store.save([judged("unsure", 0.5)])
+    await store.save([judged("match", 0.9)])
+    mine = [j for j in await store.all() if j.key == key]
+    assert [(j.verdict, j.confidence, j.model) for j in mine] == [("match", 0.9, "model-a")]

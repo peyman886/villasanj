@@ -116,3 +116,22 @@ villa_event = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
     schema=SCHEMA,
 )
+
+
+judgement = Table(
+    "judgement",
+    metadata,
+    Column("left_platform", Text, nullable=False),
+    Column("left_id", Text, nullable=False),
+    Column("right_platform", Text, nullable=False),
+    Column("right_id", Text, nullable=False),
+    Column("verdict", Text, nullable=False),
+    Column("confidence", Float, nullable=False),
+    Column("evidence", ARRAY(Text), nullable=False),
+    Column("rationale", Text, nullable=False),
+    Column("model", Text, nullable=False),
+    Column("prompt_version", Text, nullable=False),
+    Column("judged_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("left_platform", "left_id", "right_platform", "right_id"),
+    schema="er",
+)

@@ -61,6 +61,7 @@ from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluateAblations, EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
 from villasanj.entity_resolution.application.labeling import QueueExists
+from villasanj.entity_resolution.application.villas import DecisionPolicy
 from villasanj.entity_resolution.domain.evaluation import Interval, wilson
 from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container, build_container
@@ -69,6 +70,7 @@ from villasanj.ingestion.application.errors import CrawlError, SourceBlocked
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
 from villasanj.ingestion.infrastructure.stats import PgCrawlStatsQuery
 from villasanj.pricing.domain.quote import Quote, StayRequest
+from villasanj.shared.application.errors import LLMError
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.application.llm.smoke import LLMSmokeCheck
 from villasanj.shared.domain.jalali import iran_today
@@ -1419,6 +1421,111 @@ def er_judge(
             f"gray zone [{low:g}, {high:g}]: {len(candidates)} pairs, priced {len(inputs)}: "
             f"calls={report.calls} cache_hits={report.cache_hits} "
             f"expected=${report.expected_usd:.4f} worst_case=${report.worst_case_usd:.4f}"
+        )
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@er_app.command("judge-zone")
+def er_judge_zone(
+    low: Annotated[float, typer.Option(help="Lowest rule score judged.")],
+    high: Annotated[float, typer.Option(help="Highest rule score judged.")],
+    limit: Annotated[int, typer.Option(min=1, help="At most this many pairs.")] = 2000,
+    dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "5.00",
+) -> None:
+    """Judge the current candidates whose rule score is in [low, high] and store the verdicts."""
+
+    async def run(container: Container) -> bool:
+        done = {j.key for j in await container.judgements().all()}
+        candidates = sorted(
+            (
+                c
+                for c in await container.candidates().current()
+                if c.blocked
+                and c.key.cross_platform
+                and c.score is not None
+                and c.evidence is not None
+                and low <= c.score.value <= high
+                and c.key not in done
+            ),
+            key=lambda c: (-(c.score.value if c.score else 0.0), c.key),
+        )
+        inputs = [JudgeInput(c.key, c.evidence) for c in candidates[:limit] if c.evidence]
+        if dry_run:
+            estimate = await container.llm.dry_run.estimate(
+                await container.judge().requests(inputs)
+            )
+            typer.echo(
+                f"[{low:g}, {high:g}]: {len(candidates)} pairs not judged yet, "
+                f"priced {len(inputs)}: "
+                f"calls={estimate.calls} expected=${estimate.expected_usd:.4f} "
+                f"worst_case=${estimate.worst_case_usd:.4f}"
+            )
+            return True
+        ctx = await container.jobs.start("judge_zone", Decimal(budget_usd), {})
+        counts: Counter[str] = Counter()
+        failed = 0
+        for item in inputs:
+            try:
+                judged = await container.judge().run([item], ctx)
+            except LLMError:
+                failed += 1
+                continue
+            await container.judgements().save(judged)
+            counts.update(j.verdict.verdict for j in judged)
+        await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
+        typer.echo(f"judged={sum(counts.values())} {dict(counts)} failed={failed}")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@er_app.command("villas")
+def er_villas(
+    threshold: Annotated[float, typer.Option(help="Rule score of a match (from the gold set).")],
+    judge_min_confidence: Annotated[
+        float, typer.Option(help="Judge 'match' verdicts at or above this confidence merge.")
+    ] = 1.1,
+    labels: Annotated[bool, typer.Option(help="Apply the owner's labels.")] = True,
+) -> None:
+    """Cluster the match decisions into canonical villas (<= 1 listing per platform)."""
+
+    async def run(container: Container) -> bool:
+        policy = DecisionPolicy(threshold, judge_min_confidence)
+        r = await container.build_villas().run(policy, "owner" if labels else None)
+        typer.echo(
+            f"run={r.run_id} listings={r.listings} villas={r.villas} "
+            f"on_both_platforms={r.multi_platform}"
+        )
+        typer.echo(f"  merges applied by decider: {dict(sorted(r.applied.items()))}")
+        typer.echo(f"  merges refused: {dict(sorted(r.blocked.items()))}")
+        typer.echo(f"  id history: {dict(sorted(r.events.items()))}")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@er_app.command("villas-eval")
+def er_villas_eval(
+    threshold: Annotated[float, typer.Option(help="Rule score of a match.")],
+    judge_min_confidence: Annotated[float, typer.Option(help="Judge confidence floor.")] = 1.1,
+    queue: Annotated[str, typer.Option(help="Gold queue.")] = "gold-v1",
+) -> None:
+    """B-cubed of the machine clustering (no labels applied) against the owner's labels."""
+
+    async def run(container: Container) -> bool:
+        policy = DecisionPolicy(threshold, judge_min_confidence)
+        r = await container.villas_eval().run(policy, queue, "owner")
+        if r.bcubed is None:
+            typer.echo("no labelled listings to compare")
+            return False
+        typer.echo(
+            f"B-cubed over {r.bcubed.elements} labelled listings "
+            f"({r.gold_clusters} gold clusters): "
+            f"precision={r.bcubed.precision:.3f} recall={r.bcubed.recall:.3f} f1={r.bcubed.f1:.3f}"
         )
         return True
 

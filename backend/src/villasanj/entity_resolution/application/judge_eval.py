@@ -9,6 +9,7 @@ error. Judge verdicts are never gold labels.
 
 from __future__ import annotations
 
+import asyncio
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -112,21 +113,37 @@ class EvaluateJudge:
         return found
 
     async def run(
-        self, queue: str, labeler: str, low: float, high: float, ctx: JobContext
+        self,
+        queue: str,
+        labeler: str,
+        low: float,
+        high: float,
+        ctx: JobContext,
+        concurrency: int = 4,
     ) -> JudgeReport:
-        pairs = []
-        confusion: dict[str, Counter[str]] = defaultdict(Counter)
-        for judge_input, label, score, weight in await self.gold_in_band(queue, labeler, low, high):
-            try:
-                judged = await self._judge.run([judge_input], ctx)
-            except LLMError as error:
-                pairs.append(
-                    JudgedPair(judge_input.key, label, score, weight, None, type(error).__name__)
-                )
-                confusion[label.value]["failed"] += 1
-                continue
+        gold = await self.gold_in_band(queue, labeler, low, high)
+        gate = asyncio.Semaphore(concurrency)
+
+        async def one(
+            judge_input: JudgeInput, label: Label, score: float, weight: float
+        ) -> JudgedPair:
+            async with gate:
+                try:
+                    judged = await self._judge.run([judge_input], ctx)
+                except LLMError as error:
+                    failure = type(error).__name__
+                    return JudgedPair(judge_input.key, label, score, weight, None, failure)
             judgement = judged[0] if judged else None
-            pairs.append(JudgedPair(judge_input.key, label, score, weight, judgement))
-            verdict = judgement.verdict.verdict if judgement else "skipped"
-            confusion[label.value][verdict] += 1
+            return JudgedPair(judge_input.key, label, score, weight, judgement)
+
+        pairs = list(await asyncio.gather(*(one(*g) for g in gold)))
+        confusion: dict[str, Counter[str]] = defaultdict(Counter)
+        for pair in pairs:
+            if pair.failure is not None:
+                verdict = "failed"
+            elif pair.judgement is None:
+                verdict = "skipped"
+            else:
+                verdict = pair.judgement.verdict.verdict
+            confusion[pair.label.value][verdict] += 1
         return JudgeReport(pairs, {k: dict(v) for k, v in confusion.items()})
