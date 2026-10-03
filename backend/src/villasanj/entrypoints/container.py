@@ -41,6 +41,7 @@ from villasanj.enrichment.application.claim_labels import (
     EvaluateClaimExtraction,
 )
 from villasanj.enrichment.application.coast import MeasureCoastDistances
+from villasanj.enrichment.application.consistency import CheckVillaConsistency, MeasureH4
 from villasanj.enrichment.application.photo_tags import (
     BuildPhotoTagQueue,
     PhotoLabeling,
@@ -336,6 +337,20 @@ class Container:
 
     def distance_truth(self) -> CheckDistanceClaims:
         return CheckDistanceClaims(self.listings, self.coast_store(), self.place_store())
+
+    def villa_consistency(self) -> CheckVillaConsistency:
+        return CheckVillaConsistency(
+            load_amenity_map(self.settings.features_path), self.read_claims()
+        )
+
+    def h4(self) -> MeasureH4:
+        return MeasureH4(
+            self.listings,
+            self.villa_store(),
+            self.villa_consistency(),
+            self.coast_store(),
+            self.place_store(),
+        )
 
     def llm_spend(self) -> PgLLMSpendQuery:
         return PgLLMSpendQuery(self.engine)

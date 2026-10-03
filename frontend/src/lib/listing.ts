@@ -208,3 +208,19 @@ export const WEEKDAY_HEADERS = [
   "پنجشنبه",
   "جمعه",
 ];
+
+/** Where a published distance claim points (the backend's `ClaimTarget`). */
+export const CLAIM_TARGET_TEXT: Record<string, string> = {
+  sea: "دریا",
+  city_center: "مرکز شهر",
+  supermarket: "سوپرمارکت",
+  bakery: "نانوایی",
+  restaurant: "رستوران",
+  medical: "مرکز درمانی",
+  forest: "جنگل",
+  shopping: "مراکز خرید",
+  recreation: "مراکز تفریحی",
+  shrine: "زیارتگاه",
+  other: "مقصدهای دیگر",
+  not_understood: "عبارت نامفهوم",
+};

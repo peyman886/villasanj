@@ -19,6 +19,7 @@ import { cn } from "@/lib/cn";
 import { faPropertyType } from "@/lib/labeling";
 import {
   AVAILABILITY_TEXT,
+  CLAIM_TARGET_TEXT,
   addDays,
   faDay,
   faMillions,
@@ -27,6 +28,8 @@ import {
   faToman,
   iranToday,
 } from "@/lib/listing";
+
+import { FEATURE_TEXT } from "@/lib/search";
 
 import { ClaimsSection, OfferCell } from "../../listings/[platform]/[id]/sections";
 
@@ -109,6 +112,73 @@ function SectionTitle({ id, children }: { id: string; children: React.ReactNode 
 
 function memberOf(villa: Villa, platform: string): Listing | undefined {
   return villa.members.find((m) => m.platform === platform);
+}
+
+const STATEMENT_SOURCE_TEXT: Record<string, string> = {
+  amenities: "فهرست امکانات",
+  description: "توضیحات",
+  distances: "بخش فاصله‌ها",
+};
+
+function Inconsistencies({ villa, now }: { villa: Villa; now: Date }) {
+  if (villa.inconsistencies.length === 0) return null;
+  return (
+    <section
+      aria-labelledby="inconsistencies-title"
+      className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4"
+    >
+      <h2 id="inconsistencies-title" className="font-medium text-amber-900">
+        ادعاهایی که آگهی‌ها یکسان نمی‌گویند
+      </h2>
+      <p className="mt-1 text-sm text-pretty text-stone-700">
+        هر آگهی گفته‌ی خودش را دارد و از اینجا معلوم نیست کدام درست است؛ پیش از رزرو از میزبان
+        بپرسید.
+      </p>
+      <ul className="mt-2 space-y-1 text-sm">
+        {villa.inconsistencies.map((x) => {
+          const subject =
+            x.kind === "feature"
+              ? (FEATURE_TEXT[x.subject] ?? x.subject)
+              : `فاصله تا ${CLAIM_TARGET_TEXT[x.subject] ?? x.subject}`;
+          return (
+            <li key={`${x.kind}-${x.subject}`}>
+              {subject}:{" "}
+              {x.statements.map((said, index) => {
+                const member = memberOf(villa, said.platform);
+                const name = member?.platform_name ?? said.platform;
+                const text =
+                  said.says === null
+                    ? (said.published ?? "")
+                    : said.says === "has"
+                      ? "دارد"
+                      : "ندارد";
+                const where = STATEMENT_SOURCE_TEXT[said.source] ?? said.source;
+                return (
+                  <span key={said.platform}>
+                    {index > 0 ? " · " : ""}
+                    {name}{" "}
+                    <Sourced
+                      id={`inconsistency-${x.kind}-${x.subject}-${said.platform}`}
+                      label={`${subject} در ${name}`}
+                      provenance={said.provenance}
+                      sourceName={name}
+                      now={now}
+                    >
+                      {text}
+                    </Sourced>{" "}
+                    <span className="text-stone-600">
+                      ({where}
+                      {said.span && said.source === "description" ? `: «${said.span}»` : ""})
+                    </span>
+                  </span>
+                );
+              })}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
 
 function Conflicts({ villa, now }: { villa: Villa; now: Date }) {
@@ -379,6 +449,7 @@ export default async function VillaPage(props: { params: Promise<{ id: string }>
         . اینکه این آگهی‌ها یک ویلا هستند را تطبیق خودکار و برچسب‌های انسانی تعیین کرده‌اند.
       </p>
       <Conflicts villa={villa} now={now} />
+      <Inconsistencies villa={villa} now={now} />
       {mapped?.location ? (
         <ListingMap
           lat={mapped.location.lat}

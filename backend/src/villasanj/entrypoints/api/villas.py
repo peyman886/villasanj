@@ -1,27 +1,32 @@
 """Canonical villa read API (ROADMAP M7): one villa, its listings, where they disagree, each
 listing's own offer (prices are never merged, product rule 3), the merged calendar with hidden
-nights, and the reviews of every listing labelled by source.
+nights, and the reviews of every listing labelled by source. Location and amenity claims the
+listings state differently are INCONSISTENT_ACROSS_PLATFORMS (M9): shown with each listing's own
+words and source, never as which one is wrong.
 """
 
 from __future__ import annotations
 
 import hashlib
 from datetime import date, timedelta
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
 from villasanj.catalog.domain.listing import Listing, ListingId
 from villasanj.discovery.domain.villa import conflicts, merge_calendars
+from villasanj.enrichment.domain.consistency import VillaConsistency
 from villasanj.entity_resolution.domain.clustering import CanonicalVilla
 from villasanj.entrypoints.api.listings import (
     MAX_CALENDAR_DAYS,
     CalendarNightOut,
     ListingOut,
     OfferOut,
+    ProvenanceOut,
     ReviewOut,
     _calendar_out,
+    _claim_provenance,
     _listing_out,
     _offer_out,
     _review_out,
@@ -29,6 +34,7 @@ from villasanj.entrypoints.api.listings import (
 from villasanj.entrypoints.container import Container
 from villasanj.pricing.domain.quote import StayRequest
 from villasanj.shared.domain.errors import DomainError
+from villasanj.shared.domain.persian_text import ZWNJ, to_persian_digits
 from villasanj.shared.domain.stay import DateRange, GuestCount
 
 router = APIRouter(prefix="/villas", tags=["villas"])
@@ -41,10 +47,26 @@ class ConflictOut(BaseModel):
     values: dict[str, str | int]  # platform -> what it states
 
 
+class StatementOut(BaseModel):
+    platform: str
+    says: Literal["has", "has_not"] | None  # a feature claim; None for a distance
+    published: str | None  # a distance: the listing's claims as published, digits in Persian
+    source: Literal["amenities", "description", "distances"]
+    span: str | None  # the description's words, verbatim
+    provenance: ProvenanceOut
+
+
+class InconsistencyOut(BaseModel):
+    kind: Literal["feature", "distance"]
+    subject: str  # the feature or the distance target (slug)
+    statements: list[StatementOut]
+
+
 class VillaOut(BaseModel):
     id: str
     members: list[ListingOut]  # at most one per platform
     conflicts: list[ConflictOut]
+    inconsistencies: list[InconsistencyOut]  # location and amenity claims stated differently
     rating: float | None  # every platform's ratings together, weighted by their counts
     rating_count: int
 
@@ -70,6 +92,51 @@ async def _villa(container: Container, villa_id: str) -> tuple[CanonicalVilla, l
         raise HTTPException(status.HTTP_404_NOT_FOUND, "villa not found")
     members = [x for m in sorted(villa.members) if (x := await container.listings.get(m))]
     return villa, members
+
+
+def _inconsistencies_out(found: VillaConsistency, members: list[Listing]) -> list[InconsistencyOut]:
+    by_platform = {m.id.platform: m for m in members}
+    out = []
+    for f in found.features:
+        statements = []
+        for platform, said in sorted(f.by_platform.items()):
+            listing = by_platform[platform]
+            if said.from_amenities:
+                source: Literal["amenities", "description"] = "amenities"
+                provenance = ProvenanceOut.of(listing.provenance, "از فهرست امکانات آگهی")
+            else:
+                source = "description"
+                provenance = _claim_provenance(listing, said.by_llm)
+            statements.append(
+                StatementOut(
+                    platform=platform,
+                    says="has" if said.says else "has_not",
+                    published=None,
+                    source=source,
+                    span=said.span,
+                    provenance=provenance,
+                )
+            )
+        out.append(InconsistencyOut(kind="feature", subject=f.feature.value, statements=statements))
+    for d in found.distances:
+        statements = [
+            StatementOut(
+                platform=platform,
+                says=None,
+                published="، ".join(
+                    f"{c.target_text}: {to_persian_digits(c.published)}" for c in claims
+                ),
+                source="distances",
+                span=None,
+                provenance=ProvenanceOut.of(
+                    by_platform[platform].provenance,
+                    f"از بخش فاصله{ZWNJ}ها در صفحه{ZWNJ}ی آگهی",
+                ),
+            )
+            for platform, claims in sorted(d.by_platform.items())
+        ]
+        out.append(InconsistencyOut(kind="distance", subject=d.target.value, statements=statements))
+    return out
 
 
 def _combined_rating(members: list[Listing]) -> tuple[float | None, int]:
@@ -101,6 +168,7 @@ async def get_villa(villa_id: str, request: Request) -> VillaOut:
     container = _container(request)
     villa, members = await _villa(container, villa_id)
     rating, count = _combined_rating(members)
+    found = await container.villa_consistency().run(members)
     return VillaOut(
         id=villa.id,
         members=[_listing_out(container, x) for x in members],
@@ -111,6 +179,7 @@ async def get_villa(villa_id: str, request: Request) -> VillaOut:
             )
             for c in conflicts(members)
         ],
+        inconsistencies=_inconsistencies_out(found, members),
         rating=rating,
         rating_count=count,
     )

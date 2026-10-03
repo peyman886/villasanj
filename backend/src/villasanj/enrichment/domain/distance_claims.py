@@ -83,6 +83,7 @@ class DistanceClaim:
     unit: Unit
     low: float  # in ``unit``
     high: float | None  # ``None``: "more than ``low``"
+    published: str = ""  # the value as published («زیر ۵ دقیقه»), for display
 
     def readings(self) -> tuple[tuple[float, float | None], ...]:
         """The straight-line distances each reading of the claim allows (one per travel mode)."""
@@ -126,26 +127,29 @@ def parse_claim(claim: ParsedDistanceClaim) -> DistanceClaim | None:
     """``None`` for wording we do not understand (never guessed)."""
     value = to_latin_digits(normalize_persian(claim.value_text)).replace(ZWNJ, "")
     target = target_of(claim.target_fa)
+    text = claim.value_text
     if (m := _UNDER.match(value)) is not None:
         unit, scale = _unit(m.group(3))
         return DistanceClaim(
-            target, claim.target_fa, claim.mode, unit, 0.0, int(m.group(2)) * scale
+            target, claim.target_fa, claim.mode, unit, 0.0, int(m.group(2)) * scale, text
         )
     if (m := _OVER.match(value)) is not None:
         unit, scale = _unit(m.group(3))
         return DistanceClaim(
-            target, claim.target_fa, claim.mode, unit, int(m.group(2)) * scale, None
+            target, claim.target_fa, claim.mode, unit, int(m.group(2)) * scale, None, text
         )
     if (m := _BETWEEN.match(value)) is not None:
         unit, scale = _unit(m.group(4))
         low, high = sorted((int(m.group(1)), int(m.group(3))))
-        return DistanceClaim(target, claim.target_fa, claim.mode, unit, low * scale, high * scale)
+        return DistanceClaim(
+            target, claim.target_fa, claim.mode, unit, low * scale, high * scale, text
+        )
     if (m := _EXACT.match(value)) is not None:
         unit, scale = _unit(m.group(2))
         amount = int(m.group(1)) * scale
         floor = MINUTES_ROUNDING if unit is Unit.MINUTES else METRES_ROUNDING
         return DistanceClaim(
-            target, claim.target_fa, claim.mode, unit, 0.0, amount + max(floor, amount / 2)
+            target, claim.target_fa, claim.mode, unit, 0.0, amount + max(floor, amount / 2), text
         )
     return None
 

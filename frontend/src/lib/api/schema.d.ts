@@ -781,6 +781,18 @@ export interface components {
             /** Responses */
             responses: number;
         };
+        /** InconsistencyOut */
+        InconsistencyOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "feature" | "distance";
+            /** Statements */
+            statements: components["schemas"]["StatementOut"][];
+            /** Subject */
+            subject: string;
+        };
         /**
          * Label
          * @enum {string}
@@ -1282,6 +1294,23 @@ export interface components {
          * @enum {string}
          */
         Stance: "has" | "has_not" | "shared" | "none";
+        /** StatementOut */
+        StatementOut: {
+            /** Platform */
+            platform: string;
+            provenance: components["schemas"]["ProvenanceOut"];
+            /** Published */
+            published: string | null;
+            /** Says */
+            says: ("has" | "has_not") | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "amenities" | "description" | "distances";
+            /** Span */
+            span: string | null;
+        };
         /** SummaryPointOut */
         SummaryPointOut: {
             /** Review Ids */
@@ -1369,6 +1398,8 @@ export interface components {
             conflicts: components["schemas"]["ConflictOut"][];
             /** Id */
             id: string;
+            /** Inconsistencies */
+            inconsistencies: components["schemas"]["InconsistencyOut"][];
             /** Members */
             members: components["schemas"]["ListingOut"][];
             /** Rating */

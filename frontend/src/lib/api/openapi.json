@@ -691,6 +691,36 @@
         "title": "HostOut",
         "type": "object"
       },
+      "InconsistencyOut": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "feature",
+              "distance"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "statements": {
+            "items": {
+              "$ref": "#/components/schemas/StatementOut"
+            },
+            "title": "Statements",
+            "type": "array"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "subject",
+          "statements"
+        ],
+        "title": "InconsistencyOut",
+        "type": "object"
+      },
       "Label": {
         "enum": [
           "match",
@@ -2237,6 +2267,73 @@
         "title": "Stance",
         "type": "string"
       },
+      "StatementOut": {
+        "properties": {
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "published": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published"
+          },
+          "says": {
+            "anyOf": [
+              {
+                "enum": [
+                  "has",
+                  "has_not"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Says"
+          },
+          "source": {
+            "enum": [
+              "amenities",
+              "description",
+              "distances"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "span": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span"
+          }
+        },
+        "required": [
+          "platform",
+          "says",
+          "published",
+          "source",
+          "span",
+          "provenance"
+        ],
+        "title": "StatementOut",
+        "type": "object"
+      },
       "SummaryPointOut": {
         "properties": {
           "review_ids": {
@@ -2480,6 +2577,13 @@
             "title": "Id",
             "type": "string"
           },
+          "inconsistencies": {
+            "items": {
+              "$ref": "#/components/schemas/InconsistencyOut"
+            },
+            "title": "Inconsistencies",
+            "type": "array"
+          },
           "members": {
             "items": {
               "$ref": "#/components/schemas/ListingOut"
@@ -2507,6 +2611,7 @@
           "id",
           "members",
           "conflicts",
+          "inconsistencies",
           "rating",
           "rating_count"
         ],

@@ -836,6 +836,32 @@ def enrichment_truth_distances() -> None:
     asyncio.run(_with_container(run))
 
 
+@enrichment_app.command("h4")
+def enrichment_h4() -> None:
+    """H4 (M9 crit. 4): listings with a location or amenity claim CONTRADICTED by the map or
+    INCONSISTENT_ACROSS_PLATFORMS within their villa (zero network; villas from `er villas`)."""
+
+    def ci(share: Interval) -> str:
+        if share.estimate is None:
+            return "n/a"
+        return f"{share.estimate:.1%} (95% CI {share.low:.1%}-{share.high:.1%})"
+
+    async def run(container: Container) -> bool:
+        for r in await container.h4().run(sorted(container.crawl.adapters)):
+            typer.echo(
+                f"{r.platform:<7} listings={r.listings} in_two_platform_villas="
+                f"{r.in_multi_platform_villas} judged={r.judged} contradicted={r.contradicted} "
+                f"inconsistent={r.inconsistent} either={r.either}"
+            )
+            typer.echo(f"    H4 share: {ci(r.share)}")
+            typer.echo(f"    inconsistent of compared ({r.compared}): {ci(r.inconsistent_share)}")
+            for kind, count in r.kinds.most_common():
+                typer.echo(f"    {kind:<22} {count}")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
 @enrichment_app.command("coast")
 def enrichment_coast() -> None:
     """Distance from every listing to the coastline, with its range over the blur circle."""

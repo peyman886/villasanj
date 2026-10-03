@@ -15,16 +15,31 @@ from tests.unit.catalog.test_listing import parsed
 from tests.unit.pricing.test_quote import night
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.catalog.domain.review import ListingReview
+from villasanj.enrichment.application.consistency import CheckVillaConsistency
+from villasanj.enrichment.application.features import AmenityMap
+from villasanj.enrichment.domain.features import Feature
 from villasanj.entity_resolution.domain.clustering import CanonicalVilla
 from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container
-from villasanj.ingestion.domain.parsed import Availability, DatePrecision, ParsedReview
+from villasanj.ingestion.domain.parsed import (
+    Availability,
+    DatePrecision,
+    ParsedAmenity,
+    ParsedReview,
+)
 from villasanj.pricing.application.offers import OfferBook
 from villasanj.shared.domain.stay import DateRange
 
 SNAPSHOT = "00000000-0000-0000-0000-000000000a12"
-J = Listing.from_parsed(parsed(platform="jabama", external_id="1", bedrooms=2), SNAPSHOT, NOW)
-S = Listing.from_parsed(parsed(platform="shab", external_id="1", bedrooms=3), SNAPSHOT, NOW)
+POOL = (ParsedAmenity("swim", "استخر", True),)
+J = Listing.from_parsed(
+    parsed(platform="jabama", external_id="1", bedrooms=2, amenities=POOL), SNAPSHOT, NOW
+)
+S = Listing.from_parsed(
+    parsed(platform="shab", external_id="1", bedrooms=3, description="ویلا بدون استخر است"),
+    SNAPSHOT,
+    NOW,
+)
 DAY = date(2026, 10, 15)
 VILLA = CanonicalVilla("v-test", frozenset({J.id, S.id}))
 
@@ -72,6 +87,9 @@ class Stub:
     def villa_store(self) -> Villas:
         return Villas()
 
+    def villa_consistency(self) -> CheckVillaConsistency:
+        return CheckVillaConsistency(AmenityMap({"jabama": {"swim": Feature.POOL}}))
+
     def offers(self) -> OfferBook:
         return OfferBook(self.listings, {}, SteppingClock(NOW + timedelta(hours=1)))
 
@@ -89,6 +107,14 @@ def test_a_villa_shows_its_members_and_where_they_disagree(client: TestClient) -
     body = client.get("/villas/v-test").json()
     assert [m["platform"] for m in body["members"]] == ["jabama", "shab"]
     assert {"field": "bedrooms", "values": {"jabama": 2, "shab": 3}} in body["conflicts"]
+    (pool,) = body["inconsistencies"]
+    assert (pool["kind"], pool["subject"]) == ("feature", "pool")
+    said = {x["platform"]: (x["says"], x["source"], x["span"]) for x in pool["statements"]}
+    assert said == {
+        "jabama": ("has", "amenities", "استخر"),  # listed, and its description says so too
+        "shab": ("has_not", "description", "استخر"),
+    }
+    assert all(x["provenance"]["snapshot_id"] == SNAPSHOT for x in pool["statements"])
     assert client.get("/villas/v-none").status_code == 404
     assert client.get("/villas/of/jabama/1").json() == {"villa_id": "v-test", "members": 2}
 

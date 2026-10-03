@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { apiClient } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
-import { faDateTime, faNumber } from "@/lib/listing";
+import { CLAIM_TARGET_TEXT, faDateTime, faNumber } from "@/lib/listing";
 
 export const metadata: Metadata = { title: "سنجه‌ها · ویلاسنج" };
 
@@ -14,20 +14,6 @@ const VERDICT_TEXT: Record<string, string> = {
   contradicted: "با نقشه نمی‌خواند",
 };
 const KIND_TEXT: Record<string, string> = { exact: "دقیق", range: "بازه", open: "حداقل" };
-const TARGET_TEXT: Record<string, string> = {
-  sea: "دریا",
-  city_center: "مرکز شهر",
-  supermarket: "سوپرمارکت",
-  bakery: "نانوایی",
-  restaurant: "رستوران",
-  medical: "مرکز درمانی",
-  forest: "جنگل",
-  shopping: "مراکز خرید",
-  recreation: "مراکز تفریحی",
-  shrine: "زیارتگاه",
-  other: "مقصدهای دیگر",
-  not_understood: "عبارت نامفهوم",
-};
 const CLAIM_COLUMNS = ["supported", "not_confirmed", "contradicted", "not_checked"];
 const CLAIM_COLUMN_TEXT: Record<string, string> = {
   supported: "تأیید شد",
@@ -184,7 +170,7 @@ export default async function MetricsPage() {
             caption={`ادعاهای فاصله در ${p.platform}`}
             head={[p.platform, ...CLAIM_COLUMNS.map((c) => CLAIM_COLUMN_TEXT[c] ?? c)]}
             rows={Object.entries(p.distance_verdicts).map(([target, counts]) => [
-              TARGET_TEXT[target] ?? target,
+              CLAIM_TARGET_TEXT[target] ?? target,
               ...CLAIM_COLUMNS.map((c) => faNumber(counts[c] ?? 0)),
             ])}
           />
