@@ -66,6 +66,7 @@ class DescriptionClaim:
     end: int
     span: str  # description[start:end]: verbatim by construction
     shared: bool = False  # a facility of the complex or the town, not of the villa
+    by_llm: bool = False  # read by the LLM for a feature the rules found nothing about
 
 
 def extract_claims(description: str) -> list[DescriptionClaim]:
@@ -172,3 +173,24 @@ def near_sea_evidence(coast_low_m: float | None, coast_high_m: float | None) -> 
     if coast_low_m > NEAR_SEA_M:
         return FeatureEvidence.DENIED  # no possible position is
     return FeatureEvidence.UNKNOWN
+
+
+def with_read_claims(
+    rules: Sequence[DescriptionClaim],
+    read: Sequence[tuple[Feature, Polarity, bool, str]],  # feature, polarity, shared, quote
+    description: str,
+) -> list[DescriptionClaim]:
+    """The rules' claims, plus the LLM's for the features the rules found nothing about. A quote
+    is located in the description (it was checked to be there); one that is not is skipped."""
+    found = {c.feature for c in rules}
+    merged = list(rules)
+    for feature, polarity, shared, quote in read:
+        if feature in found:
+            continue
+        start = description.find(quote)
+        if start < 0:
+            continue
+        merged.append(
+            DescriptionClaim(feature, polarity, start, start + len(quote), quote, shared, True)
+        )
+    return sorted(merged, key=lambda c: (c.start, c.feature))

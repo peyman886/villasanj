@@ -30,6 +30,7 @@ from villasanj.discovery.domain.ranking import (
     drive_coverage,
     rank,
 )
+from villasanj.enrichment.application.claim_extraction import ReadClaim, ReadClaimStore, as_read
 from villasanj.enrichment.application.coast import CoastDistance, CoastDistanceStore
 from villasanj.enrichment.application.features import AmenityMap
 from villasanj.enrichment.application.photo_tags import PhotoFeatures
@@ -42,6 +43,7 @@ from villasanj.enrichment.domain.features import (
     extract_claims,
     feature_evidence,
     near_sea_evidence,
+    with_read_claims,
 )
 from villasanj.pricing.application.offers import OfferBook
 from villasanj.pricing.domain.offer import Offer
@@ -110,6 +112,7 @@ class SearchListings:
         origin: Origin | None = None,
         places: PlaceDistanceStore | None = None,
         photos: PhotoFeatures | None = None,
+        read_claims: ReadClaimStore | None = None,
     ) -> None:
         self._understand = understand
         self._holidays = holidays
@@ -124,6 +127,7 @@ class SearchListings:
         self._origin = origin
         self._place_distances = places
         self._photos = photos
+        self._read_claims = read_claims
 
     async def run(self, query: str, ctx: JobContext, drop: Sequence[str] = ()) -> SearchResult:
         """``drop``: constraints the user removed from the understood query (editable chips)."""
@@ -157,6 +161,7 @@ class SearchListings:
                 await self._place_distances.of_platform(platform) if self._place_distances else {}
             )
             pictured = await self._photos.seen(platform) if self._photos else {}
+            read = await self._read_claims.of_platform(platform) if self._read_claims else {}
             for listing in platform_listings:
                 offer = platform_offers.get(listing.id)
                 if offer is None:
@@ -187,6 +192,7 @@ class SearchListings:
                         geo,
                         contradicted,
                         pictured.get(listing.id, frozenset()),
+                        read.get(listing.id, []),
                     )
                 )
         wants = _requirements(intent, dates)
@@ -259,9 +265,11 @@ class SearchListings:
         geo: Geo,
         contradicted: int = 0,
         pictured: frozenset[Feature] = frozenset(),
+        read: Sequence[ReadClaim] = (),
     ) -> Candidate:
         stated = self._amenities.features_of(listing)
-        claims = extract_claims(listing.description_norm or "")
+        description = listing.description_norm or ""
+        claims = with_read_claims(extract_claims(description), as_read(read), description)
         features = {
             feature: feature_evidence(
                 stated.get(feature),

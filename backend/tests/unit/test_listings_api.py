@@ -313,6 +313,27 @@ def test_a_claim_the_photos_show_is_supported_with_its_source() -> None:
     assert "SigLIP" in pool.evidence_provenance.note
 
 
+def test_a_claim_the_llm_read_says_so_in_its_provenance() -> None:
+    from villasanj.enrichment.application.claim_extraction import ReadClaim
+    from villasanj.enrichment.domain.claim_eval import Stance
+
+    listing = Listing.from_parsed(parsed(description="از تراس دریا پیداست"), SNAPSHOT, NOW)
+
+    class Read:
+        async def get(self, listing_id: ListingId) -> list[ReadClaim]:
+            return [ReadClaim(Feature.SEA_VIEW, Stance.HAS, "از تراس دریا پیداست")]
+
+    truth = asyncio.run(
+        CheckListingClaims(AmenityMap({}), CoastStore(), None, None, Read()).run(  # type: ignore[arg-type]
+            listing
+        )
+    )
+    (sea_view,) = api.claims_out(listing, truth).features
+    assert sea_view.span == "از تراس دریا پیداست"
+    assert sea_view.provenance.method == "llm_extracted"
+    assert sea_view.verdict == "not_confirmed"  # read is not checked: «تأیید نشد»
+
+
 def test_review_summary_cites_reviews_and_is_null_with_too_few(client: TestClient) -> None:
     path = f"/listings/{LISTING.id.platform}/{LISTING.id.external_id}/review-summary"
     assert client.get(path).json() is None  # too few reviews with text: no summary

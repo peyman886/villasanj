@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -155,6 +156,8 @@ class Judgement:
     verdict: JudgeVerdict
     model: str
     cache_hit: bool
+    cost_usd: Decimal = Decimal(0)
+    latency_ms: int = 0
 
 
 class JudgePairs:
@@ -178,7 +181,16 @@ class JudgePairs:
         judgements = []
         for key, request in await self._build(inputs):
             response = await self._client.generate(request, ctx)
-            judgements.append(Judgement(key, response.value, response.model, response.cache_hit))
+            judgements.append(
+                Judgement(
+                    key,
+                    response.value,
+                    response.model,
+                    response.cache_hit,
+                    response.cost_usd,
+                    response.latency_ms,
+                )
+            )
         return judgements
 
     async def _build(

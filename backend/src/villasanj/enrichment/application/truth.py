@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 
 from villasanj.catalog.application.reading import ListingReader
 from villasanj.catalog.domain.listing import Listing, ListingId
+from villasanj.enrichment.application.claim_extraction import ReadClaimStore, as_read
 from villasanj.enrichment.application.coast import CoastDistance, CoastDistanceStore
 from villasanj.enrichment.application.features import AmenityMap
 from villasanj.enrichment.application.photo_tags import PhotoFeatures
@@ -41,6 +42,7 @@ from villasanj.enrichment.domain.features import (
     against_amenities,
     extract_claims,
     near_sea_evidence,
+    with_read_claims,
 )
 from villasanj.enrichment.domain.places import (
     KIND_OF_TARGET,
@@ -185,11 +187,13 @@ class CheckListingClaims:
         distances: CoastDistanceStore,
         places: PlaceDistanceStore | None = None,
         photos: PhotoFeatures | None = None,
+        read_claims: ReadClaimStore | None = None,
     ) -> None:
         self._amenities = amenities
         self._distances = distances
         self._places = places
         self._photos = photos
+        self._read_claims = read_claims
 
     async def run(self, listing: Listing) -> ListingTruth:
         coast = await self._distances.get(listing.id)
@@ -198,7 +202,9 @@ class CheckListingClaims:
         stated = self._amenities.features_of(listing)
         features = []
         seen = await self._photos.seen_for(listing.id) if self._photos else frozenset()
-        for said in extract_claims(listing.description_norm or ""):
+        description = listing.description_norm or ""
+        read = await self._read_claims.get(listing.id) if self._read_claims else []
+        for said in with_read_claims(extract_claims(description), as_read(read), description):
             on_map = None
             if said.feature is Feature.NEAR_SEA and coast is not None:
                 on_map = near_sea_evidence(coast.low_m, coast.high_m)

@@ -35,7 +35,7 @@ image_tokens = 800      # ~1024px image at high detail; 32px image measured at 3
 model = "gemini-3.1-flash-lite"
 fallbacks = ["gpt-5.4-mini"]
 max_output_tokens = 1200
-expected_output_tokens = 500
+expected_output_tokens = 60  # measured 2026-10-03 on 61 descriptions: mean 49, max 155
 temperature = 0.0
 concurrency = 8
 

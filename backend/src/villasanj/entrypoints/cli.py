@@ -48,6 +48,7 @@ from villasanj.discovery.domain.dates import (
     resolve,
 )
 from villasanj.discovery.infrastructure.eval_cases import load_cases
+from villasanj.enrichment.application.claim_extraction import ReadClaimsWithLLM
 from villasanj.enrichment.application.claim_labels import ClaimQueueExists
 from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.enrichment.application.features import MeasureFeatureClaims
@@ -57,7 +58,7 @@ from villasanj.enrichment.application.truth import CheckSeaClaims
 from villasanj.enrichment.domain.claim_eval import ClaimCounts
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore
 from villasanj.enrichment.infrastructure.features import load_amenity_map
-from villasanj.entity_resolution.application.evaluation import EvaluationReport
+from villasanj.entity_resolution.application.evaluation import EvaluateAblations, EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
 from villasanj.entity_resolution.application.labeling import QueueExists
 from villasanj.entity_resolution.domain.evaluation import Interval, wilson
@@ -639,15 +640,70 @@ def enrichment_claim_queue(
         raise typer.Exit(code=1)
 
 
+@enrichment_app.command("read-claims")
+def enrichment_read_claims(
+    dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "3.00",
+) -> None:
+    """The LLM pass for feature claims the rules miss, over every description (M9; cached)."""
+
+    async def run(container: Container) -> bool:
+        job = container.read_all_claims()
+        if dry_run:
+            for platform in sorted(container.crawl.adapters):
+                descriptions = await job.descriptions(platform)
+                plan = ReadClaimsWithLLM(container.llm.client).plan(descriptions)
+                estimate = await container.llm.dry_run.estimate(plan)
+                typer.echo(
+                    f"{platform:<7} descriptions={len(descriptions)} calls={estimate.calls} "
+                    f"cache_hits={estimate.cache_hits} expected=${estimate.expected_usd:.4f} "
+                    f"worst_case=${estimate.worst_case_usd:.4f}"
+                )
+            return True
+        ctx = await container.jobs.start("read_claims", Decimal(budget_usd), {})
+        status = JobStatus.FAILED
+        try:
+            for platform in sorted(container.crawl.adapters):
+                r = await job.run(platform, ctx)
+                typer.echo(
+                    f"{platform:<7} descriptions={r.descriptions} claims={r.claims} "
+                    f"dropped_quotes={r.dropped} retried={r.retried} failed={r.failed} "
+                    f"cost=${r.cost_usd:.4f}"
+                )
+            status = JobStatus.SUCCEEDED
+        finally:
+            await container.jobs.finish(ctx.job_id, status)
+        return True
+
+    asyncio.run(_with_container(run))
+
+
 @enrichment_app.command("claims-eval")
 def enrichment_claims_eval(
     queue: Annotated[str, typer.Option(help="Queue name.")] = "claims-v1",
     labeler: Annotated[str, typer.Option(help="Who labelled.")] = "owner",
+    llm: Annotated[bool, typer.Option(help="Also score the rules plus the LLM residue.")] = False,
+    dry_run: Annotated[bool, typer.Option(help="Price the LLM pass without calling.")] = False,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "0.20",
 ) -> None:
-    """Claim-level precision and recall of the rules against the owner's labels (M9 crit. 1)."""
+    """Claim-level precision and recall against the owner's labels (M9 criterion 1)."""
 
     async def run(container: Container) -> bool:
-        r = await container.claim_eval().run(queue, labeler)
+        evaluate = container.claim_eval(with_llm=llm)
+        if llm and dry_run:
+            descriptions = await evaluate.descriptions(queue, labeler)
+            plan = ReadClaimsWithLLM(container.llm.client).plan(descriptions)
+            estimate = await container.llm.dry_run.estimate(plan)
+            typer.echo(
+                f"descriptions={len(descriptions)} calls={estimate.calls} "
+                f"cache_hits={estimate.cache_hits} expected=${estimate.expected_usd:.6f} "
+                f"worst_case=${estimate.worst_case_usd:.6f} (a retry is at most one more each)"
+            )
+            return True
+        ctx = await container.jobs.start("claims_eval", Decimal(budget_usd), {}) if llm else None
+        r = await evaluate.run(queue, labeler, ctx)
+        if ctx is not None:
+            await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
 
         def line(name: str, c: ClaimCounts) -> str:
             p = wilson(c.true_positive, c.true_positive + c.false_positive)
@@ -658,9 +714,15 @@ def enrichment_claims_eval(
             )
 
         typer.echo(f"queue={r.queue} labelled={r.labelled}/{r.total} (targets: P>=90%, R>=80%)")
-        typer.echo(line("all", r.score.total))
-        for feature, counts in sorted(r.score.per_feature.items()):
-            typer.echo(line(feature.value, counts))
+        for title, score in (("rules", r.score), ("rules+llm", r.with_llm)):
+            if score is None:
+                continue
+            typer.echo(f"{title}:")
+            typer.echo(line("all", score.total))
+            for feature, counts in sorted(score.per_feature.items()):
+                typer.echo(line(feature.value, counts))
+        if r.with_llm is not None:
+            typer.echo(f"llm quotes dropped={r.llm_dropped} cost=${r.llm_cost:.6f}")
         return True
 
     asyncio.run(_with_container(run))
@@ -1362,6 +1424,92 @@ def er_judge(
 
     if not asyncio.run(_with_container(run)):
         raise typer.Exit(code=1)
+
+
+@er_app.command("ablations")
+def er_ablations(
+    queue: Annotated[str, typer.Option(help="Gold queue.")] = "gold-v1",
+    labeler: Annotated[str, typer.Option(help="Whose labels.")] = "owner",
+) -> None:
+    """H5 (M5 criterion 6): recall at the precision bar from photos, other evidence, both."""
+
+    async def run(container: Container) -> bool:
+        results = await EvaluateAblations(container.candidates(), container.labels()).run(
+            queue, labeler
+        )
+        for a in results:
+            point = a.operating_point
+            if point is None:
+                at_bar = "no threshold reaches precision >= 95% (Wilson low >= 92%)"
+            else:
+                at_bar = (
+                    f"threshold {point.threshold:g}: precision={_interval(point.precision)} "
+                    f"recall={_interval(point.recall)}"
+                )
+            best = a.best_f1
+            f1 = (
+                f"best F1 {best.f1:.3f} at {best.threshold:g} "
+                f"(precision={_interval(best.precision)}, recall={_interval(best.recall)})"
+                if best and best.f1 is not None
+                else "best F1 n/a"
+            )
+            typer.echo(f"{a.name:<15} {at_bar}\n{'':<15} {f1}")
+        return True
+
+    asyncio.run(_with_container(run))
+
+
+@er_app.command("judge-eval")
+def er_judge_eval(
+    low: Annotated[float, typer.Option(help="Lowest rule score of the band.")] = -3.0,
+    high: Annotated[float, typer.Option(help="Highest rule score of the band.")] = 3.0,
+    queue: Annotated[str, typer.Option(help="Gold queue.")] = "gold-v1",
+    labeler: Annotated[str, typer.Option(help="Whose labels.")] = "owner",
+    dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "2.00",
+    show: Annotated[bool, typer.Option(help="Print each pair's verdict.")] = False,
+) -> None:
+    """M5 criterion 4: the judge's verdicts on the gold pairs of a score band, against labels."""
+
+    async def run(container: Container) -> bool:
+        evaluate = container.judge_eval()
+        gold = await evaluate.gold_in_band(queue, labeler, low, high)
+        if dry_run:
+            requests = await container.judge().requests([g[0] for g in gold])
+            estimate = await container.llm.dry_run.estimate(requests)
+            typer.echo(
+                f"band [{low:g}, {high:g}]: {len(gold)} gold pairs, calls={estimate.calls} "
+                f"cache_hits={estimate.cache_hits} expected=${estimate.expected_usd:.4f} "
+                f"worst_case=${estimate.worst_case_usd:.4f}"
+            )
+            return True
+        ctx = await container.jobs.start("judge_eval", Decimal(budget_usd), {})
+        report = await evaluate.run(queue, labeler, low, high, ctx)
+        await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
+        typer.echo(
+            f"band [{low:g}, {high:g}]: pairs={len(report.pairs)} judged={len(report.judged)} "
+            f"unsure={report.unsure_rate:.1%} cost=${report.cost_usd:.4f}"
+        )
+        for label, verdicts in sorted(report.confusion.items()):
+            typer.echo(f"  label {label:<10} {dict(sorted(verdicts.items()))}")
+        for confidence in (0.0, 0.7, 0.8, 0.9):
+            typer.echo(
+                f"  match when confidence >= {confidence:.1f}: "
+                f"precision={_interval(report.match_precision(confidence))} "
+                f"recall={_interval(report.match_recall(confidence))}"
+            )
+        for model, values in report.latency_ms().items():
+            ordered = sorted(values)
+            p95 = ordered[min(len(ordered) - 1, round(0.95 * (len(ordered) - 1)))]
+            typer.echo(f"  latency {model}: uncached={len(values)} p95={p95}ms")
+        if show:
+            for p in report.pairs:
+                j = p.judgement
+                verdict = f"{j.verdict.verdict}@{j.verdict.confidence:.2f}" if j else p.failure
+                typer.echo(f"  {p.label.value:<9} {verdict:<16} {p.score:+.2f} {p.key}")
+        return True
+
+    asyncio.run(_with_container(run))
 
 
 def _interval(interval: Interval) -> str:

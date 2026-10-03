@@ -34,6 +34,7 @@ from villasanj.discovery.infrastructure.routing import (
     PgDriveTimeStore,
     load_origin,
 )
+from villasanj.enrichment.application.claim_extraction import ReadAllClaims, ReadClaimsWithLLM
 from villasanj.enrichment.application.claim_labels import (
     BuildClaimLabelQueue,
     ClaimLabeling,
@@ -60,6 +61,7 @@ from villasanj.enrichment.application.truth import (
 from villasanj.enrichment.infrastructure.claim_labels import PgClaimLabelStore
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore, PgCoastline
 from villasanj.enrichment.infrastructure.features import load_amenity_map
+from villasanj.enrichment.infrastructure.llm_claims import PgReadClaimStore
 from villasanj.enrichment.infrastructure.photo_tags import (
     PgPhotoFeatures,
     PgPhotoQueueStore,
@@ -71,6 +73,7 @@ from villasanj.enrichment.infrastructure.siglip import SigLip2Tagger
 from villasanj.enrichment.infrastructure.summary_review import PgSummaryReviewStore
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
 from villasanj.entity_resolution.application.judge import JudgePairs
+from villasanj.entity_resolution.application.judge_eval import EvaluateJudge
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
 from villasanj.entity_resolution.application.matching import MatchListings
 from villasanj.entity_resolution.infrastructure.grid import PillowGridRenderer
@@ -214,6 +217,9 @@ class Container:
     def evaluate_matcher(self) -> EvaluateMatcher:
         return EvaluateMatcher(self.candidates(), self.labels())
 
+    def judge_eval(self) -> EvaluateJudge:
+        return EvaluateJudge(self.candidates(), self.labels(), self.judge())
+
     def judge(self) -> JudgePairs:
         return JudgePairs(
             self.listings,
@@ -251,6 +257,7 @@ class Container:
             load_origin(self.settings.routing_origin_path),
             self.place_store(),
             self.photo_features(),
+            self.read_claims(),
         )
 
     def routing_origin(self) -> Origin:
@@ -271,6 +278,7 @@ class Container:
             self.coast_store(),
             self.place_store(),
             self.photo_features(),
+            self.read_claims(),
         )
 
     def places(self) -> PgPlaces:
@@ -361,8 +369,17 @@ class Container:
     def claim_labeling(self) -> ClaimLabeling:
         return ClaimLabeling(PgClaimLabelStore(self.engine), self.clock)
 
-    def claim_eval(self) -> EvaluateClaimExtraction:
-        return EvaluateClaimExtraction(self.listings, PgClaimLabelStore(self.engine))
+    def read_claims(self) -> PgReadClaimStore:
+        return PgReadClaimStore(self.engine)
+
+    def read_all_claims(self) -> ReadAllClaims:
+        return ReadAllClaims(
+            self.listings, ReadClaimsWithLLM(self.llm.client), self.read_claims(), self.clock
+        )
+
+    def claim_eval(self, with_llm: bool = False) -> EvaluateClaimExtraction:
+        reader = ReadClaimsWithLLM(self.llm.client) if with_llm else None
+        return EvaluateClaimExtraction(self.listings, PgClaimLabelStore(self.engine), reader)
 
     def summary_review_queue(self) -> BuildSummaryReviewQueue:
         return BuildSummaryReviewQueue(

@@ -145,3 +145,11 @@ def bcubed(
         recall += both / len(gold_of[element])
     p, r = precision / len(shared), recall / len(shared)
     return BCubed(p, r, 2 * p * r / (p + r) if p + r else 0.0, len(shared))
+
+
+PHOTO_FEATURES = frozenset({"shared_photos", "no_shared_photo"})
+
+
+def partial_score(contributions: Iterable[tuple[str, float]], photos: bool) -> float:
+    """The score from photo evidence only (``photos``) or from everything else (H5 ablation)."""
+    return sum(points for feature, points in contributions if (feature in PHOTO_FEATURES) == photos)

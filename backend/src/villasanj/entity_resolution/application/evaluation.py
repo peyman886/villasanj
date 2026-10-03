@@ -14,6 +14,7 @@ from villasanj.entity_resolution.domain.evaluation import (
     blocking_recall,
     evaluate,
     operating_point,
+    partial_score,
     wilson,
 )
 from villasanj.entity_resolution.domain.labels import Label
@@ -79,3 +80,54 @@ class EvaluateMatcher:
             labels_by_stratum={k: dict(v) for k, v in sorted(by_stratum.items())},
             same_platform=dict(same_platform),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class Ablation:
+    name: str  # "photos", "other evidence", "full"
+    operating_point: Metrics | None  # None: no threshold reaches the precision bar
+    best_f1: Metrics | None
+
+
+class EvaluateAblations:
+    """H5 (M5 criterion 6): recall at the precision bar from photo evidence alone, from the other
+    evidence alone, and from both, on the same gold pairs and weights."""
+
+    def __init__(self, candidates: CandidateStore, labels: LabelStore) -> None:
+        self._candidates = candidates
+        self._labels = labels
+
+    async def run(self, queue: str, labeler: str) -> list[Ablation]:
+        items = await self._labels.queue(queue)
+        labels = {label.key: label for label in await self._labels.labels(labeler)}
+        per_stratum = labelled_items(items, list(labels.values()))
+        current = {c.key: c for c in await self._candidates.current()}
+        variants: dict[str, list[LabelledScore]] = {"photos": [], "other evidence": [], "full": []}
+        for item in items:
+            label = labels.get(item.key)
+            if label is None or not item.key.cross_platform:
+                continue
+            weight = item.stratum_size / per_stratum[item.stratum]
+            candidate = current.get(item.key)
+            if candidate is None or candidate.score is None:
+                for scores in variants.values():
+                    scores.append(LabelledScore(float("-inf"), label.label, False, weight))
+                continue
+            parts = [(c.feature, c.points) for c in candidate.score.contributions]
+            values = {
+                "photos": partial_score(parts, photos=True),
+                "other evidence": partial_score(parts, photos=False),
+                "full": candidate.score.value,
+            }
+            for name, value in values.items():
+                variants[name].append(LabelledScore(value, label.label, candidate.blocked, weight))
+        results = []
+        for name, gold in variants.items():
+            curve = [
+                evaluate(gold, t)
+                for t in sorted({p.score for p in gold if p.score > float("-inf")})
+            ]
+            scored = [m for m in curve if m.f1 is not None]
+            best = max(scored, key=lambda m: m.f1 or 0.0) if scored else None
+            results.append(Ablation(name, operating_point(gold), best))
+        return results

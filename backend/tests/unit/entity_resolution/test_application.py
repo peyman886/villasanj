@@ -256,3 +256,32 @@ async def test_evaluation_weights_strata_and_reports_blocking_recall() -> None:
     assert at_ten.precision.estimate == 1.0
     assert report.unsure.estimate == 0.0
     assert set(report.labels_by_stratum) == {i.stratum for i in items}
+
+
+async def test_ablations_score_the_same_gold_with_parts_of_the_evidence() -> None:
+    from villasanj.entity_resolution.application.evaluation import EvaluateAblations
+
+    labels = LabelStoreFake()
+    store = CandidateStoreFake(CANDIDATES)
+    items = await BuildLabelQueue(store, labels).run("gold", PLAN)
+    for item in items:
+        candidate = await store.get(item.key)
+        assert candidate is not None
+        match = (
+            item.key.cross_platform and candidate.score is not None and candidate.score.value >= 10
+        )
+        verdict = Label.MATCH if match else Label.NON_MATCH
+        await labels.save_label(PairLabel(item.key, verdict, "owner", NOW))
+    results = {a.name: a for a in await EvaluateAblations(store, labels).run("gold", "owner")}
+    assert set(results) == {"photos", "other evidence", "full"}
+    best = results["full"].best_f1  # few pairs: the Wilson bar itself is out of reach here
+    assert best is not None
+    assert best.precision.estimate == 1.0
+
+
+def test_partial_scores_split_photo_and_other_evidence() -> None:
+    from villasanj.entity_resolution.domain.evaluation import partial_score
+
+    parts = [("shared_photos", 7.5), ("location_overlaps", 1.0), ("price_apart", -1.0)]
+    assert partial_score(parts, photos=True) == 7.5
+    assert partial_score(parts, photos=False) == 0.0

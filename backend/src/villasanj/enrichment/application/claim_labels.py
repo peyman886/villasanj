@@ -7,13 +7,16 @@ import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Protocol
 
 from villasanj.catalog.application.reading import ListingReader
 from villasanj.catalog.domain.listing import ListingId
+from villasanj.enrichment.application.claim_extraction import ReadClaimsWithLLM, with_residue
 from villasanj.enrichment.domain.claim_eval import ClaimScore, Stance, stances
 from villasanj.enrichment.domain.features import Feature, extract_claims
 from villasanj.shared.application.clock import Clock
+from villasanj.shared.application.llm.types import JobContext
 
 MIN_DESCRIPTION = 80  # characters: shorter descriptions rarely claim anything
 
@@ -117,24 +120,59 @@ class ClaimEvaluation:
     queue: str
     total: int
     labelled: int
-    score: ClaimScore
+    score: ClaimScore  # the rules alone
+    with_llm: ClaimScore | None = None  # the rules plus the LLM's residue
+    llm_dropped: int = 0  # LLM claims whose quote was not in the text
+    llm_cost: Decimal = Decimal(0)
 
 
 class EvaluateClaimExtraction:
-    def __init__(self, listings: ListingReader, store: ClaimLabelStore) -> None:
+    def __init__(
+        self,
+        listings: ListingReader,
+        store: ClaimLabelStore,
+        reader: ReadClaimsWithLLM | None = None,
+    ) -> None:
         self._listings = listings
         self._store = store
+        self._reader = reader
 
-    async def run(self, queue: str, labeler: str) -> ClaimEvaluation:
+    async def descriptions(self, queue: str, labeler: str) -> list[str]:
+        """The labelled descriptions (for a dry run of the LLM pass)."""
+        labels = await self._store.labels(queue, labeler)
+        found = []
+        for item in await self._store.items(queue):
+            listing = await self._listings.get(item.listing_id)
+            if item.listing_id in labels and listing is not None:
+                found.append(listing.description_norm or "")
+        return found
+
+    async def run(self, queue: str, labeler: str, ctx: JobContext | None = None) -> ClaimEvaluation:
         items = await self._store.items(queue)
         labels = await self._store.labels(queue, labeler)
-        score = ClaimScore()
+        rules_only, merged = ClaimScore(), ClaimScore()
+        use_llm = self._reader is not None and ctx is not None
+        dropped, cost = 0, Decimal(0)
         for item in items:
             if item.listing_id not in labels:
                 continue
             listing = await self._listings.get(item.listing_id)
             if listing is None:
                 continue
-            predicted = stances(extract_claims(listing.description_norm or ""))
-            score.add(predicted, labels[item.listing_id])
-        return ClaimEvaluation(queue, len(items), sum(i.listing_id in labels for i in items), score)
+            description = listing.description_norm or ""
+            predicted = stances(extract_claims(description))
+            rules_only.add(predicted, labels[item.listing_id])
+            if use_llm and self._reader is not None and ctx is not None:
+                read = await self._reader.run(description, ctx)
+                dropped += read.dropped
+                cost += read.cost_usd
+                merged.add(with_residue(predicted, read.claims), labels[item.listing_id])
+        return ClaimEvaluation(
+            queue,
+            len(items),
+            sum(i.listing_id in labels for i in items),
+            rules_only,
+            merged if use_llm else None,
+            dropped,
+            cost,
+        )

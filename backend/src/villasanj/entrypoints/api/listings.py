@@ -350,6 +350,20 @@ def _distance_out(
     )
 
 
+def _claim_provenance(listing: Listing, by_llm: bool) -> ProvenanceOut:
+    if not by_llm:
+        return ProvenanceOut.of(listing.provenance, "از متن توضیحات آگهی")
+    read = Provenance(
+        ProvenanceMethod.LLM_EXTRACTED,
+        listing.provenance.observed_at,
+        derived_from=(listing.provenance,),
+    )
+    return ProvenanceOut.of(
+        read,
+        f"از متن توضیحات آگهی، خوانده{ZWNJ}شده با مدل زبانی؛ عبارت عیناً در متن هست",
+    )
+
+
 def _feature_out(
     listing: Listing, check: FeatureClaimCheck, coast: CoastDistance | None
 ) -> FeatureClaimOut:
@@ -406,7 +420,7 @@ def _feature_out(
         polarity="has" if claim.polarity is Polarity.HAS else "has_not",
         verdict=verdict,
         evidence=evidence,
-        provenance=ProvenanceOut.of(listing.provenance, "از متن توضیحات آگهی"),
+        provenance=_claim_provenance(listing, claim.by_llm),
         evidence_provenance=evidence_provenance,
     )
 
