@@ -226,6 +226,9 @@ class Container:
     def judgements(self) -> PgJudgementStore:
         return PgJudgementStore(self.engine, self.clock)
 
+    def villa_store(self) -> PgVillaStore:
+        return PgVillaStore(self.engine, self.clock)
+
     def build_villas(self) -> BuildVillas:
         return BuildVillas(
             self.candidates(),

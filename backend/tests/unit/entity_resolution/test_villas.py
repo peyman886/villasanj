@@ -41,6 +41,10 @@ class Villas:
         self.stored = {v.id: v.members for v in villas}
         self.events.extend(events)
 
+    async def get(self, villa_id: str) -> CanonicalVilla | None:
+        members = self.stored.get(villa_id)
+        return CanonicalVilla(villa_id, members) if members else None
+
     async def villa_of(self, listing: ListingId) -> CanonicalVilla | None:
         return next((CanonicalVilla(i, m) for i, m in self.stored.items() if listing in m), None)
 

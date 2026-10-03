@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
@@ -94,12 +95,33 @@ export default async function ListingPage(props: {
 }) {
   const { platform, id } = await props.params;
   const now = new Date();
-  const [data, basemap] = await Promise.all([load(platform, id, now), readBasemap()]);
+  const [data, basemap, villa] = await Promise.all([
+    load(platform, id, now),
+    readBasemap(),
+    apiClient()
+      .GET("/villas/of/{platform}/{external_id}", {
+        params: { path: { platform, external_id: id } },
+        ...NO_STORE,
+      })
+      .then((r) => r.data ?? null)
+      .catch(() => null),
+  ]);
   if (data === null) notFound();
   const { listing } = data;
   return (
     <main className="mx-auto max-w-5xl px-4 pt-6 pb-16 sm:px-6">
       <Header listing={listing} geo={data.geo} now={now} />
+      {villa && villa.members > 1 ? (
+        <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-pretty">
+          همین ویلا در پلتفرم دیگری هم آگهی شده است.{" "}
+          <Link
+            href={`/villas/${villa.villa_id}`}
+            className="font-medium text-emerald-900 underline underline-offset-4"
+          >
+            قیمت‌ها و تقویم هر دو را کنار هم ببینید
+          </Link>
+        </p>
+      ) : null}
       {listing.location ? (
         <ListingMap
           lat={listing.location.lat}

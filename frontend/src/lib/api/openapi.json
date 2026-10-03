@@ -227,6 +227,34 @@
         "title": "ClaimsOut",
         "type": "object"
       },
+      "ConflictOut": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "field",
+          "values"
+        ],
+        "title": "ConflictOut",
+        "type": "object"
+      },
       "ContributionOut": {
         "properties": {
           "component": {
@@ -2342,6 +2370,190 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VillaNightOut": {
+        "properties": {
+          "by_platform": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CalendarNightOut"
+            },
+            "title": "By Platform",
+            "type": "object"
+          },
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "night": {
+            "format": "date",
+            "title": "Night",
+            "type": "string"
+          }
+        },
+        "required": [
+          "night",
+          "by_platform",
+          "hidden"
+        ],
+        "title": "VillaNightOut",
+        "type": "object"
+      },
+      "VillaOut": {
+        "properties": {
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/ConflictOut"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/ListingOut"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "rating_count": {
+            "title": "Rating Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "members",
+          "conflicts",
+          "rating",
+          "rating_count"
+        ],
+        "title": "VillaOut",
+        "type": "object"
+      },
+      "VillaRefOut": {
+        "properties": {
+          "members": {
+            "title": "Members",
+            "type": "integer"
+          },
+          "villa_id": {
+            "title": "Villa Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "villa_id",
+          "members"
+        ],
+        "title": "VillaRefOut",
+        "type": "object"
+      },
+      "VillaReviewOut": {
+        "properties": {
+          "host_replied": {
+            "title": "Host Replied",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "stayed_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stayed On"
+          },
+          "stayed_precision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "day",
+                  "month"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stayed Precision"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "id",
+          "rating",
+          "text",
+          "stayed_on",
+          "stayed_precision",
+          "host_replied",
+          "provenance",
+          "platform"
+        ],
+        "title": "VillaReviewOut",
+        "type": "object"
+      },
+      "VillaSampleOut": {
+        "properties": {
+          "villa_id": {
+            "title": "Villa Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "villa_id"
+        ],
+        "title": "VillaSampleOut",
+        "type": "object"
       }
     }
   },
@@ -3456,6 +3668,351 @@
         "summary": "Get Task",
         "tags": [
           "summary-reviews"
+        ]
+      }
+    },
+    "/villas/of/{platform}/{external_id}": {
+      "get": {
+        "description": "The villa a listing belongs to (every listing has one; members counts its listings).",
+        "operationId": "villa_of_villas_of__platform___external_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "title": "Platform",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "external_id",
+            "required": true,
+            "schema": {
+              "title": "External Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VillaRefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Villa Of",
+        "tags": [
+          "villas"
+        ]
+      }
+    },
+    "/villas/sample": {
+      "get": {
+        "description": "A deterministic sample of villas listed on more than one platform (smoke tests).",
+        "operationId": "sample_villas_villas_sample_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "n",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "N",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "default": "7",
+              "title": "Seed",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VillaSampleOut"
+                  },
+                  "title": "Response Sample Villas Villas Sample Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sample Villas",
+        "tags": [
+          "villas"
+        ]
+      }
+    },
+    "/villas/{villa_id}": {
+      "get": {
+        "operationId": "get_villa_villas__villa_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "villa_id",
+            "required": true,
+            "schema": {
+              "title": "Villa Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VillaOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Villa",
+        "tags": [
+          "villas"
+        ]
+      }
+    },
+    "/villas/{villa_id}/calendar": {
+      "get": {
+        "operationId": "get_calendar_villas__villa_id__calendar_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "villa_id",
+            "required": true,
+            "schema": {
+              "title": "Villa Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VillaNightOut"
+                  },
+                  "title": "Response Get Calendar Villas  Villa Id  Calendar Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Calendar",
+        "tags": [
+          "villas"
+        ]
+      }
+    },
+    "/villas/{villa_id}/offers": {
+      "get": {
+        "description": "Each listing's own all-in offer for this stay and group, side by side.",
+        "operationId": "get_offers_villas__villa_id__offers_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "villa_id",
+            "required": true,
+            "schema": {
+              "title": "Villa Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "check_in",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Check In",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "check_out",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Check Out",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "guests",
+            "required": true,
+            "schema": {
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Guests",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OfferOut"
+                  },
+                  "title": "Response Get Offers Villas  Villa Id  Offers Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Offers",
+        "tags": [
+          "villas"
+        ]
+      }
+    },
+    "/villas/{villa_id}/reviews": {
+      "get": {
+        "description": "Every listing's reviews, most recent stays first, each with its platform.",
+        "operationId": "get_reviews_villas__villa_id__reviews_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "villa_id",
+            "required": true,
+            "schema": {
+              "title": "Villa Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VillaReviewOut"
+                  },
+                  "title": "Response Get Reviews Villas  Villa Id  Reviews Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Reviews",
+        "tags": [
+          "villas"
         ]
       }
     }

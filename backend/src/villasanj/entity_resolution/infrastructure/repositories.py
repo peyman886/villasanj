@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import asdict
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -231,6 +231,27 @@ class PgVillaStore:
                         ]
                     )
                 )
+
+    async def multi_platform(self) -> list[str]:
+        """Ids of the villas with listings on more than one platform."""
+        async with self._engine.connect() as conn:
+            rows = await conn.execute(
+                text(
+                    "SELECT villa_id FROM er.villa_member GROUP BY villa_id "
+                    "HAVING count(*) > 1 ORDER BY villa_id"
+                )
+            )
+            return [row.villa_id for row in rows]
+
+    async def get(self, villa_id: str) -> CanonicalVilla | None:
+        query = select(villa_member).where(villa_member.c.villa_id == villa_id)
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        if not rows:
+            return None
+        return CanonicalVilla(
+            villa_id, frozenset(ListingId(r.platform, r.external_id) for r in rows)
+        )
 
     async def villa_of(self, listing: ListingId) -> CanonicalVilla | None:
         owner = (

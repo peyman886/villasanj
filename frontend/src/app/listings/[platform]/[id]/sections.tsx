@@ -241,18 +241,25 @@ export function ClaimsSection({
   listing,
   claims,
   now,
+  idPrefix = "",
 }: {
   listing: Listing;
   claims: Claims | null;
   now: Date;
+  idPrefix?: string; // several sections on one page (a villa) need distinct ids
 }) {
   if (!claims || claims.distances.length + claims.features.length === 0) return null;
   const rows: ClaimRow[] = [
     ...claims.distances.map((c, index) => ({
-      key: `d${index}`,
+      key: `${idPrefix}d${index}`,
       verdict: c.verdict,
       claim: (
-        <Sourced id={`claim-d${index}`} label="ادعای آگهی" provenance={c.provenance} now={now}>
+        <Sourced
+          id={`${idPrefix}claim-d${index}`}
+          label="ادعای آگهی"
+          provenance={c.provenance}
+          now={now}
+        >
           {c.text}
         </Sourced>
       ),
@@ -261,12 +268,17 @@ export function ClaimsSection({
       radiusAssumed: c.radius_assumed && c.evidence_provenance !== null,
     })),
     ...claims.features.map((c, index) => ({
-      key: `f${index}`,
+      key: `${idPrefix}f${index}`,
       verdict: c.verdict,
       claim: (
         <>
           {featureLabel(c.feature, c.span, c.polarity)}
-          <Sourced id={`claim-f${index}`} label="ادعای آگهی" provenance={c.provenance} now={now}>
+          <Sourced
+            id={`${idPrefix}claim-f${index}`}
+            label="ادعای آگهی"
+            provenance={c.provenance}
+            now={now}
+          >
             «{c.span}»
           </Sourced>
         </>
@@ -282,8 +294,10 @@ export function ClaimsSection({
     (verdict) => [verdict, rows.filter((r) => r.verdict === verdict).length] as const,
   ).filter(([, count]) => count > 0);
   return (
-    <section aria-labelledby="claims-title" className="mt-10">
-      <SectionTitle id="claims-title">حقیقت‌سنجی ادعاها</SectionTitle>
+    <section aria-labelledby={`${idPrefix}claims-title`} className="mt-10">
+      <SectionTitle id={`${idPrefix}claims-title`}>
+        حقیقت‌سنجی ادعاها{idPrefix ? ` در ${listing.platform_name}` : ""}
+      </SectionTitle>
       <p className="mt-1 max-w-prose text-sm text-pretty text-stone-600">
         ادعاهای خود آگهی در {listing.platform_name}، هر کدام کنار شاهدش. «تأیید نشد» یعنی شاهد کافی
         نداریم، نه اینکه ادعا نادرست است.
@@ -353,7 +367,7 @@ export function Photos({ listing }: { listing: Listing }) {
   );
 }
 
-function OfferCell({
+export function OfferCell({
   offer,
   id,
   label,

@@ -38,3 +38,32 @@ test.describe("listing pages smoke", () => {
     expect(failures).toEqual([]);
   });
 });
+
+test.describe("villa pages smoke", () => {
+  test.describe.configure({ timeout: 600_000 });
+
+  test(`@smoke a sample of ${SAMPLE} multi-platform villas renders without errors (M7 criterion 2)`, async ({
+    page,
+    request,
+  }) => {
+    const response = await request.get(`${API}/villas/sample?n=${SAMPLE}&seed=smoke`);
+    expect(response.ok()).toBe(true);
+    const villas = (await response.json()) as { villa_id: string }[];
+    expect(villas.length).toBeGreaterThan(0);
+    const failures: string[] = [];
+    page.on("pageerror", (error) => failures.push(`${page.url()}: ${error.message}`));
+    page.on("console", (message) => {
+      if (message.type() === "error" && !/Failed to load resource/.test(message.text())) {
+        failures.push(`${page.url()}: ${message.text()}`);
+      }
+    });
+    for (const { villa_id } of villas) {
+      const visit = await page.goto(`/villas/${villa_id}`);
+      expect(visit?.status(), villa_id).toBe(200);
+      await expect(page.locator("h1")).toBeVisible();
+      await expect(page.locator("#offers-title")).toBeAttached();
+      await expect(page.locator("[aria-labelledby=calendar-title] thead th")).toHaveCount(4);
+    }
+    expect(failures).toEqual([]);
+  });
+});

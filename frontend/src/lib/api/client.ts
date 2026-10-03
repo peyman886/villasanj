@@ -15,6 +15,9 @@ export type Scenario = components["schemas"]["ScenarioOut"];
 export type Geo = components["schemas"]["GeoOut"];
 export type GeoRange = components["schemas"]["GeoRangeOut"];
 export type Claims = components["schemas"]["ClaimsOut"];
+export type Villa = components["schemas"]["VillaOut"];
+export type VillaNight = components["schemas"]["VillaNightOut"];
+export type VillaReview = components["schemas"]["VillaReviewOut"];
 
 export function apiClient(baseUrl: string = apiBaseUrl(), fetchImpl?: typeof fetch) {
   return createClient<paths>({ baseUrl, ...(fetchImpl ? { fetch: fetchImpl } : {}) });

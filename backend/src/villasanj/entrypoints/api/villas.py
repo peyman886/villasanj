@@ -1,0 +1,192 @@
+"""Canonical villa read API (ROADMAP M7): one villa, its listings, where they disagree, each
+listing's own offer (prices are never merged, product rule 3), the merged calendar with hidden
+nights, and the reviews of every listing labelled by source.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from datetime import date, timedelta
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from pydantic import BaseModel
+
+from villasanj.catalog.domain.listing import Listing, ListingId
+from villasanj.discovery.domain.villa import conflicts, merge_calendars
+from villasanj.entity_resolution.domain.clustering import CanonicalVilla
+from villasanj.entrypoints.api.listings import (
+    MAX_CALENDAR_DAYS,
+    CalendarNightOut,
+    ListingOut,
+    OfferOut,
+    ReviewOut,
+    _calendar_out,
+    _listing_out,
+    _offer_out,
+    _review_out,
+)
+from villasanj.entrypoints.container import Container
+from villasanj.pricing.domain.quote import StayRequest
+from villasanj.shared.domain.errors import DomainError
+from villasanj.shared.domain.stay import DateRange, GuestCount
+
+router = APIRouter(prefix="/villas", tags=["villas"])
+
+HIDDEN_NIGHT_GAP = timedelta(hours=6)  # observations further apart are not compared (H3)
+
+
+class ConflictOut(BaseModel):
+    field: str
+    values: dict[str, str | int]  # platform -> what it states
+
+
+class VillaOut(BaseModel):
+    id: str
+    members: list[ListingOut]  # at most one per platform
+    conflicts: list[ConflictOut]
+    rating: float | None  # every platform's ratings together, weighted by their counts
+    rating_count: int
+
+
+class VillaNightOut(BaseModel):
+    night: date
+    by_platform: dict[str, CalendarNightOut]
+    hidden: bool  # free on one platform, taken on another, observed < 6 h apart
+
+
+class VillaReviewOut(ReviewOut):
+    platform: str
+
+
+def _container(request: Request) -> Container:
+    container: Container = request.app.state.container
+    return container
+
+
+async def _villa(container: Container, villa_id: str) -> tuple[CanonicalVilla, list[Listing]]:
+    villa = await container.villa_store().get(villa_id)
+    if villa is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "villa not found")
+    members = [x for m in sorted(villa.members) if (x := await container.listings.get(m))]
+    return villa, members
+
+
+def _combined_rating(members: list[Listing]) -> tuple[float | None, int]:
+    rated = [(x.rating_avg, x.rating_count) for x in members if x.rating_avg and x.rating_count]
+    count = sum(n for _, n in rated)
+    if not count:
+        return None, 0
+    return round(sum(r * n for r, n in rated) / count, 2), count
+
+
+class VillaSampleOut(BaseModel):
+    villa_id: str
+
+
+@router.get("/sample")
+async def sample_villas(
+    request: Request,
+    n: Annotated[int, Query(ge=1, le=200)] = 50,
+    seed: str = "7",
+) -> list[VillaSampleOut]:
+    """A deterministic sample of villas listed on more than one platform (smoke tests)."""
+    ids = await _container(request).villa_store().multi_platform()
+    ids.sort(key=lambda v: hashlib.sha256(f"{seed}:{v}".encode()).hexdigest())
+    return [VillaSampleOut(villa_id=v) for v in ids[:n]]
+
+
+@router.get("/{villa_id}")
+async def get_villa(villa_id: str, request: Request) -> VillaOut:
+    container = _container(request)
+    villa, members = await _villa(container, villa_id)
+    rating, count = _combined_rating(members)
+    return VillaOut(
+        id=villa.id,
+        members=[_listing_out(container, x) for x in members],
+        conflicts=[
+            ConflictOut(
+                field=c.field,
+                values={k: v for k, v in c.values.items() if isinstance(v, str | int)},
+            )
+            for c in conflicts(members)
+        ],
+        rating=rating,
+        rating_count=count,
+    )
+
+
+@router.get("/{villa_id}/offers")
+async def get_offers(
+    villa_id: str,
+    request: Request,
+    check_in: date,
+    check_out: date,
+    guests: Annotated[int, Query(ge=1, le=50)],
+) -> list[OfferOut]:
+    """Each listing's own all-in offer for this stay and group, side by side."""
+    try:
+        stay = StayRequest(DateRange(check_in, check_out), GuestCount(guests))
+    except DomainError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
+    container = _container(request)
+    _, members = await _villa(container, villa_id)
+    offers = []
+    for member in members:
+        offer = await container.offers().offer(member.id, stay)
+        if offer is not None:
+            offers.append(_offer_out(offer))
+    return offers
+
+
+@router.get("/{villa_id}/calendar")
+async def get_calendar(
+    villa_id: str, request: Request, start: date, end: date
+) -> list[VillaNightOut]:
+    if not start < end or (end - start).days > MAX_CALENDAR_DAYS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"need start < end and at most {MAX_CALENDAR_DAYS} days",
+        )
+    container = _container(request)
+    _, members = await _villa(container, villa_id)
+    window = DateRange(start, end)
+    by_platform = {m.id.platform: await container.listings.calendar(m.id, window) for m in members}
+    by_listing = {m.id.platform: m for m in members}
+    return [
+        VillaNightOut(
+            night=night.night,
+            by_platform={
+                p: _calendar_out(by_listing[p], o) for p, o in sorted(night.by_platform.items())
+            },
+            hidden=night.hidden,
+        )
+        for night in merge_calendars(by_platform, HIDDEN_NIGHT_GAP)
+    ]
+
+
+@router.get("/{villa_id}/reviews")
+async def get_reviews(villa_id: str, request: Request) -> list[VillaReviewOut]:
+    """Every listing's reviews, most recent stays first, each with its platform."""
+    container = _container(request)
+    _, members = await _villa(container, villa_id)
+    reviews = [r for m in members for r in await container.listings.reviews(m.id)]
+    reviews.sort(key=lambda r: (r.stayed_on or date.min, r.review_id), reverse=True)
+    return [
+        VillaReviewOut(**_review_out(r).model_dump(), platform=r.listing_id.platform)
+        for r in reviews
+    ]
+
+
+class VillaRefOut(BaseModel):
+    villa_id: str
+    members: int
+
+
+@router.get("/of/{platform}/{external_id}")
+async def villa_of(platform: str, external_id: str, request: Request) -> VillaRefOut:
+    """The villa a listing belongs to (every listing has one; members counts its listings)."""
+    villa = await _container(request).villa_store().villa_of(ListingId(platform, external_id))
+    if villa is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no villa for this listing")
+    return VillaRefOut(villa_id=villa.id, members=len(villa.members))

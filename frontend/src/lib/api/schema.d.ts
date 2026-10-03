@@ -436,6 +436,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/villas/of/{platform}/{external_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Villa Of
+         * @description The villa a listing belongs to (every listing has one; members counts its listings).
+         */
+        get: operations["villa_of_villas_of__platform___external_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/villas/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sample Villas
+         * @description A deterministic sample of villas listed on more than one platform (smoke tests).
+         */
+        get: operations["sample_villas_villas_sample_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/villas/{villa_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Villa */
+        get: operations["get_villa_villas__villa_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/villas/{villa_id}/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Calendar */
+        get: operations["get_calendar_villas__villa_id__calendar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/villas/{villa_id}/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Offers
+         * @description Each listing's own all-in offer for this stay and group, side by side.
+         */
+        get: operations["get_offers_villas__villa_id__offers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/villas/{villa_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Reviews
+         * @description Every listing's reviews, most recent stays first, each with its platform.
+         */
+        get: operations["get_reviews_villas__villa_id__reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -508,6 +622,15 @@ export interface components {
             distances: components["schemas"]["DistanceClaimOut"][];
             /** Features */
             features: components["schemas"]["FeatureClaimOut"][];
+        };
+        /** ConflictOut */
+        ConflictOut: {
+            /** Field */
+            field: string;
+            /** Values */
+            values: {
+                [key: string]: string | number;
+            };
         };
         /** ContributionOut */
         ContributionOut: {
@@ -1204,6 +1327,63 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** VillaNightOut */
+        VillaNightOut: {
+            /** By Platform */
+            by_platform: {
+                [key: string]: components["schemas"]["CalendarNightOut"];
+            };
+            /** Hidden */
+            hidden: boolean;
+            /**
+             * Night
+             * Format: date
+             */
+            night: string;
+        };
+        /** VillaOut */
+        VillaOut: {
+            /** Conflicts */
+            conflicts: components["schemas"]["ConflictOut"][];
+            /** Id */
+            id: string;
+            /** Members */
+            members: components["schemas"]["ListingOut"][];
+            /** Rating */
+            rating: number | null;
+            /** Rating Count */
+            rating_count: number;
+        };
+        /** VillaRefOut */
+        VillaRefOut: {
+            /** Members */
+            members: number;
+            /** Villa Id */
+            villa_id: string;
+        };
+        /** VillaReviewOut */
+        VillaReviewOut: {
+            /** Host Replied */
+            host_replied: boolean;
+            /** Id */
+            id: string;
+            /** Platform */
+            platform: string;
+            provenance: components["schemas"]["ProvenanceOut"];
+            /** Rating */
+            rating: number | null;
+            /** Stayed On */
+            stayed_on: string | null;
+            /** Stayed Precision */
+            stayed_precision: ("day" | "month") | null;
+            /** Text */
+            text: string | null;
+        };
+        /** VillaSampleOut */
+        VillaSampleOut: {
+            /** Villa Id */
+            villa_id: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1888,6 +2068,201 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SummaryReviewTaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    villa_of_villas_of__platform___external_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform: string;
+                external_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VillaRefOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sample_villas_villas_sample_get: {
+        parameters: {
+            query?: {
+                n?: number;
+                seed?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VillaSampleOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_villa_villas__villa_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                villa_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VillaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_calendar_villas__villa_id__calendar_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+            };
+            header?: never;
+            path: {
+                villa_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VillaNightOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_offers_villas__villa_id__offers_get: {
+        parameters: {
+            query: {
+                check_in: string;
+                check_out: string;
+                guests: number;
+            };
+            header?: never;
+            path: {
+                villa_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reviews_villas__villa_id__reviews_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                villa_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VillaReviewOut"][];
                 };
             };
             /** @description Validation Error */
