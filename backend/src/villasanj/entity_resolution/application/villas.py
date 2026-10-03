@@ -18,6 +18,7 @@ from typing import Protocol
 
 from villasanj.catalog.application.reading import ListingReader
 from villasanj.catalog.domain.listing import ListingId
+from villasanj.entity_resolution.application.labeling import labelled_items
 from villasanj.entity_resolution.application.ports import CandidateStore, LabelStore, VillaStore
 from villasanj.entity_resolution.domain.clustering import (
     Clustering,
@@ -26,7 +27,13 @@ from villasanj.entity_resolution.domain.clustering import (
     cluster,
     reconcile,
 )
-from villasanj.entity_resolution.domain.evaluation import BCubed, bcubed
+from villasanj.entity_resolution.domain.evaluation import (
+    BCubed,
+    LabelledScore,
+    Metrics,
+    bcubed,
+    evaluate,
+)
 from villasanj.entity_resolution.domain.labels import Label
 from villasanj.entity_resolution.domain.pairs import PairKey
 
@@ -47,8 +54,19 @@ class JudgementStore(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class DecisionPolicy:
-    threshold: float  # rule score at or above which a pair is a match (from the gold set)
-    judge_min_confidence: float = 1.1  # > 1: judge verdicts are not used
+    """Who decides a candidate pair, by its rule score (ADR-0009 stages 3-4, ADR-0014).
+
+    At or above ``judge_high`` the rules merge. In [``judge_low``, ``judge_high``) the judge's
+    verdict decides when there is one: "match" at ``judge_min_confidence`` or more merges,
+    "non_match" vetoes even a rule match, "unsure" or low confidence waits for a human. A pair
+    in the zone the judge has not seen, and every pair outside it, follows the rule threshold.
+    ``judge_low == judge_high`` turns the judge off.
+    """
+
+    threshold: float  # rule score of a match (from the gold set)
+    judge_low: float = 0.0
+    judge_high: float = 0.0
+    judge_min_confidence: float = 0.8
 
 
 @dataclass(slots=True)
@@ -60,25 +78,47 @@ class VillaReport:
     applied: Counter[str] = field(default_factory=Counter)  # decider -> merges applied
     blocked: Counter[str] = field(default_factory=Counter)  # reason -> merges refused
     events: Counter[str] = field(default_factory=Counter)  # id history: created, merged, ...
+    waiting_for_human: int = 0  # unsure or low-confidence judge verdicts in the zone
 
 
-def decisions(
+@dataclass(frozen=True, slots=True)
+class Decisions:
+    matches: list[MatchDecision]
+    waiting: list[PairKey]  # for the human review queue
+
+
+def decide(
     candidates: Sequence[tuple[PairKey, float, bool]],  # key, rule score, blocked
     judgements: Sequence[StoredJudgement],
     policy: DecisionPolicy,
-) -> list[MatchDecision]:
-    """Machine decisions: rule matches, then judge matches for pairs the rules did not decide."""
-    found: dict[PairKey, MatchDecision] = {}
+) -> Decisions:
+    judged = {j.key: j for j in judgements}
+    matches: list[MatchDecision] = []
+    waiting: list[PairKey] = []
     for key, score, blocked in candidates:
-        if blocked and key.cross_platform and score >= policy.threshold:
-            found[key] = MatchDecision(key, score, Decider.RULE)
-    for j in judgements:
-        if j.key in found or not j.key.cross_platform:
+        if not (blocked and key.cross_platform):
             continue
-        if j.verdict == "match" and j.confidence >= policy.judge_min_confidence:
-            # Below every rule match: the judge only decides what the rules could not.
-            found[j.key] = MatchDecision(j.key, policy.threshold - 1 + j.confidence, Decider.JUDGE)
-    return list(found.values())
+        in_zone = policy.judge_low <= score < policy.judge_high
+        verdict = judged.get(key) if in_zone else None
+        if verdict is None:
+            if score >= policy.threshold:
+                matches.append(MatchDecision(key, score, Decider.RULE))
+            continue
+        if verdict.verdict == "match" and verdict.confidence >= policy.judge_min_confidence:
+            # Below every rule match outside the zone: rules stay the strongest evidence.
+            weight = policy.judge_low - 1 + verdict.confidence
+            matches.append(MatchDecision(key, weight, Decider.JUDGE))
+        elif verdict.verdict != "non_match":
+            waiting.append(key)
+    return Decisions(matches, waiting)
+
+
+def decisions(
+    candidates: Sequence[tuple[PairKey, float, bool]],
+    judgements: Sequence[StoredJudgement],
+    policy: DecisionPolicy,
+) -> list[MatchDecision]:
+    return decide(candidates, judgements, policy).matches
 
 
 class BuildVillas:
@@ -100,14 +140,15 @@ class BuildVillas:
 
     async def clustering(
         self, policy: DecisionPolicy, labeler: str | None
-    ) -> tuple[list[ListingId], Clustering]:
+    ) -> tuple[list[ListingId], Clustering, list[PairKey]]:
         listing_ids = [
             x.id for platform in self._platforms for x in await self._listings.listings(platform)
         ]
         current = await self._candidates.current()
         rows = [(c.key, c.score.value, c.blocked) for c in current if c.score is not None]
         judged = await self._judgements.all() if self._judgements else []
-        machine = decisions(rows, judged, policy)
+        decided = decide(rows, judged, policy)
+        machine = decided.matches
         cannot: list[PairKey] = []
         human: list[MatchDecision] = []
         if labeler is not None:
@@ -118,11 +159,13 @@ class BuildVillas:
                     human.append(MatchDecision(label.key, HUMAN_WEIGHT, Decider.HUMAN))
                 elif label.label is Label.NON_MATCH:
                     cannot.append(label.key)
-        return listing_ids, cluster(listing_ids, [*human, *machine], cannot)
+        labelled = {lb.key for lb in await self._labels.labels(labeler)} if labeler else set()
+        waiting = [k for k in decided.waiting if k not in labelled]
+        return listing_ids, cluster(listing_ids, [*human, *machine], cannot), waiting
 
     async def run(self, policy: DecisionPolicy, labeler: str | None = "owner") -> VillaReport:
         run = await self._candidates.latest_run()
-        listing_ids, clustering = await self.clustering(policy, labeler)
+        listing_ids, clustering, waiting = await self.clustering(policy, labeler)
         reconciliation = reconcile(await self._villas.current(), clustering.clusters)
         if run is not None:
             await self._villas.replace(run.id, reconciliation.villas, reconciliation.events)
@@ -132,6 +175,7 @@ class BuildVillas:
         report.applied.update(d.decided_by.value for d in clustering.applied)
         report.blocked.update(b.reason.value for b in clustering.blocked)
         report.events.update(e.kind.value for e in reconciliation.events)
+        report.waiting_for_human = len(waiting)
         return report
 
 
@@ -151,7 +195,7 @@ class EvaluateVillas:
         self._labels = labels
 
     async def run(self, policy: DecisionPolicy, queue: str, labeler: str) -> ClusterEvaluation:
-        _, clustering = await self._build.clustering(policy, labeler=None)
+        _, clustering, _ = await self._build.clustering(policy, labeler=None)
         in_queue = {item.key for item in await self._labels.queue(queue)}
         labelled = [
             label
@@ -187,3 +231,45 @@ def _components(elements: set[ListingId], links: Sequence[PairKey]) -> list[froz
     for e in elements:
         groups.setdefault(root(e), set()).add(e)
     return [frozenset(g) for g in groups.values()]
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionEvaluation:
+    metrics: Metrics  # weighted pairwise, at the policy (labels not applied)
+    waiting: int  # labelled pairs the policy would send to a human
+
+
+class EvaluateDecisions:
+    """End-to-end pairwise precision and recall of a decision policy on the gold set (M5
+    criterion 2): rules, judge vetoes and judge merges together, the owner's labels unused."""
+
+    def __init__(
+        self, candidates: CandidateStore, labels: LabelStore, judgements: JudgementStore
+    ) -> None:
+        self._candidates = candidates
+        self._labels = labels
+        self._judgements = judgements
+
+    async def run(self, policy: DecisionPolicy, queue: str, labeler: str) -> DecisionEvaluation:
+        items = await self._labels.queue(queue)
+        labels = {label.key: label for label in await self._labels.labels(labeler)}
+        per_stratum = labelled_items(items, list(labels.values()))
+        current = {c.key: c for c in await self._candidates.current()}
+        rows = [(c.key, c.score.value, c.blocked) for c in current.values() if c.score is not None]
+        decided = decide(rows, await self._judgements.all(), policy)
+        merged = {d.key for d in decided.matches}
+        waiting = set(decided.waiting)
+        gold = []
+        for item in items:
+            label = labels.get(item.key)
+            if label is None or not item.key.cross_platform:
+                continue
+            weight = item.stratum_size / per_stratum[item.stratum]
+            # A merged pair scores 1, everything else 0: evaluate() at threshold 1.
+            gold.append(
+                LabelledScore(1.0 if item.key in merged else 0.0, label.label, True, weight)
+            )
+        return DecisionEvaluation(
+            evaluate(gold, 1.0),
+            sum(1 for item in items if item.key in waiting and item.key in labels),
+        )

@@ -61,7 +61,7 @@ from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluateAblations, EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
 from villasanj.entity_resolution.application.labeling import QueueExists
-from villasanj.entity_resolution.application.villas import DecisionPolicy
+from villasanj.entity_resolution.application.villas import DecisionPolicy, EvaluateDecisions
 from villasanj.entity_resolution.domain.evaluation import Interval, wilson
 from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container, build_container
@@ -1486,19 +1486,19 @@ def er_judge_zone(
 @er_app.command("villas")
 def er_villas(
     threshold: Annotated[float, typer.Option(help="Rule score of a match (from the gold set).")],
-    judge_min_confidence: Annotated[
-        float, typer.Option(help="Judge 'match' verdicts at or above this confidence merge.")
-    ] = 1.1,
+    judge_low: Annotated[float, typer.Option(help="The judge decides from this score...")] = 0.0,
+    judge_high: Annotated[float, typer.Option(help="...up to (not including) this one.")] = 0.0,
+    judge_min_confidence: Annotated[float, typer.Option(help="Judge match floor.")] = 0.8,
     labels: Annotated[bool, typer.Option(help="Apply the owner's labels.")] = True,
 ) -> None:
     """Cluster the match decisions into canonical villas (<= 1 listing per platform)."""
 
     async def run(container: Container) -> bool:
-        policy = DecisionPolicy(threshold, judge_min_confidence)
+        policy = DecisionPolicy(threshold, judge_low, judge_high, judge_min_confidence)
         r = await container.build_villas().run(policy, "owner" if labels else None)
         typer.echo(
             f"run={r.run_id} listings={r.listings} villas={r.villas} "
-            f"on_both_platforms={r.multi_platform}"
+            f"on_both_platforms={r.multi_platform} waiting_for_a_human={r.waiting_for_human}"
         )
         typer.echo(f"  merges applied by decider: {dict(sorted(r.applied.items()))}")
         typer.echo(f"  merges refused: {dict(sorted(r.blocked.items()))}")
@@ -1511,22 +1511,31 @@ def er_villas(
 @er_app.command("villas-eval")
 def er_villas_eval(
     threshold: Annotated[float, typer.Option(help="Rule score of a match.")],
-    judge_min_confidence: Annotated[float, typer.Option(help="Judge confidence floor.")] = 1.1,
+    judge_low: Annotated[float, typer.Option(help="Judge zone start.")] = 0.0,
+    judge_high: Annotated[float, typer.Option(help="Judge zone end.")] = 0.0,
+    judge_min_confidence: Annotated[float, typer.Option(help="Judge match floor.")] = 0.8,
     queue: Annotated[str, typer.Option(help="Gold queue.")] = "gold-v1",
 ) -> None:
-    """B-cubed of the machine clustering (no labels applied) against the owner's labels."""
+    """Pairwise (weighted) and B-cubed scores of the machine decisions against the labels."""
 
     async def run(container: Container) -> bool:
-        policy = DecisionPolicy(threshold, judge_min_confidence)
-        r = await container.villas_eval().run(policy, queue, "owner")
-        if r.bcubed is None:
-            typer.echo("no labelled listings to compare")
-            return False
+        policy = DecisionPolicy(threshold, judge_low, judge_high, judge_min_confidence)
+        pairwise = await EvaluateDecisions(
+            container.candidates(), container.labels(), container.judgements()
+        ).run(policy, queue, "owner")
+        m = pairwise.metrics
         typer.echo(
-            f"B-cubed over {r.bcubed.elements} labelled listings "
-            f"({r.gold_clusters} gold clusters): "
-            f"precision={r.bcubed.precision:.3f} recall={r.bcubed.recall:.3f} f1={r.bcubed.f1:.3f}"
+            f"pairwise (weighted): precision={_interval(m.precision)} "
+            f"recall={_interval(m.recall)} tp={m.true_positives} fp={m.false_positives} "
+            f"fn={m.false_negatives} tn={m.true_negatives} waiting_for_a_human={pairwise.waiting}"
         )
+        r = await container.villas_eval().run(policy, queue, "owner")
+        if r.bcubed is not None:
+            typer.echo(
+                f"B-cubed over {r.bcubed.elements} labelled listings "
+                f"({r.gold_clusters} gold clusters): precision={r.bcubed.precision:.3f} "
+                f"recall={r.bcubed.recall:.3f} f1={r.bcubed.f1:.3f}"
+            )
         return True
 
     if not asyncio.run(_with_container(run)):
