@@ -169,3 +169,14 @@ async def test_report_pairs_each_listing_once_and_measures_everything() -> None:
     assert "# M3 hypothesis report" in text
     assert "96.0%" in text
     assert "| jabama | 2 | 2 | 100.0% |" in text
+
+
+def test_the_overlap_is_corrected_for_precision_and_recall_and_capped() -> None:
+    from villasanj.discovery.domain.hypotheses import corrected_overlap
+
+    found = corrected_overlap(320, (0.981, 0.930, 0.995), (0.671, 0.446, 0.838), cap=601)
+    assert found is not None
+    assert round(found.estimate) == 468  # 320 x 0.981 / 0.671
+    assert round(found.low) == 355  # 320 x 0.930 / 0.838
+    assert found.high == 601  # 320 x 0.995 / 0.446 = 714, capped by the smaller platform
+    assert corrected_overlap(10, (1.0, 0.9, 1.0), (0.0, 0.0, 0.2), cap=50) is None

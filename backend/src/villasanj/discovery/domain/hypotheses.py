@@ -101,3 +101,33 @@ def _newest(observations: Iterable[CalendarObservation]) -> dict[date, CalendarO
         if current is None or observation.observed_at > current.observed_at:
             newest[observation.night] = observation
     return newest
+
+
+@dataclass(frozen=True, slots=True)
+class OverlapEstimate:
+    """Real cross-platform pairs estimated from the predicted ones (H1).
+
+    Predicted = TP + FP and real = TP + FN, so real ~ predicted x precision / recall. The range
+    combines the ends of the two Wilson intervals (conservative; not itself a 95% interval) and
+    is capped by the platform with fewer listings, since a listing has at most one partner.
+    """
+
+    estimate: float
+    low: float
+    high: float
+
+
+def corrected_overlap(
+    predicted: int,
+    precision: tuple[float, float, float],  # estimate, low, high
+    recall: tuple[float, float, float],
+    cap: int,
+) -> OverlapEstimate | None:
+    p, p_low, p_high = precision
+    r, r_low, r_high = recall
+    if r <= 0 or r_high <= 0:
+        return None
+    high = predicted * p_high / r_low if r_low > 0 else float(cap)
+    return OverlapEstimate(
+        min(predicted * p / r, cap), min(predicted * p_low / r_high, cap), min(high, cap)
+    )

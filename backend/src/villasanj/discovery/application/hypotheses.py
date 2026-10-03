@@ -11,8 +11,10 @@ from villasanj.catalog.application.reading import ListingReader
 from villasanj.catalog.domain.listing import ListingId
 from villasanj.discovery.domain.hypotheses import (
     GapSummary,
+    OverlapEstimate,
     PriceGap,
     compare_calendars,
+    corrected_overlap,
     price_gap,
     summarize_gaps,
 )
@@ -143,6 +145,16 @@ class BuildHypothesisReport:
         return chosen
 
 
+def _corrected(report: HypothesisReport) -> OverlapEstimate | None:
+    p, r = report.precision, report.recall
+    if p is None or r is None or p.estimate is None or r.estimate is None:
+        return None
+    cap = min(report.listings.values(), default=0)
+    return corrected_overlap(
+        report.pairs, (p.estimate, p.low, p.high), (r.estimate, r.low, r.high), cap
+    )
+
+
 def _interval(value: Interval | None) -> str:
     if value is None or value.estimate is None:
         return "not measured"
@@ -170,11 +182,34 @@ def render_markdown(report: HypothesisReport) -> str:
         hits = report.matched.get(platform, 0)
         share = f"{hits / total:.1%}" if total else "-"
         lines.append(f"| {platform} | {total} | {hits} | {share} |")
+    corrected = _corrected(report)
+    if corrected is not None:
+        total = sum(report.listings.values())
+
+        def villas(pairs: float) -> str:
+            return f"{pairs / (total - pairs):.1%}"
+
+        shares = ", ".join(
+            f"{platform} {corrected.estimate / n:.1%} ({corrected.low / n:.1%}–"
+            f"{corrected.high / n:.1%})"
+            for platform, n in report.listings.items()
+            if n
+        )
+        lines += [
+            "",
+            f"Corrected for the matcher (real ≈ predicted × precision / recall): about "
+            f"**{corrected.estimate:.0f}** real pairs (range {corrected.low:.0f}–"
+            f"{corrected.high:.0f}, from the ends of the two Wilson intervals and capped by the "
+            f"smaller platform; not itself a 95% interval). Listings with a partner: {shares}. "
+            f"Distinct villas on both platforms: **{villas(corrected.estimate)}** of all villas "
+            f"in the catalog (range {villas(corrected.low)}–{villas(corrected.high)}).",
+        ]
     lines += [
         "",
         "Caveats: predicted matches include false positives (see precision) and miss pairs the "
         "matcher or the blocking did not find (see recall), so the shares are estimates, not "
-        "counts of real villas.",
+        "counts of real villas. The crawl covers the Ramsar–Tonekabon region of two platforms; "
+        "villas listed only on other platforms are not counted.",
         "",
         "## H2 — listed totals for the same villa and stay",
         "",
