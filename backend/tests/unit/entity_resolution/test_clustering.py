@@ -108,6 +108,19 @@ def test_new_ids_are_deterministic() -> None:
     assert reconcile({}, [frozenset({J1})]).villas[0].id == new_villa_id([J1])
 
 
+def test_a_split_never_gives_two_villas_one_id() -> None:
+    # The merged villa was born as J1 alone, so J1 alone hashes to its id; after the split the
+    # old id goes to the first part, and J1 needs another one (found on real data, 2026-10-03).
+    born = new_villa_id([J1])
+    result = reconcile({born: frozenset({J1, S1})}, [frozenset({S1}), frozenset({J1})])
+    ids = [v.id for v in result.villas]
+    assert ids[0] == born
+    assert len(set(ids)) == 2
+    assert ids[1] == new_villa_id([J1], {born})  # still deterministic
+    retired = reconcile({born: frozenset({S1})}, [frozenset({J1})])
+    assert retired.villas[0].id != born  # a retired id is never reused for another villa
+
+
 def test_bcubed_rewards_exact_clusters_and_penalises_over_and_under_merging() -> None:
     gold = [frozenset({J1, S1}), frozenset({J2}), frozenset({S2})]
     perfect = bcubed(gold, gold)

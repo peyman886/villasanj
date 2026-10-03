@@ -14,7 +14,7 @@ overlaps most, and splits and merges are recorded.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Container, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -141,10 +141,17 @@ class Reconciliation:
     events: tuple[VillaEvent, ...] = field(default=())
 
 
-def new_villa_id(members: Iterable[ListingId]) -> str:
-    """Deterministic id for a cluster without a predecessor."""
-    digest = hashlib.sha256("|".join(str(m) for m in sorted(members)).encode()).hexdigest()
-    return f"v-{digest[:12]}"
+def new_villa_id(members: Iterable[ListingId], taken: Container[str] = frozenset()) -> str:
+    """Deterministic id for a cluster without a predecessor, never one in ``taken``: after a
+    split, the part that loses the old id may hash to it (the id was born from its members)."""
+    key = "|".join(str(m) for m in sorted(members))
+    salt = 0
+    while True:
+        text = key if salt == 0 else f"{key}#{salt}"
+        candidate = f"v-{hashlib.sha256(text.encode()).hexdigest()[:12]}"
+        if candidate not in taken:
+            return candidate
+        salt += 1
 
 
 def reconcile(
@@ -168,8 +175,10 @@ def reconcile(
             used.add(old_id)
     villas = []
     events = []
+    taken = set(previous) | used  # a retired id is never reused for another villa
     for index, group in enumerate(clusters):
-        villa_id = assigned.get(index) or new_villa_id(group)
+        villa_id = assigned.get(index) or new_villa_id(group, taken)
+        taken.add(villa_id)
         villas.append(CanonicalVilla(villa_id, group))
         sources = tuple(sorted(old for old, members in previous.items() if group & members))
         if index not in assigned:  # a new id, perhaps born from a split: name where it came from
