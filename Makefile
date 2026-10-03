@@ -6,7 +6,7 @@ JOB ?= llm-smoke
 
 .DEFAULT_GOAL := help
 .PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live openapi openapi-check lint fmt \
-	test-e2e test-smoke post-crawl osm-download osm-prepare routing-up routing-down geo \
+	test-e2e test-smoke basemap post-crawl osm-download osm-prepare routing-up routing-down geo \
 	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-scenarios crawl-status crawl-metrics reparse report match eval eval-hypotheses
 
 help: ## Show available targets
@@ -88,6 +88,9 @@ routing-up: ## Start OSRM (profile "routing"); the core stack is not touched
 
 routing-down: ## Stop OSRM
 	docker compose --profile routing stop osrm
+
+basemap: ## Offline basemap: a Protomaps extract of the region + glyphs + sprites (13 MB) in data/basemap
+	infra/basemap/prepare.sh
 
 geo: ## Coastline + places into PostGIS, distances, drive times, truth checks (OSRM must be up)
 	cd backend && uv run villasanj enrichment coastline-load && uv run villasanj enrichment coast \

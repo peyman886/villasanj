@@ -11,6 +11,7 @@ import {
   type Review,
 } from "@/lib/api/client";
 import { ListingMap } from "@/components/listing-map";
+import { readBasemap } from "@/lib/basemap";
 import { addDays, iranToday } from "@/lib/listing";
 
 import {
@@ -93,7 +94,7 @@ export default async function ListingPage(props: {
 }) {
   const { platform, id } = await props.params;
   const now = new Date();
-  const data = await load(platform, id, now);
+  const [data, basemap] = await Promise.all([load(platform, id, now), readBasemap()]);
   if (data === null) notFound();
   const { listing } = data;
   return (
@@ -105,6 +106,7 @@ export default async function ListingPage(props: {
           lon={listing.location.lon}
           radiusM={listing.location.radius_m ?? ASSUMED_RADIUS_M}
           assumed={listing.location.radius_m === null}
+          basemap={basemap?.pmtiles ?? null}
         />
       ) : null}
       <Photos listing={listing} />

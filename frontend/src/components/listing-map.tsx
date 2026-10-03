@@ -2,6 +2,8 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 
+import { layers, namedFlavor } from "@protomaps/basemaps";
+import type { StyleSpecification } from "maplibre-gl";
 import { useEffect, useRef } from "react";
 
 import { faNumber } from "@/lib/listing";
@@ -9,8 +11,9 @@ import { faNumber } from "@/lib/listing";
 /**
  * Where the listing can be: its published pin and blur circle on OpenStreetMap (ROADMAP M7).
  * Static on purpose (no drag or zoom): it gives context, never steals scroll or keyboard focus.
- * The basemap is OSM's raster tiles with attribution (ADR-0003 decision 6); the offline demo
- * (M11) swaps in a local style through NEXT_PUBLIC_MAP_STYLE_URL.
+ * With a prepared local basemap (a Protomaps extract served by /basemap, ADR-0003 amendment) it
+ * needs no network and labels places in Persian; otherwise it uses OSM's raster tiles with
+ * attribution (ADR-0003 decision 6).
  */
 const OSM_RASTER = {
   version: 8 as const,
@@ -25,6 +28,25 @@ const OSM_RASTER = {
   },
   layers: [{ id: "osm", type: "raster" as const, source: "osm" }],
 };
+
+let pmtilesRegistered = false;
+
+/** The local Protomaps style (absolute URLs: MapLibre fetches glyphs from its workers). */
+export function localStyle(origin: string, pmtiles: string): StyleSpecification {
+  return {
+    version: 8,
+    glyphs: `${origin}/basemap/fonts/{fontstack}/{range}.pbf`,
+    sprite: `${origin}/basemap/sprites/light`,
+    sources: {
+      protomaps: {
+        type: "vector",
+        url: `pmtiles://${origin}/basemap/${pmtiles}`,
+        attribution: "© مشارکت‌کنندگان OpenStreetMap · Protomaps",
+      },
+    },
+    layers: layers("protomaps", namedFlavor("light"), { lang: "fa" }),
+  };
+}
 
 const EARTH_RADIUS_M = 6_371_008.8;
 const WORKER_URL = "/maplibre/maplibre-gl-worker.mjs"; // copied by scripts/copy-maplibre-worker.mjs
@@ -56,23 +78,30 @@ export function ListingMap({
   lon,
   radiusM,
   assumed,
+  basemap,
 }: {
   lat: number;
   lon: number;
   radiusM: number;
   assumed: boolean; // the platform publishes no radius: the circle is our assumption
+  basemap: string | null; // the local PMTiles file name, or null for OSM's raster tiles
 }) {
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let removed = false;
     let map: { remove: () => void } | null = null;
-    void import("maplibre-gl").then(({ Map, setWorkerUrl }) => {
+    void Promise.all([import("maplibre-gl"), import("pmtiles")]).then(([maplibre, pmtiles]) => {
+      const { Map, setWorkerUrl, addProtocol } = maplibre;
       if (removed || !container.current) return;
       setWorkerUrl(WORKER_URL);
+      if (basemap && !pmtilesRegistered) {
+        addProtocol("pmtiles", new pmtiles.Protocol().tile);
+        pmtilesRegistered = true;
+      }
       const instance = new Map({
         container: container.current,
-        style: process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? OSM_RASTER,
+        style: basemap ? localStyle(window.location.origin, basemap) : OSM_RASTER,
         center: [lon, lat],
         zoom: radiusM > 600 ? 13.5 : 14.3,
         interactive: false,
@@ -129,7 +158,7 @@ export function ListingMap({
       removed = true;
       map?.remove();
     };
-  }, [lat, lon, radiusM, assumed]);
+  }, [lat, lon, radiusM, assumed, basemap]);
 
   return (
     <figure className="mt-6">

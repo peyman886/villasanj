@@ -169,6 +169,7 @@ make openapi / openapi-check           # regenerate / verify the OpenAPI schema 
 make osm-download / osm-prepare         # Geofabrik Iran snapshot -> clipped extract, coastline, OSRM graph
 make routing-up / routing-down          # OSRM (compose profile routing); core stack untouched
 make geo                                # coastline + places into PostGIS, distances, drive times, truth checks
+make basemap                            # offline basemap (Protomaps extract, 13 MB) in data/basemap
 make seed                               # nothing to seed until M11
 ```
 

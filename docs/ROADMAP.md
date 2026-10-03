@@ -496,6 +496,7 @@ result.
 | Public «چطور رتبه‌بندی می‌کنیم» page `/how-we-rank`, linked from search: what excludes (stated facts only), the order and the two weighted components, prices, truth-check meanings and rules, drive times, how the explanation is written; its numbers come from `GET /search/ranking` (the constants the code uses) | M8 scope ("how we rank" note, no commission factor) | ✅ done | weights tuned by M8's ranking eval |
 | Query wishes outside the schema said back (prompt v4, `unhandled`, verbatim-checked): search shows them as not measured and marks results whose own text mentions one; draft-set re-run 100% slots / 100% exact / p95 1.4 s (ADR-0005 amendment) | M8 crit. 1 (and honesty about what is not used) | ✅ done; provisional with the draft set | expected `unhandled` values in the owner-reviewed set |
 | Claim labelling tool `/label/claims` (migration 0013): queue `claims-v1` of 60 descriptions (≥ 80 characters) drawn once (`enrichment claim-queue`); for each, the owner marks every feature has / has not / shared / says nothing, without seeing the rules' output; `enrichment claims-eval` scores claim-level precision and recall with Wilson CIs, overall and per feature; progress on `/metrics`. Rehearsed end to end, rehearsal deleted | M9 crit. 1 | ✅ built; **waits for the owner's labels** | — |
+| Offline basemap (`make basemap`, ADR-0003 amendment): Protomaps extract of the region (build 20261003, z0–15, 11 MB) + glyphs + sprites, served at `/basemap/*` with byte ranges, Persian labels; the listing map uses it when prepared and loads no external tiles (E2E `basemap.spec.ts`) | M11 crit. 1 (basemap part) | ✅ done | the rest of `make demo` (local data bundle, photos) |
 
 Still blocked or waiting:
 - **M1 crit. 8:** compare the ledger with the AvalAI dashboard (needs the owner's dashboard access).
@@ -505,7 +506,7 @@ Still blocked or waiting:
 - **M8:** the 50-query eval set needs the owner's review before its result counts; the latency target is met by gpt-5.4-mini on the draft set (p95 1.4 s with prompt v4, ADR-0005 amendments) but is provisional with the set; retrieval eval (crit. 2) and villa-level ranking need M5.
 - **M9:** distance claims are judged against the coastline and OSM places (ADR-0013 and its amendment); the 60-description claim eval (`/label/claims`, claims-v1 drawn) and the photo tag eval (`/label/photos`, photos-v1: 336 photos drawn) need hand labels; photo tags are scored (SigLIP 2) but get no threshold before those labels.
 - **M10:** the blind review of 20 summaries (`/label/summaries`) is the owner's; explanation latency (crit. 4) is not met uncached.
-- **M11:** offline basemap and `make demo` (needs a basemap download the owner approves), storyboard rehearsal with final data.
+- **M11:** `make demo` (local data bundle; the basemap is done), storyboard rehearsal with final data.
 
 ---
 

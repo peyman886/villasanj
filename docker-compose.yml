@@ -64,6 +64,9 @@ services:
     image: villasanj-web:local
     environment:
       API_URL: http://api:8000
+      BASEMAP_DIR: /basemap  # offline basemap (make basemap); OSM raster tiles when it is empty
+    volumes:
+      - ./data/basemap:/basemap:ro
     ports:
       - "127.0.0.1:${VILLASANJ_WEB_PORT:-3300}:3000"
     depends_on:

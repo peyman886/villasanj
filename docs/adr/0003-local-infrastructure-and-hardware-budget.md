@@ -78,3 +78,19 @@ criterion 1) cannot use them, and bulk-downloading OSM tiles is against OSM's ti
 builds a local style from the clipped extract `data/osm/north.osm.pbf` and sets
 `NEXT_PUBLIC_MAP_STYLE_URL`. MapLibre 6 needs its worker files served next to each other; they are
 copied from `node_modules` into `public/maplibre/` before `next dev` and `next build`.
+
+## Amendment (2026-10-03): the offline basemap is a Protomaps extract
+
+Building our own vector tiles from `north.osm.pbf` would need a tile build toolchain (planetiler
+or tilemaker) and a hand-made Persian style. Protomaps publishes a daily planet build of the same
+OSM data as one PMTiles archive, its style generator (`@protomaps/basemaps`, Persian labels with
+`lang: "fa"`) and its glyphs, so `make basemap` (`infra/basemap/prepare.sh`) extracts the
+Ramsar–Tonekabon box with the official `protomaps/go-pmtiles` image: build 20261003, bbox
+50.1,36.4,51.4,37.2, zoom 0–15, **11 MB** (measured with `--dry-run` first), plus 33 glyph ranges
+(Latin, punctuation, Arabic script and presentation forms) and the light sprites: 13 MB in
+`data/basemap`, git-ignored like the OSM extract. The web app serves it at `/basemap/*` with byte
+ranges (PMTiles reads its archive in ranges; a path cannot leave the directory) and the listing
+map uses it whenever `basemap.json` is there, else OSM's raster tiles. Docker mounts the directory
+read-only (`BASEMAP_DIR`). MapLibre shapes Arabic script itself, so no RTL plugin is loaded.
+Attribution: «© مشارکت‌کنندگان OpenStreetMap · Protomaps» (ODbL; Protomaps code BSD).
+`NEXT_PUBLIC_MAP_STYLE_URL` is no longer used.
