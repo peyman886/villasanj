@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI, Request, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from villasanj.entrypoints.api.claim_labels import router as claim_labels_router
@@ -18,6 +20,7 @@ from villasanj.entrypoints.api.search import router as search_router
 from villasanj.entrypoints.api.summary_reviews import router as summary_reviews_router
 from villasanj.entrypoints.api.villas import router as villas_router
 from villasanj.entrypoints.container import Container, build_container
+from villasanj.shared.application.errors import BudgetExceeded, LLMError
 
 
 class ProbeOut(BaseModel):
@@ -33,6 +36,9 @@ class HealthOut(BaseModel):
 
 class LiveOut(BaseModel):
     status: str
+
+
+log = structlog.get_logger(__name__)
 
 
 def create_app(container_factory: Callable[[], Container] = build_container) -> FastAPI:
@@ -55,6 +61,18 @@ def create_app(container_factory: Callable[[], Container] = build_container) -> 
     app.include_router(summary_reviews_router)
     app.include_router(claim_labels_router)
     app.include_router(villas_router)
+
+    async def llm_unavailable(request: Request, error: Exception) -> JSONResponse:
+        # Summaries, explanations and query understanding are optional parts of a page: a
+        # model that cannot answer (quota, outage, output still invalid) is a 503, never a 500.
+        log.warning("api.llm_unavailable", path=request.url.path, error=type(error).__name__)
+        return JSONResponse(
+            {"detail": "the language model is not available now"},
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    app.add_exception_handler(LLMError, llm_unavailable)
+    app.add_exception_handler(BudgetExceeded, llm_unavailable)
 
     @app.get("/health/live")
     async def live() -> LiveOut:

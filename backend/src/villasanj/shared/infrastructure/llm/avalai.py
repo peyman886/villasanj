@@ -17,6 +17,7 @@ from villasanj.shared.application.llm.ports import (
     ProviderAuthError,
     ProviderCall,
     ProviderError,
+    ProviderQuotaError,
     ProviderRejectedError,
     ProviderResult,
     ProviderTransientError,
@@ -33,6 +34,8 @@ _FINISH_REASONS = {
 }
 _MS_PER_SECOND = 1000
 _HTTP_TOO_MANY_REQUESTS = 429
+# A 429 with one of these codes is a spending limit, not a rate limit (AvalAI, OpenAI).
+_QUOTA_CODES = frozenset({"monthly_quota_exceeded", "insufficient_quota"})
 _HTTP_SERVER_ERROR = 500
 
 
@@ -174,6 +177,8 @@ def _map_error(error: openai.OpenAIError) -> ProviderError:
         return ProviderAuthError(f"http-{error.status_code}")
     if isinstance(error, openai.APIStatusError):
         code = f"http-{error.status_code}"
+        if error.status_code == _HTTP_TOO_MANY_REQUESTS and _QUOTA_CODES & {error.code, error.type}:
+            return ProviderQuotaError("quota-exceeded")
         if error.status_code == _HTTP_TOO_MANY_REQUESTS or error.status_code >= _HTTP_SERVER_ERROR:
             return ProviderTransientError(code, retry_after_seconds=_retry_after(error))
         return ProviderRejectedError(code)

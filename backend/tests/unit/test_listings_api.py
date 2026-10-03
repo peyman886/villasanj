@@ -41,6 +41,7 @@ from villasanj.ingestion.domain.parsed import (
     TravelMode,
 )
 from villasanj.pricing.application.offers import OfferBook
+from villasanj.shared.application.errors import LLMUnavailable
 from villasanj.shared.application.llm.types import JobContext
 from villasanj.shared.domain.geo import GeoPoint
 from villasanj.shared.domain.stay import DateRange
@@ -357,3 +358,17 @@ def test_review_summary_cites_reviews_and_is_null_with_too_few(client: TestClien
         {"text": f"مهمان{ZWNJ}ها از تمیزی راضی بودند", "review_ids": ["R1"], "single_opinion": True}
     ]
     assert (body["cons"], body["reviews_given"]) == ([], 3)
+
+
+def test_a_model_that_cannot_answer_is_a_503_not_a_500(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Down:
+        async def for_listing(self, listing_id: ListingId, ctx: JobContext) -> None:
+            raise LLMUnavailable("review_summary: the key's spending limit is reached")
+
+    monkeypatch.setattr(Stub, "review_summaries", lambda self: Down())
+    path = f"/listings/{LISTING.id.platform}/{LISTING.id.external_id}/review-summary"
+    response = client.get(path)
+    assert response.status_code == 503
+    assert response.json() == {"detail": "the language model is not available now"}

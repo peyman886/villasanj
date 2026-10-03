@@ -13,6 +13,7 @@ from villasanj.shared.application.llm.ports import (
     ModelInvoker,
     ProviderAuthError,
     ProviderError,
+    ProviderQuotaError,
 )
 from villasanj.shared.application.llm.routing import LLMRouting
 from villasanj.shared.application.llm.types import JobContext, LLMRequest, LLMResponse, LLMTask
@@ -46,6 +47,8 @@ class RoutedLLMClient:
                     )
                 except ProviderAuthError:
                     raise LLMUnavailable("the LLM provider rejected our credentials") from None
+                except ProviderQuotaError:
+                    raise LLMUnavailable("the LLM key's spending limit is reached") from None
                 except ProviderError as error:
                     if not error.fallback_allowed:
                         raise LLMUnavailable(f"{request.task}: {error.code}") from None

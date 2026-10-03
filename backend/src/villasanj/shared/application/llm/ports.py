@@ -118,6 +118,11 @@ class ProviderAuthError(ProviderError):
     """Credentials were rejected: neither retry nor fallback can help."""
 
 
+class ProviderQuotaError(ProviderError):
+    """The key's spending limit is reached (a 429 that is not a rate limit): every model is
+    billed to the same key, so neither retry nor fallback can help until the owner raises it."""
+
+
 class RawModelProvider(Protocol):
     @property
     def name(self) -> str: ...

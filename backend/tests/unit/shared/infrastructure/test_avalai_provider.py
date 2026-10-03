@@ -14,6 +14,7 @@ from villasanj.shared.application.llm.ports import (
     FinishReason,
     ProviderAuthError,
     ProviderCall,
+    ProviderQuotaError,
     ProviderRejectedError,
     ProviderTransientError,
 )
@@ -138,6 +139,20 @@ async def test_http_errors_are_mapped_without_leaking(
     assert "prompt text" not in str(caught.value)
     assert caught.value.code == f"http-{status}"  # type: ignore[attr-defined]
     assert caught.value.retry_after_seconds == retry_after  # type: ignore[attr-defined]
+
+
+async def test_a_spending_limit_is_not_retried_like_a_rate_limit() -> None:
+    def handler(_request: httpx2.Request) -> httpx2.Response:
+        error = {"message": "Monthly spending limit reached", "type": "monthly_quota_exceeded"}
+        return httpx2.Response(429, json={"error": {**error, "code": "monthly_quota_exceeded"}})
+
+    with pytest.raises(ProviderQuotaError) as caught:
+        await provider(handler).complete(call())
+    assert (caught.value.code, caught.value.retriable, caught.value.fallback_allowed) == (
+        "quota-exceeded",
+        False,
+        False,
+    )
 
 
 async def test_connection_failure_is_transient() -> None:
