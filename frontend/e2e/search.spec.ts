@@ -18,7 +18,8 @@ test.describe("search page", () => {
 
   test("results, the explanation and the budget question are shown", async ({ page }) => {
     await expect(page.locator("ol > li").first()).toBeVisible();
-    await expect(page.locator("#why-title")).toBeVisible();
+    // The explanation streams in after the results; uncached it can take several seconds.
+    await expect(page.locator("#why-title")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("link", { name: /هر شب/ })).toBeVisible();
   });
 
