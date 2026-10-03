@@ -61,10 +61,51 @@ ROADMAP M5 · Reproduce with `er judge-eval`, `er judge-zone`, `er villas`, `er 
 - (+) Recall can rise without losing precision: the judge sees the photos the rule score only
   hashes, including rooms the hashes cannot align.
 - (+) Every merge is traceable to a decider (rule, judge, human) and the judge's rationale is stored.
-- (−) A full zone run costs about $6.5 and hours of wall time; new candidates are judged
-  incrementally.
+- (−) A full zone run cost $9.58 for 2,885 pairs (2,989 calls, about $0.0034 a judged pair,
+  75 minutes at four at a time); new candidates are judged incrementally.
 - (−) The judge still sees only the five coverage photos of each listing; where they show
   different rooms it says "unsure", and those pairs wait for a human.
 - (−) The same-platform pairs the owner labelled "same villa" are units of one complex with shared
   photos (ROADMAP M3 results); the judge's prompt treats shared areas alone as "unsure", which is
   the protocol's reading.
+
+
+## Amendment (end-to-end evaluation, 2026-10-03): the judge is advisory until labels can verify it
+
+`er judge-zone` judged 2,885 production candidates in [−2, 3) (1 failed): below the threshold
+86 confident matches, 2,277 non-matches, 190 unsure; at or above it 189 matches, 87 non-matches
+(vetoes of rule matches), 23 unsure. The three gold matches the rules miss got confident matches
+(0.95–0.99). End to end on gold-v1 (`reports/er-eval-2026-10-03.md`, labels not applied):
+
+| Policy | Precision (95% CI) | Recall | Bar |
+|---|---|---|---|
+| rules alone at −0.25 | 98.1% (93.0–99.5%) | 67.1% | yes |
+| judge merges and vetoes in [−2, 3) | 100.0% (81.6–100%) | 94.8% | **no** |
+| judge merges, no vetoes | 98.7% (81.3–99.9%) | 100.0% | no |
+| judge in [−0.25, 3) only | 100.0% (96.0–100%) | 61.9% | yes |
+
+Two findings decide it:
+
+1. **Judge merges below the threshold cannot be verified yet.** They sit in the geo band, where
+   gold-v1 has 30 labelled pairs, each standing for about 84 candidates, and only 2–3 of them are
+   matches. With no error observed the interval is still 81.6–100%: the effective sample is too
+   small to show 92%. The band holds about 2,300 non-matching candidates, so a false-merge rate
+   of only 1% would mean about 23 wrong merges among the judge's 86.
+2. **Its vetoes contradict the owner's labels on units of one complex.** Five of the seven
+   labelled pairs the judge vetoes are labelled "same villa"; in each the judge names different
+   unit numbers in one complex («واحد ۲» / «واحد ۴», cottage 1 / cottage 2), the same pattern as the
+   41 same-platform labels in the M3 results. The labelling protocol's rule 2 marks such pairs N or
+   U, so whether the judge or the labels are right is the owner's call.
+
+Decision: following the rule of ADR-0009 (the highest recall that clears the bar),
+`config/er.toml` sets `judge_merges = false` and `judge_vetoes = false`. The machine merges are
+the rules' (98.1%, 67.1%); the judge orders the human queue `er-human`: 83 suggested matches
+first, then 81 disputes of rule matches, then 212 unsure, most confident first. A confirmed
+suggestion is a must-link, so recall rises only with human-verified precision. Turning the judge's
+merges on needs either more labels in the geo band (the queue's own labels serve) or a gold-v2
+sample there; re-run `er report` and flip the flags when a policy with the judge clears the bar.
+If the owner relabels the complex-unit pairs as different villas, the vetoing policies gain and
+the rules lose precision, so the same report decides again.
+
+`expected_output_tokens` for `er_judge` is now 340 (mean of the production run; the bake-off's
+173 underestimated the zone run by about a third).

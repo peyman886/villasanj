@@ -71,7 +71,7 @@ concurrency = 8
 model = "gemini-3.8-flash"
 fallbacks = ["gpt-5.4-mini"]
 max_output_tokens = 1500
-expected_output_tokens = 180  # measured 2026-10-03 on 143 calls: mean 173 (95 reasoning)
+expected_output_tokens = 340  # production zone run 2026-10-03: mean 340 on 2,989 calls (bake-off 173)
 temperature = 0.0
 concurrency = 4
 

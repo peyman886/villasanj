@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from villasanj.entity_resolution.application.labeling import labelled_items
@@ -42,7 +43,9 @@ class EvaluateMatcher:
         self._candidates = candidates
         self._labels = labels
 
-    async def run(self, queue: str, labeler: str) -> EvaluationReport:
+    async def run(
+        self, queue: str, labeler: str, curve: Sequence[float] = CURVE_POINTS
+    ) -> EvaluationReport:
         items = await self._labels.queue(queue)
         labels = {label.key: label for label in await self._labels.labels(labeler)}
         in_queue = [item for item in items if item.key in labels]
@@ -75,7 +78,7 @@ class EvaluateMatcher:
             labelled=len(in_queue),
             unsure=wilson(unsure, len(in_queue)),
             operating_point=operating_point(gold),
-            curve=tuple(evaluate(gold, threshold) for threshold in CURVE_POINTS),
+            curve=tuple(evaluate(gold, threshold) for threshold in curve),
             blocking_recall=blocking_recall(gold),
             labels_by_stratum={k: dict(v) for k, v in sorted(by_stratum.items())},
             same_platform=dict(same_platform),

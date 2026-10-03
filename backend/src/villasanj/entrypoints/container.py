@@ -77,6 +77,7 @@ from villasanj.entity_resolution.application.judge import JudgePairs
 from villasanj.entity_resolution.application.judge_eval import EvaluateJudge
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
 from villasanj.entity_resolution.application.matching import MatchListings
+from villasanj.entity_resolution.application.report import BuildErReport
 from villasanj.entity_resolution.application.villas import (
     BuildVillas,
     ErConfig,
@@ -258,6 +259,15 @@ class Container:
 
     def villas_eval(self) -> EvaluateVillas:
         return EvaluateVillas(self.build_villas(), self.labels())
+
+    def er_report(self) -> BuildErReport:
+        return BuildErReport(
+            self.candidates(),
+            self.labels(),
+            self.judgements(),
+            self.villas_eval(),
+            self.er_config(),
+        )
 
     def judge_eval(self) -> EvaluateJudge:
         return EvaluateJudge(self.candidates(), self.labels(), self.judge())

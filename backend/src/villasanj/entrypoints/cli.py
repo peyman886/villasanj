@@ -61,6 +61,7 @@ from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluateAblations, EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
 from villasanj.entity_resolution.application.labeling import QueueExists
+from villasanj.entity_resolution.application.report import render_markdown as render_er_report
 from villasanj.entity_resolution.application.villas import DecisionPolicy, EvaluateDecisions
 from villasanj.entity_resolution.domain.evaluation import Interval, wilson
 from villasanj.entrypoints.api.app import create_app
@@ -1610,6 +1611,25 @@ def er_villas_eval(
 
     if not asyncio.run(_with_container(run)):
         raise typer.Exit(code=1)
+
+
+@er_app.command("report")
+def er_report(
+    queue: Annotated[str, typer.Option(help="Gold queue.")] = "gold-v1",
+    labeler: Annotated[str, typer.Option(help="Whose labels.")] = "owner",
+    out: Annotated[Path | None, typer.Option(help="Defaults to reports/er-eval-<date>.md.")] = None,
+) -> None:
+    """M5 crit. 3: reports/er-eval-<date>.md (curve, policies, B-cubed, ablations, judge)."""
+
+    async def run(container: Container) -> bool:
+        now = container.clock.now()
+        report = await container.er_report().run(queue, labeler, now)
+        path = out or Path("../reports") / f"er-eval-{now:%Y-%m-%d}.md"
+        path.write_text(render_er_report(report), encoding="utf-8")
+        typer.echo(f"wrote {path}")
+        return True
+
+    asyncio.run(_with_container(run))
 
 
 @er_app.command("ablations")
