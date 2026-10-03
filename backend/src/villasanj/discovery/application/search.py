@@ -32,6 +32,7 @@ from villasanj.discovery.domain.ranking import (
 )
 from villasanj.enrichment.application.coast import CoastDistance, CoastDistanceStore
 from villasanj.enrichment.application.features import AmenityMap
+from villasanj.enrichment.application.photo_tags import PhotoFeatures
 from villasanj.enrichment.application.places import PlaceDistanceStore
 from villasanj.enrichment.application.truth import place_verdicts
 from villasanj.enrichment.domain.distance_claims import Verdict
@@ -108,6 +109,7 @@ class SearchListings:
         drives: DriveTimeStore | None = None,
         origin: Origin | None = None,
         places: PlaceDistanceStore | None = None,
+        photos: PhotoFeatures | None = None,
     ) -> None:
         self._understand = understand
         self._holidays = holidays
@@ -121,6 +123,7 @@ class SearchListings:
         self._drives = drives
         self._origin = origin
         self._place_distances = places
+        self._photos = photos
 
     async def run(self, query: str, ctx: JobContext, drop: Sequence[str] = ()) -> SearchResult:
         """``drop``: constraints the user removed from the understood query (editable chips)."""
@@ -153,6 +156,7 @@ class SearchListings:
             nearby = (
                 await self._place_distances.of_platform(platform) if self._place_distances else {}
             )
+            pictured = await self._photos.seen(platform) if self._photos else {}
             for listing in platform_listings:
                 offer = platform_offers.get(listing.id)
                 if offer is None:
@@ -174,7 +178,16 @@ class SearchListings:
                     )
                 )
                 candidates.append(
-                    self._candidate(key, listing, offer, prior, intent, geo, contradicted)
+                    self._candidate(
+                        key,
+                        listing,
+                        offer,
+                        prior,
+                        intent,
+                        geo,
+                        contradicted,
+                        pictured.get(listing.id, frozenset()),
+                    )
                 )
         wants = _requirements(intent, dates)
         ranking = rank(candidates, wants)
@@ -245,12 +258,15 @@ class SearchListings:
         intent: SearchIntent,
         geo: Geo,
         contradicted: int = 0,
+        pictured: frozenset[Feature] = frozenset(),
     ) -> Candidate:
         stated = self._amenities.features_of(listing)
         claims = extract_claims(listing.description_norm or "")
         features = {
             feature: feature_evidence(
-                stated.get(feature), [c for c in claims if c.feature is feature]
+                stated.get(feature),
+                [c for c in claims if c.feature is feature],
+                photo_seen=feature in pictured,
             )
             for feature in (Feature(f) for f in intent.features)
         }

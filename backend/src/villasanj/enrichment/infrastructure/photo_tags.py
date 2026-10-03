@@ -20,12 +20,15 @@ from sqlalchemy import (
     delete,
     func,
     select,
+    text,
 )
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from villasanj.catalog.domain.listing import ListingId
 from villasanj.enrichment.application.photo_tags import QueuedPhoto, TagScore
-from villasanj.enrichment.domain.photo_tags import PhotoTag
+from villasanj.enrichment.domain.features import Feature
+from villasanj.enrichment.domain.photo_tags import FEATURE_OF, PhotoTag, TagThreshold
 
 SCHEMA = "enrichment"
 BATCH = 2000
@@ -173,3 +176,89 @@ class PgPhotoQueueStore:
                 )
             )
             await conn.execute(insert(photo_tag_label), values)
+
+
+photo_tag_threshold = Table(
+    "photo_tag_threshold",
+    metadata,
+    Column("model", Text, nullable=False),
+    Column("tag", Text, nullable=False),
+    Column("threshold", Float, nullable=False),
+    Column("precision", Float, nullable=False),
+    Column("precision_low", Float, nullable=False),
+    Column("recall", Float, nullable=False),
+    Column("positives", Integer, nullable=False),
+    Column("labelled", Integer, nullable=False),
+    Column("queue", Text, nullable=False),
+    Column("computed_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("model", "tag"),
+    schema=SCHEMA,
+)
+
+_SEEN = """
+    SELECT DISTINCT p.platform, p.external_id, s.tag
+    FROM catalog.photo p
+    JOIN enrichment.photo_tag_score s ON s.sha256 = p.sha256 AND s.model = :model
+    JOIN enrichment.photo_tag_threshold t ON t.model = s.model AND t.tag = s.tag
+    WHERE s.score >= t.threshold AND p.platform = :platform {listing}
+"""
+
+
+class PgThresholdStore:
+    def __init__(self, engine: AsyncEngine) -> None:
+        self._engine = engine
+
+    async def replace(
+        self, model: str, thresholds: Sequence[TagThreshold], queue: str, at: datetime
+    ) -> None:
+        values = [
+            {
+                "model": model,
+                "tag": t.tag.value,
+                "threshold": t.threshold,
+                "precision": t.precision.estimate,
+                "precision_low": t.precision.low,
+                "recall": t.recall.estimate,
+                "positives": t.positives,
+                "labelled": t.labelled,
+                "queue": queue,
+                "computed_at": at,
+            }
+            for t in thresholds
+            if t.threshold is not None
+            and t.precision is not None
+            and t.precision.estimate is not None
+            and t.recall is not None
+            and t.recall.estimate is not None
+        ]
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                delete(photo_tag_threshold).where(photo_tag_threshold.c.model == model)
+            )
+            if values:
+                await conn.execute(insert(photo_tag_threshold), values)
+
+
+class PgPhotoFeatures:
+    def __init__(self, engine: AsyncEngine, model: str) -> None:
+        self._engine = engine
+        self._model = model
+
+    async def seen(self, platform: str) -> dict[ListingId, frozenset[Feature]]:
+        query = text(_SEEN.format(listing=""))
+        found: dict[ListingId, set[Feature]] = defaultdict(set)
+        async with self._engine.connect() as conn:
+            for row in await conn.execute(query, {"model": self._model, "platform": platform}):
+                found[ListingId(row.platform, row.external_id)].add(FEATURE_OF[PhotoTag(row.tag)])
+        return {listing: frozenset(features) for listing, features in found.items()}
+
+    async def seen_for(self, listing_id: ListingId) -> frozenset[Feature]:
+        query = text(_SEEN.format(listing="AND p.external_id = :external_id"))
+        params = {
+            "model": self._model,
+            "platform": listing_id.platform,
+            "external_id": listing_id.external_id,
+        }
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query, params)).all()
+        return frozenset(FEATURE_OF[PhotoTag(row.tag)] for row in rows)

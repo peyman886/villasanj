@@ -95,6 +95,7 @@ EVIDENCE_FA: dict[FeatureEvidence, str] = {
     FeatureEvidence.LISTED: "در فهرست امکانات آگهی آمده است",
     FeatureEvidence.MEASURED: "روی نقشه تأیید شد",
     FeatureEvidence.DESCRIBED: "فقط در توضیحات آگهی آمده و در فهرست امکانات نیست",
+    FeatureEvidence.PHOTO: f"در توضیحات آگهی آمده و در عکس{ZWNJ}هایش هم دیده می{ZWNJ}شود",
     FeatureEvidence.UNKNOWN: "تأیید نشد",
     FeatureEvidence.DENIED: "در آگهی رد شده است",
 }

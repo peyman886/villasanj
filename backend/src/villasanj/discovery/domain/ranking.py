@@ -217,7 +217,12 @@ def _score(
         }
         confirmed = sum(
             candidate.features.get(f)
-            in (FeatureEvidence.LISTED, FeatureEvidence.MEASURED, FeatureEvidence.DESCRIBED)
+            in (
+                FeatureEvidence.LISTED,
+                FeatureEvidence.MEASURED,
+                FeatureEvidence.PHOTO,
+                FeatureEvidence.DESCRIBED,
+            )
             for f in wants.features
         )
         contributions = tuple(Contribution(name, parts[name], w) for name, w in WEIGHTS.items())

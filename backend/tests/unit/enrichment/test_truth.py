@@ -174,3 +174,23 @@ async def test_the_platform_report_counts_verdicts_per_target_and_h4() -> None:
     assert report.verdicts["bakery:not_checked"] == 1  # no mapped bakery within 30 km
     assert report.verdicts["recreation:not_checked"] == 2
     assert (report.listings_judged, report.listings_contradicted) == (2, 1)
+
+
+class Photos:
+    def __init__(self, seen: dict[ListingId, frozenset[Feature]]) -> None:
+        self._seen = seen
+
+    async def seen(self, platform: str) -> dict[ListingId, frozenset[Feature]]:
+        return self._seen
+
+    async def seen_for(self, listing_id: ListingId) -> frozenset[Feature]:
+        return self._seen.get(listing_id, frozenset())
+
+
+async def test_a_photo_that_shows_the_claimed_feature_is_recorded_on_the_claim() -> None:
+    home = listing("home", description="ویلا با استخر و شومینه")
+    photos = Photos({home.id: frozenset({Feature.POOL})})
+    truth = await CheckListingClaims(AmenityMap({}), Store(), None, photos).run(home)
+    by_feature = {c.claim.feature: c for c in truth.features}
+    assert by_feature[Feature.POOL].photo_seen
+    assert not by_feature[Feature.FIREPLACE].photo_seen

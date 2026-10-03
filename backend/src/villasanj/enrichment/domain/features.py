@@ -132,15 +132,21 @@ class FeatureEvidence(StrEnum):
     LISTED = "listed"  # the platform's amenity list says yes
     MEASURED = "measured"  # measured on the map (near_sea: the coastline, ADR-0013)
     DESCRIBED = "described"  # only the description says so
+    PHOTO = "photo"  # the description says so and the listing's photos show it (M9 photo tags)
     DENIED = "denied"  # the amenity list or the description says no
     UNKNOWN = "unknown"  # nothing said, or the two sources contradict each other
 
 
-def feature_evidence(amenity: bool | None, claims: Sequence[DescriptionClaim]) -> FeatureEvidence:
-    """One feature's evidence from the listing's amenity list and its own description claims.
+def feature_evidence(
+    amenity: bool | None, claims: Sequence[DescriptionClaim], photo_seen: bool = False
+) -> FeatureEvidence:
+    """One feature's evidence from the listing's amenity list, its own description claims and
+    what its photos show.
 
     Shared facilities say nothing about the villa. When the amenity list and the description
     contradict each other, the evidence is unknown: only an uncontested statement can exclude.
+    A photo tag only corroborates a description (listing-level precision of a tag alone is lower
+    than per photo: five photos, five chances of a false positive), and never overrides a "no".
     """
     own = {c.polarity for c in claims if not c.shared}
     if amenity is True:
@@ -150,7 +156,7 @@ def feature_evidence(amenity: bool | None, claims: Sequence[DescriptionClaim]) -
     if Polarity.HAS_NOT in own:
         return FeatureEvidence.DENIED
     if Polarity.HAS in own:
-        return FeatureEvidence.DESCRIBED
+        return FeatureEvidence.PHOTO if photo_seen else FeatureEvidence.DESCRIBED
     return FeatureEvidence.UNKNOWN
 
 

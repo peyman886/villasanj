@@ -13,6 +13,8 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Protocol
 
+from villasanj.catalog.domain.listing import ListingId
+from villasanj.enrichment.domain.features import Feature
 from villasanj.enrichment.domain.photo_tags import (
     Labelled,
     PhotoTag,
@@ -269,3 +271,19 @@ class EvaluatePhotoTags:
             for tag in PhotoTag
         ]
         return PhotoTagEvaluation(self._model, len(labelled), thresholds)
+
+
+class ThresholdStore(Protocol):
+    async def replace(
+        self, model: str, thresholds: Sequence[TagThreshold], queue: str, at: datetime
+    ) -> None:
+        """Keep the used tags (those with a threshold) of ``model``; the others are removed."""
+        ...
+
+
+class PhotoFeatures(Protocol):
+    """Features the listings' own photos show, by the stored thresholds (none: nothing seen)."""
+
+    async def seen(self, platform: str) -> dict[ListingId, frozenset[Feature]]: ...
+
+    async def seen_for(self, listing_id: ListingId) -> frozenset[Feature]: ...

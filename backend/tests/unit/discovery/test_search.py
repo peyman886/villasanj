@@ -107,6 +107,7 @@ def search(
     intent: SearchIntent,
     listings: Sequence[Listing] = LISTINGS,
     places: object = None,
+    photos: object = None,
 ) -> SearchListings:
     reader = Calendars(listings)
     clock = FixedClock()
@@ -124,6 +125,7 @@ def search(
         drives,
         ORIGIN,
         places,  # type: ignore[arg-type]
+        photos,  # type: ignore[arg-type]
     )
 
 
@@ -218,3 +220,17 @@ async def test_a_contradicted_distance_claim_is_a_caution_on_the_result() -> Non
     warnings = {r.candidate.id: r.warnings for r in result.ranking.results}
     assert Caution.CLAIM_CONTRADICTED in warnings["p:contradicted"]
     assert Caution.CLAIM_CONTRADICTED not in warnings["p:pool"]
+
+
+async def test_photos_turn_a_described_feature_into_a_seen_one() -> None:
+    from tests.unit.enrichment.test_truth import Photos
+    from villasanj.enrichment.domain.features import FeatureEvidence
+
+    described = listing("described", city_fa="رامسر", description="ویلا با استخر")
+    photos = Photos({described.id: frozenset({Feature.POOL})})
+    query = "ویلای استخردار در رامسر برای ۴ نفر آخر هفته زیر ۵ میلیون"
+    result = await search(WEEKEND, [described], None, photos).run(query, CTX)
+    assert result.ranking is not None
+    (only,) = result.ranking.results
+    assert only.candidate.features[Feature.POOL] is FeatureEvidence.PHOTO
+    assert Caution.FEATURE_ONLY_DESCRIBED not in only.warnings

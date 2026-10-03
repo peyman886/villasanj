@@ -870,6 +870,9 @@ def enrichment_photo_queue(
 def enrichment_photo_tags_eval(
     queue: Annotated[str, typer.Option(help="Labelled queue.")] = "photos-v1",
     labeler: Annotated[str, typer.Option(help="Whose labels.")] = "owner",
+    save: Annotated[
+        bool, typer.Option(help="Store the thresholds: photo tags become evidence.")
+    ] = False,
 ) -> None:
     """M9 criterion 2: per tag, the threshold reaching 85% precision, or "not used"."""
 
@@ -888,6 +891,12 @@ def enrichment_photo_tags_eval(
                 f"[{t.precision.low:.1%}, {t.precision.high:.1%}] "
                 f"recall={t.recall.estimate:.1%} positives={t.positives}/{t.labelled}"
             )
+        if save:
+            await container.photo_thresholds().replace(
+                evaluation.model, evaluation.thresholds, queue, container.clock.now()
+            )
+            used = sum(t.threshold is not None for t in evaluation.thresholds)
+            typer.echo(f"saved {used} thresholds for {evaluation.model}")
         return True
 
     asyncio.run(_with_container(run))

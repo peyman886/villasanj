@@ -23,6 +23,7 @@ from villasanj.catalog.application.reading import ListingReader
 from villasanj.catalog.domain.listing import Listing, ListingId
 from villasanj.enrichment.application.coast import CoastDistance, CoastDistanceStore
 from villasanj.enrichment.application.features import AmenityMap
+from villasanj.enrichment.application.photo_tags import PhotoFeatures
 from villasanj.enrichment.application.places import PlaceDistance, PlaceDistanceStore
 from villasanj.enrichment.domain.distance_claims import (
     Assessment,
@@ -139,6 +140,7 @@ class FeatureClaimCheck:
     claim: DescriptionClaim
     agreement: Agreement  # against the same listing's amenity list
     map_evidence: FeatureEvidence | None = None  # near-sea words only: the coastline's answer
+    photo_seen: bool = False  # the listing's own photos show the feature (M9 photo tags)
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,10 +184,12 @@ class CheckListingClaims:
         amenities: AmenityMap,
         distances: CoastDistanceStore,
         places: PlaceDistanceStore | None = None,
+        photos: PhotoFeatures | None = None,
     ) -> None:
         self._amenities = amenities
         self._distances = distances
         self._places = places
+        self._photos = photos
 
     async def run(self, listing: Listing) -> ListingTruth:
         coast = await self._distances.get(listing.id)
@@ -193,11 +197,13 @@ class CheckListingClaims:
         distances = place_verdicts(listing.distance_claims, coast, places)
         stated = self._amenities.features_of(listing)
         features = []
+        seen = await self._photos.seen_for(listing.id) if self._photos else frozenset()
         for said in extract_claims(listing.description_norm or ""):
             on_map = None
             if said.feature is Feature.NEAR_SEA and coast is not None:
                 on_map = near_sea_evidence(coast.low_m, coast.high_m)
-            features.append(FeatureClaimCheck(said, against_amenities(said, stated), on_map))
+            agreement = against_amenities(said, stated)
+            features.append(FeatureClaimCheck(said, agreement, on_map, said.feature in seen))
         return ListingTruth(listing.id, tuple(distances), tuple(features), coast)
 
 

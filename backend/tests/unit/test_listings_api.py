@@ -299,6 +299,20 @@ def test_place_claims_say_what_the_map_can_and_cannot_tell() -> None:
     assert centre.evidence_provenance.method == "derived"
 
 
+def test_a_claim_the_photos_show_is_supported_with_its_source() -> None:
+    from tests.unit.enrichment.test_truth import Photos
+
+    listing = Listing.from_parsed(parsed(description="ویلا با استخر"), SNAPSHOT, NOW)
+    photos = Photos({listing.id: frozenset({Feature.POOL})})
+    truth = asyncio.run(CheckListingClaims(AmenityMap({}), CoastStore(), None, photos).run(listing))
+    (pool,) = api.claims_out(listing, truth).features
+    assert pool.verdict == "supported"
+    assert "عکس" in pool.evidence
+    assert pool.evidence_provenance is not None
+    assert pool.evidence_provenance.note is not None
+    assert "SigLIP" in pool.evidence_provenance.note
+
+
 def test_review_summary_cites_reviews_and_is_null_with_too_few(client: TestClient) -> None:
     path = f"/listings/{LISTING.id.platform}/{LISTING.id.external_id}/review-summary"
     assert client.get(path).json() is None  # too few reviews with text: no summary

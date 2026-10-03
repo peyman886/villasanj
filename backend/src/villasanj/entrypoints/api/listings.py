@@ -33,6 +33,7 @@ from villasanj.enrichment.domain.features import (
     FeatureEvidence,
     Polarity,
 )
+from villasanj.enrichment.domain.photo_tags import MIN_PRECISION
 from villasanj.enrichment.domain.places import CENTRE_EXTENT_M, COMPLETE, PlaceKind
 from villasanj.entrypoints.container import Container
 from villasanj.pricing.domain.offer import Offer
@@ -40,7 +41,7 @@ from villasanj.pricing.domain.quote import NightCharge, StayRequest
 from villasanj.shared.application.errors import ConfigurationError
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.domain.errors import DomainError
-from villasanj.shared.domain.fa_format import fa_metres, fa_metres_range, fa_minutes_range
+from villasanj.shared.domain.fa_format import fa_int, fa_metres, fa_metres_range, fa_minutes_range
 from villasanj.shared.domain.money import MoneyRange
 from villasanj.shared.domain.persian_text import ZWNJ, to_persian_digits
 from villasanj.shared.domain.provenance import Provenance, ProvenanceMethod
@@ -370,6 +371,22 @@ def _feature_out(
                 f"{_measured(coast)}. «نزدیک» اندازه{ZWNJ}ی مشخصی ندارد، "
                 f"پس این را رد نمی{ZWNJ}کنیم."
             )
+    elif check.photo_seen and claim.polarity is Polarity.HAS:
+        verdict = "supported"
+        evidence = f"در عکس{ZWNJ}های همین آگهی دیده می{ZWNJ}شود (تشخیص خودکار تصویر)"
+        if check.agreement is Agreement.AMENITIES_DISAGREE:
+            evidence += "؛ ولی فهرست امکانات آگهی آن را ندارد"
+        evidence += "."
+        derived = Provenance(
+            ProvenanceMethod.DERIVED,
+            listing.provenance.observed_at,
+            derived_from=(listing.provenance,),
+        )
+        evidence_provenance = ProvenanceOut.of(
+            derived,
+            f"برچسب خودکار عکس{ZWNJ}ها (SigLIP 2)؛ آستانه{ZWNJ}ی هر برچسب از برچسب{ZWNJ}های "
+            f"انسانی عکس{ZWNJ}ها، با دقت دست{ZWNJ}کم {fa_int(round(MIN_PRECISION * 100))}٪",
+        )
     elif check.agreement is Agreement.AGREES:
         verdict = "consistent"
         evidence = f"فهرست امکانات همین آگهی هم همین را می{ZWNJ}گوید؛ هر دو گفته{ZWNJ}ی میزبان است."

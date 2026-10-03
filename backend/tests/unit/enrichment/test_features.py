@@ -177,3 +177,14 @@ def test_near_sea_from_the_map(
     low: float | None, high: float | None, evidence: FeatureEvidence
 ) -> None:
     assert near_sea_evidence(low, high) is evidence
+
+
+def test_photos_corroborate_a_description_but_never_stand_alone_or_override_a_no() -> None:
+    from villasanj.enrichment.domain.features import FeatureEvidence, feature_evidence
+
+    said = extract_claims("ویلا با استخر")
+    assert feature_evidence(None, said, photo_seen=True) is FeatureEvidence.PHOTO
+    assert feature_evidence(None, said) is FeatureEvidence.DESCRIBED
+    assert feature_evidence(None, [], photo_seen=True) is FeatureEvidence.UNKNOWN
+    assert feature_evidence(False, [], photo_seen=True) is FeatureEvidence.DENIED
+    assert feature_evidence(True, [], photo_seen=False) is FeatureEvidence.LISTED

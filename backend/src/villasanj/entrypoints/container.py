@@ -60,7 +60,12 @@ from villasanj.enrichment.application.truth import (
 from villasanj.enrichment.infrastructure.claim_labels import PgClaimLabelStore
 from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore, PgCoastline
 from villasanj.enrichment.infrastructure.features import load_amenity_map
-from villasanj.enrichment.infrastructure.photo_tags import PgPhotoQueueStore, PgPhotoTagStore
+from villasanj.enrichment.infrastructure.photo_tags import (
+    PgPhotoFeatures,
+    PgPhotoQueueStore,
+    PgPhotoTagStore,
+    PgThresholdStore,
+)
 from villasanj.enrichment.infrastructure.places import PgPlaceDistanceStore, PgPlaces
 from villasanj.enrichment.infrastructure.siglip import SigLip2Tagger
 from villasanj.enrichment.infrastructure.summary_review import PgSummaryReviewStore
@@ -245,6 +250,7 @@ class Container:
             PgDriveTimeStore(self.engine),
             load_origin(self.settings.routing_origin_path),
             self.place_store(),
+            self.photo_features(),
         )
 
     def routing_origin(self) -> Origin:
@@ -261,7 +267,10 @@ class Container:
 
     def listing_claims(self) -> CheckListingClaims:
         return CheckListingClaims(
-            load_amenity_map(self.settings.features_path), self.coast_store(), self.place_store()
+            load_amenity_map(self.settings.features_path),
+            self.coast_store(),
+            self.place_store(),
+            self.photo_features(),
         )
 
     def places(self) -> PgPlaces:
@@ -334,6 +343,12 @@ class Container:
             self.clock,
             self.photo_tagger().model_id,
         )
+
+    def photo_thresholds(self) -> PgThresholdStore:
+        return PgThresholdStore(self.engine)
+
+    def photo_features(self) -> PgPhotoFeatures:
+        return PgPhotoFeatures(self.engine, self.photo_tagger().model_id)
 
     def photo_labeling(self) -> PhotoLabeling:
         return PhotoLabeling(self.photo_queues(), self.clock)
