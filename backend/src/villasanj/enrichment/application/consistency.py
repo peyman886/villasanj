@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Protocol
 
 from villasanj.catalog.application.reading import ListingReader
@@ -142,3 +143,49 @@ class MeasureH4:
             row.judged += listing_id in judged or listing_id in compared
             row.either += listing_id in contradicted or listing_id in inconsistent
         return [rows[p] for p in platforms]
+
+
+def _share(interval: Interval) -> str:
+    if interval.estimate is None:
+        return "n/a"
+    return f"{interval.estimate:.1%} ({interval.low:.1%}–{interval.high:.1%})"
+
+
+def render_h4_markdown(rows: Sequence[H4Row], generated_at: datetime) -> str:
+    """H4 as a report (M9 criterion 4), generated from the database like the other reports."""
+    lines = [
+        "# H4: listings with a location or amenity claim the evidence does not back",
+        "",
+        f"Generated {generated_at:%Y-%m-%d %H:%M} UTC from the database. Reproduce: "
+        "`uv run villasanj enrichment h4 --out <file>`.",
+        "",
+        "A listing counts when at least one of its claims is CONTRADICTED by the map (a distance "
+        "no reading can reach, even at the nearest point its blur circle allows) or "
+        "INCONSISTENT_ACROSS_PLATFORMS (its villa's listing on the other platform states the "
+        "opposite, each uncontested on its own platform). The share is over listings with at "
+        "least one claim either check could judge, with a Wilson 95% interval. The research "
+        "report's H4 expected at least 25%.",
+        "",
+        "| Platform | Listings | Judged | Contradicted | Inconsistent | Either | H4 share |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for r in rows:
+        lines.append(
+            f"| {r.platform} | {r.listings} | {r.judged} | {r.contradicted} | {r.inconsistent} | "
+            f"{r.either} | {_share(r.share)} |"
+        )
+    lines += [
+        "",
+        "Cross-platform comparisons (listings in a villa on both platforms that state a claim "
+        "the other listing also states):",
+        "",
+        "| Platform | In two-platform villas | Compared | Inconsistent | Share | By claim |",
+        "|---|---|---|---|---|---|",
+    ]
+    for r in rows:
+        kinds = ", ".join(f"{k} {n}" for k, n in r.kinds.most_common()) or "-"
+        lines.append(
+            f"| {r.platform} | {r.in_multi_platform_villas} | {r.compared} | {r.inconsistent} | "
+            f"{_share(r.inconsistent_share)} | {kinds} |"
+        )
+    return "\n".join(lines) + "\n"

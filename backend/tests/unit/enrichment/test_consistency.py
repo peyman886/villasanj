@@ -8,7 +8,11 @@ from tests.unit.enrichment.test_truth import Places
 from tests.unit.enrichment.test_truth import sea as sea_claim
 from villasanj.catalog.domain.listing import ListingId
 from villasanj.enrichment.application.coast import CoastDistance
-from villasanj.enrichment.application.consistency import CheckVillaConsistency, MeasureH4
+from villasanj.enrichment.application.consistency import (
+    CheckVillaConsistency,
+    MeasureH4,
+    render_h4_markdown,
+)
 from villasanj.enrichment.application.features import AmenityMap
 from villasanj.enrichment.domain.consistency import (
     FeatureStatement,
@@ -129,3 +133,6 @@ async def test_h4_counts_contradicted_or_inconsistent_listings_per_platform() ->
     assert (shab.judged, shab.inconsistent, shab.either) == (2, 1, 1)
     assert shab.share.estimate == 0.5
     assert jabama.inconsistent_share.estimate == 0.5
+    text = render_h4_markdown(rows, NOW)
+    assert "| jabama | 3 | 2 | 1 | 1 | 1 | 50.0%" in text
+    assert "feature:pool 1" in text

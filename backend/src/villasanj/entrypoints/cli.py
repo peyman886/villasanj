@@ -51,6 +51,7 @@ from villasanj.discovery.infrastructure.eval_cases import load_cases
 from villasanj.enrichment.application.claim_extraction import ReadClaimsWithLLM
 from villasanj.enrichment.application.claim_labels import ClaimQueueExists
 from villasanj.enrichment.application.claims import MeasureClaimParsing
+from villasanj.enrichment.application.consistency import render_h4_markdown
 from villasanj.enrichment.application.features import MeasureFeatureClaims
 from villasanj.enrichment.application.photo_tags import EvaluatePhotoTags, PhotoQueueExists
 from villasanj.enrichment.application.summary_review import SummaryQueueExists
@@ -838,7 +839,9 @@ def enrichment_truth_distances() -> None:
 
 
 @enrichment_app.command("h4")
-def enrichment_h4() -> None:
+def enrichment_h4(
+    out: Annotated[Path | None, typer.Option(help="Also write the report here (markdown).")] = None,
+) -> None:
     """H4 (M9 crit. 4): listings with a location or amenity claim CONTRADICTED by the map or
     INCONSISTENT_ACROSS_PLATFORMS within their villa (zero network; villas from `er villas`)."""
 
@@ -848,7 +851,11 @@ def enrichment_h4() -> None:
         return f"{share.estimate:.1%} (95% CI {share.low:.1%}-{share.high:.1%})"
 
     async def run(container: Container) -> bool:
-        for r in await container.h4().run(sorted(container.crawl.adapters)):
+        rows = await container.h4().run(sorted(container.crawl.adapters))
+        if out is not None:
+            out.write_text(render_h4_markdown(rows, container.clock.now()), encoding="utf-8")
+            typer.echo(f"wrote {out}")
+        for r in rows:
             typer.echo(
                 f"{r.platform:<7} listings={r.listings} in_two_platform_villas="
                 f"{r.in_multi_platform_villas} judged={r.judged} contradicted={r.contradicted} "
