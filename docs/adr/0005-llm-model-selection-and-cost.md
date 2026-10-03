@@ -237,3 +237,21 @@ verbatim like places (a phrase not in the query is dropped). Search says them ba
 never filter or rank. On the 50-query draft (provisional, agent-written), gpt-5.4-mini with v4
 and the basis guard: slots 100%, exact 100%, 0 invented, p95 1.4 s uncached, $0.067. `unhandled`
 itself is not scored yet: the draft has no expected values for it.
+
+
+## Amendment (ER judge bake-off, 2026-10-03): `gemini-3.8-flash` for `er_judge`
+
+M5 criterion 2 asks for the gray-zone judge's precision and recall against the gold set, per
+model. `er judge-eval` sends the 142 gold-v1 pairs scored −3 to 3 to each model alone (no
+fallback), prompt `er_judge` v1, photo grids of both listings plus structured facts:
+
+| Model | False matches | Recall (weighted) | Unsure | p95 uncached | Cost / 142 |
+|---|---|---|---|---|---|
+| **gemini-3.8-flash** (chosen) | 0 | 93.8% | 1.4% | 34 s | $0.32 |
+| gpt-5.4-mini (fallback) | 0 | 79.8% | 1.4% | 5.5 s | $0.31 |
+| gemini-3.5-flash | 1 | 94.4% | 0.7% | 31 s | $0.79 |
+
+gpt-5.4-mini calls 21 of 76 labelled matches non-matches: it is safe but misses what the judge
+is there to find. gemini-3.5-flash finds slightly more and costs 2.5× with one false match.
+Latency does not matter in a batch job. `expected_output_tokens = 180` from these calls (mean
+173, 95 of them reasoning). How the verdicts are used: ADR-0014.

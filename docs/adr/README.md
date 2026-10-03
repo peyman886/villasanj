@@ -17,8 +17,10 @@ ADR supersedes it. Measured evidence (dates, numbers, sources) goes inline.
 | [0009](0009-entity-resolution-strategy.md) | Staged, precision-first entity resolution | Accepted |
 | [0010](0010-persistence-postgres.md) | One Postgres: schema per context, queue, cache and vectors | Accepted |
 | [0011](0011-platform-scope-after-tos-audit.md) | Platform scope after the robots.txt/ToS audit (jabama + shab) | Accepted |
-
-All ADRs were accepted with the Milestone 0 approval (2026-10-01). Later refinements are
-appended as dated *Amendment* sections inside the ADR.
 | [0012](0012-image-matching-evidence.md) | Image matching evidence: local DINOv2 + pHash, chosen by measurement | Accepted |
 | [0013](0013-geo-evidence-osm-coastline-and-osrm.md) | Geo evidence: OSM coastline in PostGIS and free-flow OSRM drive times | Accepted |
+| [0014](0014-er-decisions-rules-and-llm-judge.md) | ER decisions: rule score, an LLM judge in a score zone, the owner's labels (no Splink) | Accepted |
+
+ADRs 0001–0011 were accepted with the Milestone 0 approval (2026-10-01); 0012–0014 when their
+milestones delivered them. Later refinements are appended as dated *Amendment* sections inside the
+ADR.
