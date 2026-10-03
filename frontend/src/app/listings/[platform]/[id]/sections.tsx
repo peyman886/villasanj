@@ -767,6 +767,8 @@ function SummaryList({
   );
 }
 
+type Summary = { pros: SummaryPoint[]; cons: SummaryPoint[]; reviews_given: number };
+
 /** Pros and cons that cite their reviews; streamed in after the page (one cached LLM call). */
 export async function ReviewSummarySection({
   platform,
@@ -777,11 +779,7 @@ export async function ReviewSummarySection({
   id: string;
   order: Record<string, number>;
 }) {
-  let summary: {
-    pros: SummaryPoint[];
-    cons: SummaryPoint[];
-    reviews_given: number;
-  } | null = null;
+  let summary: Summary | null = null;
   try {
     const { data } = await apiClient().GET("/listings/{platform}/{external_id}/review-summary", {
       params: { path: { platform, external_id: id } },
@@ -791,11 +789,24 @@ export async function ReviewSummarySection({
   } catch {
     summary = null;
   }
+  return <SummaryCard summary={summary} order={order} />;
+}
+
+/** A summary's pros and cons; each point links to the reviews it cites (``order`` numbers them). */
+export function SummaryCard({
+  summary,
+  order,
+  title,
+}: {
+  summary: Summary | null;
+  order: Record<string, number>;
+  title?: string;
+}) {
   if (!summary || (summary.pros.length === 0 && summary.cons.length === 0)) return null;
   return (
     <section aria-labelledby="summary-title" className="mt-4 rounded-lg bg-stone-100 p-4">
       <h3 id="summary-title" className="font-medium text-balance">
-        خلاصه‌ی {faNumber(summary.reviews_given)} نظر اخیر
+        {title ?? `خلاصه‌ی ${faNumber(summary.reviews_given)} نظر اخیر`}
       </h3>
       <div className="mt-2 grid gap-4 sm:grid-cols-2">
         <SummaryList title="خوب‌ها" points={summary.pros} order={order} />

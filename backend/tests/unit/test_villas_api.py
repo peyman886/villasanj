@@ -1,8 +1,9 @@
 """Villa API: members with conflicts, each listing's own offer, merged nights, labelled reviews."""
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import replace
 from datetime import date, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import cast
 
@@ -13,10 +14,12 @@ from tests.fakes.ingestion import SteppingClock
 from tests.fakes.llm import NOW
 from tests.unit.catalog.test_listing import parsed
 from tests.unit.pricing.test_quote import night
+from tests.unit.test_search_api import Jobs
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.catalog.domain.review import ListingReview
 from villasanj.enrichment.application.consistency import CheckVillaConsistency
 from villasanj.enrichment.application.features import AmenityMap
+from villasanj.enrichment.application.review_summary import CitedPoint, ReviewSummary
 from villasanj.enrichment.domain.features import Feature
 from villasanj.entity_resolution.domain.clustering import CanonicalVilla
 from villasanj.entrypoints.api.app import create_app
@@ -28,6 +31,7 @@ from villasanj.ingestion.domain.parsed import (
     ParsedReview,
 )
 from villasanj.pricing.application.offers import OfferBook
+from villasanj.shared.application.llm.types import JobContext
 from villasanj.shared.domain.stay import DateRange
 
 SNAPSHOT = "00000000-0000-0000-0000-000000000a12"
@@ -87,6 +91,11 @@ class Stub:
     def villa_store(self) -> Villas:
         return Villas()
 
+    jobs = Jobs()
+
+    def review_summaries(self) -> "Summaries":
+        return Summaries()
+
     def villa_consistency(self) -> CheckVillaConsistency:
         return CheckVillaConsistency(AmenityMap({"jabama": {"swim": Feature.POOL}}))
 
@@ -95,6 +104,24 @@ class Stub:
 
     async def aclose(self) -> None:
         return None
+
+
+class Summaries:
+    seen: list[ListingReview] = []  # noqa: RUF012 - one test reads what the use case was given
+
+    async def summarize(
+        self, reviews: Sequence[ListingReview], ctx: JobContext
+    ) -> ReviewSummary | None:
+        Summaries.seen = list(reviews)
+        return ReviewSummary(
+            pros=(CitedPoint("میزبان خوش\N{ZERO WIDTH NON-JOINER}برخورد بود", tuple(reviews)),),
+            cons=(),
+            reviews_given=len(reviews),
+            retried=False,
+            dropped=0,
+            models=("m",),
+            cost_usd=Decimal("0.001"),
+        )
 
 
 @pytest.fixture
@@ -140,3 +167,13 @@ def test_reviews_of_every_listing_carry_their_platform(client: TestClient) -> No
 
 def test_a_sample_of_villas_on_more_than_one_platform(client: TestClient) -> None:
     assert client.get("/villas/sample", params={"n": 5}).json() == [{"villa_id": "v-test"}]
+
+
+def test_the_review_summary_covers_every_platform_and_cites_across_them(client: TestClient) -> None:
+    body = client.get("/villas/v-test/review-summary").json()
+    # both platforms' reviews, most recent stays first (same day: by review id, descending)
+    assert [r.listing_id.platform for r in Summaries.seen] == ["shab", "jabama"]
+    (point,) = body["pros"]
+    assert sorted(point["review_ids"]) == ["jabama:r-jabama", "shab:r-shab"]
+    assert not point["single_opinion"]
+    assert client.get("/villas/v-none/review-summary").status_code == 404

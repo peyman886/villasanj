@@ -530,6 +530,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/villas/{villa_id}/review-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Review Summary
+         * @description Pros and cons over every platform's reviews of the villa, each point citing its reviews
+         *     as ``platform:review_id`` (one cached LLM call, verified like a listing's); null with too few
+         *     reviews.
+         */
+        get: operations["get_review_summary_villas__villa_id__review_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/villas/{villa_id}/reviews": {
         parameters: {
             query?: never;
@@ -2285,6 +2307,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OfferOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_summary_villas__villa_id__review_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                villa_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSummaryOut"] | null;
                 };
             };
             /** @description Validation Error */

@@ -15,16 +15,20 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
 from villasanj.catalog.domain.listing import Listing, ListingId
+from villasanj.catalog.domain.review import ListingReview
 from villasanj.discovery.domain.villa import conflicts, merge_calendars
 from villasanj.enrichment.domain.consistency import VillaConsistency
 from villasanj.entity_resolution.domain.clustering import CanonicalVilla
 from villasanj.entrypoints.api.listings import (
     MAX_CALENDAR_DAYS,
+    SUMMARY_BUDGET_USD,
     CalendarNightOut,
     ListingOut,
     OfferOut,
     ProvenanceOut,
     ReviewOut,
+    ReviewSummaryOut,
+    SummaryPointOut,
     _calendar_out,
     _claim_provenance,
     _listing_out,
@@ -33,6 +37,7 @@ from villasanj.entrypoints.api.listings import (
 )
 from villasanj.entrypoints.container import Container
 from villasanj.pricing.domain.quote import StayRequest
+from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.domain.errors import DomainError
 from villasanj.shared.domain.persian_text import ZWNJ, to_persian_digits
 from villasanj.shared.domain.stay import DateRange, GuestCount
@@ -234,17 +239,66 @@ async def get_calendar(
     ]
 
 
+async def _reviews(container: Container, members: list[Listing]) -> list[ListingReview]:
+    """Every listing's reviews, most recent stays first."""
+    reviews = [r for m in members for r in await container.listings.reviews(m.id)]
+    reviews.sort(key=lambda r: (r.stayed_on or date.min, r.review_id), reverse=True)
+    return reviews
+
+
+def review_key(review: ListingReview) -> str:
+    """A review's id across platforms (each platform numbers its own)."""
+    return f"{review.listing_id.platform}:{review.review_id}"
+
+
 @router.get("/{villa_id}/reviews")
 async def get_reviews(villa_id: str, request: Request) -> list[VillaReviewOut]:
     """Every listing's reviews, most recent stays first, each with its platform."""
     container = _container(request)
     _, members = await _villa(container, villa_id)
-    reviews = [r for m in members for r in await container.listings.reviews(m.id)]
-    reviews.sort(key=lambda r: (r.stayed_on or date.min, r.review_id), reverse=True)
     return [
         VillaReviewOut(**_review_out(r).model_dump(), platform=r.listing_id.platform)
-        for r in reviews
+        for r in await _reviews(container, members)
     ]
+
+
+@router.get("/{villa_id}/review-summary")
+async def get_review_summary(villa_id: str, request: Request) -> ReviewSummaryOut | None:
+    """Pros and cons over every platform's reviews of the villa, each point citing its reviews
+    as ``platform:review_id`` (one cached LLM call, verified like a listing's); null with too few
+    reviews."""
+    container = _container(request)
+    _, members = await _villa(container, villa_id)
+    reviews = await _reviews(container, members)
+    ctx = await container.jobs.start("review_summary", SUMMARY_BUDGET_USD, {"villa": villa_id})
+    status_ = JobStatus.FAILED
+    try:
+        summary = await container.review_summaries().summarize(reviews, ctx)
+        status_ = JobStatus.SUCCEEDED
+    finally:
+        await container.jobs.finish(ctx.job_id, status_)
+    if summary is None:
+        return None
+    return ReviewSummaryOut(
+        pros=[
+            SummaryPointOut(
+                text=p.text,
+                review_ids=[review_key(r) for r in p.reviews],
+                single_opinion=p.single_opinion,
+            )
+            for p in summary.pros
+        ],
+        cons=[
+            SummaryPointOut(
+                text=p.text,
+                review_ids=[review_key(r) for r in p.reviews],
+                single_opinion=p.single_opinion,
+            )
+            for p in summary.cons
+        ],
+        reviews_given=summary.reviews_given,
+        source="llm",
+    )
 
 
 class VillaRefOut(BaseModel):

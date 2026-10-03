@@ -4143,6 +4143,57 @@
         ]
       }
     },
+    "/villas/{villa_id}/review-summary": {
+      "get": {
+        "description": "Pros and cons over every platform's reviews of the villa, each point citing its reviews\nas ``platform:review_id`` (one cached LLM call, verified like a listing's); null with too few\nreviews.",
+        "operationId": "get_review_summary_villas__villa_id__review_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "villa_id",
+            "required": true,
+            "schema": {
+              "title": "Villa Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ReviewSummaryOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Review Summary Villas  Villa Id  Review Summary Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Review Summary",
+        "tags": [
+          "villas"
+        ]
+      }
+    },
     "/villas/{villa_id}/reviews": {
       "get": {
         "description": "Every listing's reviews, most recent stays first, each with its platform.",

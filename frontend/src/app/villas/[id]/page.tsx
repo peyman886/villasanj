@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { ListingMap } from "@/components/listing-map";
@@ -31,14 +32,20 @@ import {
 
 import { FEATURE_TEXT } from "@/lib/search";
 
-import { ClaimsSection, OfferCell } from "../../listings/[platform]/[id]/sections";
+import {
+  ClaimsSection,
+  OfferCell,
+  ReviewSummarySkeleton,
+  SummaryCard,
+  reviewAnchor,
+} from "../../listings/[platform]/[id]/sections";
 
 export const metadata: Metadata = { title: "ویلا · ویلاسنج" };
 
 const NO_STORE = { cache: "no-store" } as const;
 const CALENDAR_DAYS = 30;
 const ASSUMED_RADIUS_M = 500;
-const MAX_REVIEWS = 30;
+const MAX_REVIEWS = 40; // as many as a summary reads, so every citation has its review
 const FOCUS =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700";
 
@@ -370,8 +377,40 @@ function Calendar({ villa, nights, now }: { villa: Villa; nights: VillaNight[]; 
   );
 }
 
+const villaReviewKey = (review: VillaReview) => `${review.platform}:${review.id}`;
+
+/** Pros and cons over every platform's reviews, streamed in (one cached LLM call). */
+async function VillaReviewSummary({
+  villaId,
+  order,
+}: {
+  villaId: string;
+  order: Record<string, number>;
+}) {
+  let summary = null;
+  try {
+    const { data } = await apiClient().GET("/villas/{villa_id}/review-summary", {
+      params: { path: { villa_id: villaId } },
+      ...NO_STORE,
+    });
+    summary = data ?? null;
+  } catch {
+    summary = null;
+  }
+  return (
+    <SummaryCard
+      summary={summary}
+      order={order}
+      {...(summary
+        ? { title: `خلاصه‌ی ${faNumber(summary.reviews_given)} نظر اخیر از همه‌ی پلتفرم‌ها` }
+        : {})}
+    />
+  );
+}
+
 function Reviews({ villa, reviews, now }: { villa: Villa; reviews: VillaReview[]; now: Date }) {
   const shown = reviews.slice(0, MAX_REVIEWS);
+  const order = Object.fromEntries(shown.map((r, index) => [villaReviewKey(r), index + 1]));
   return (
     <section aria-labelledby="reviews-title" className="mt-10">
       <SectionTitle id="reviews-title">نظرهای مهمان‌ها در همه‌ی پلتفرم‌ها</SectionTitle>
@@ -383,11 +422,19 @@ function Reviews({ villa, reviews, now }: { villa: Villa; reviews: VillaReview[]
           )
           .join(" · ")}
       </p>
+      <Suspense fallback={<ReviewSummarySkeleton />}>
+        <VillaReviewSummary villaId={villa.id} order={order} />
+      </Suspense>
       <ol className="mt-3 divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
         {shown.map((review, index) => {
           const member = memberOf(villa, review.platform);
           return (
-            <li key={`${review.platform}-${review.id}`} className="p-4 text-sm">
+            <li
+              key={villaReviewKey(review)}
+              id={reviewAnchor(villaReviewKey(review))}
+              className="scroll-mt-4 p-4 text-sm"
+            >
+              <span className="sr-only">نظر {faNumber(index + 1)}</span>
               <p className="flex flex-wrap gap-x-3 text-xs text-stone-600">
                 <span className="rounded bg-stone-100 px-1.5 py-0.5 text-stone-700">
                   {member?.platform_name ?? review.platform}
