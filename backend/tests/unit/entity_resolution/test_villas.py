@@ -1,6 +1,7 @@
 """Canonical villas from rule, judge and human decisions; B-cubed against the labels."""
 
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import timedelta
 
 from tests.fakes.er import CandidateStoreFake, LabelStoreFake, ListingsFake
@@ -13,6 +14,8 @@ from villasanj.entity_resolution.application.villas import (
     DecisionPolicy,
     EvaluateVillas,
     StoredJudgement,
+    Waiting,
+    WaitReason,
     decide,
     decisions,
 )
@@ -112,6 +115,27 @@ def test_the_judge_decides_its_zone_and_the_rules_the_rest() -> None:
     assert {d.key for d in judge_off} == {A, C, D}  # the rule threshold alone
 
 
+def test_an_advisory_judge_leaves_the_merges_to_the_rules_and_orders_the_queue() -> None:
+    advisory = replace(ZONE, judge_merges=False, judge_vetoes=False)
+    judged = [
+        StoredJudgement(B, "match", 0.9, "m"),  # below the threshold: a suggestion
+        StoredJudgement(C, "non_match", 0.95, "m"),  # against a rule match: a dispute
+        StoredJudgement(D, "unsure", 0.6, "m"),  # a rule match the judge cannot decide
+    ]
+    rows = [(A, 6.0, True), (B, -1.5, True), (C, 1.0, True), (D, 0.5, True)]
+    found = decide(rows, judged, advisory)
+    assert {d.key: d.decided_by for d in found.matches} == {
+        A: Decider.RULE,
+        C: Decider.RULE,
+        D: Decider.RULE,
+    }
+    by_reason = {w.key: w.reason for w in found.waiting}
+    assert by_reason == {B: WaitReason.SUGGESTED, C: WaitReason.DISPUTED, D: WaitReason.UNSURE}
+    assert [w.key for w in sorted(found.waiting, key=Waiting.priority)] == [B, C, D]
+    rules = {d.key for d in decisions(rows, [], DecisionPolicy(-0.25))}
+    assert {d.key for d in found.matches} == rules  # the same merges as the rules alone
+
+
 async def test_villas_keep_one_listing_per_platform_and_obey_the_owner() -> None:
     build, labels, villas = setup()
     await labels.save_label(PairLabel(C, Label.NON_MATCH, "owner", NOW))
@@ -134,8 +158,8 @@ async def test_unsure_pairs_wait_for_a_human_and_a_label_resolves_them_once() ->
     first = await build.run(ZONE)
     queue = await labels.queue("human")
     assert [(i.position, i.key, i.stratum) for i in queue] == [
-        (0, B, "judge:unsure"),
-        (1, D, "judge:match"),
+        (0, D, "judge:unsure"),  # a "match" below the floor; more confident than B's
+        (1, B, "judge:unsure"),
     ]
     assert (first.waiting_for_human, first.queued) == (2, 2)
     again = await build.run(ZONE)

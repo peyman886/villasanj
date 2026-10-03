@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Hashable, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Protocol
 
 from villasanj.catalog.application.reading import ListingReader
@@ -56,18 +57,28 @@ class JudgementStore(Protocol):
 class DecisionPolicy:
     """Who decides a candidate pair, by its rule score (ADR-0009 stages 3-4, ADR-0014).
 
-    At or above ``judge_high`` the rules merge. In [``judge_low``, ``judge_high``) the judge's
-    verdict decides when there is one: "match" at ``judge_min_confidence`` or more merges,
-    "non_match" at that confidence vetoes even a rule match, and "unsure" or any verdict below
-    the floor waits for a human (nothing merges meanwhile). A pair in the zone the judge has not
-    seen, and every pair outside it, follows the rule threshold. ``judge_low == judge_high``
-    turns the judge off.
+    Outside [``judge_low``, ``judge_high``), and for a pair in it the judge has not seen, the rule
+    threshold decides. In the zone the judge's verdict counts when it is at
+    ``judge_min_confidence`` or more:
+
+    - "match": merges when ``judge_merges``; otherwise a rule match stays merged and a pair
+      below the threshold waits for a human as a suggestion;
+    - "non_match": vetoes a rule match when ``judge_vetoes``; otherwise the rule match stays
+      merged and waits for a human as a dispute;
+    - "unsure", or any verdict below the floor, waits for a human; a rule match stays merged
+      meanwhile unless the judge may veto.
+
+    ``judge_merges`` and ``judge_vetoes`` false make the judge advisory: the machine merges are
+    the rules', and the judge only orders the human queue (ADR-0014 amendment).
+    ``judge_low == judge_high`` turns the judge off.
     """
 
     threshold: float  # rule score of a match (from the gold set)
     judge_low: float = 0.0
     judge_high: float = 0.0
     judge_min_confidence: float = 0.8
+    judge_merges: bool = True
+    judge_vetoes: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,10 +100,34 @@ class VillaReport:
     queued: int = 0  # of those, added to the human queue by this run
 
 
+class WaitReason(StrEnum):
+    """Why a pair waits for a human, in the order the queue shows them."""
+
+    SUGGESTED = "suggested"  # the judge says match below the rule threshold
+    DISPUTED = "disputed"  # the judge says non_match to a rule match
+    UNSURE = "unsure"  # "unsure", or a verdict below the confidence floor
+
+
+_WAIT_ORDER = {reason: rank for rank, reason in enumerate(WaitReason)}
+
+
+@dataclass(frozen=True, slots=True)
+class Waiting:
+    judgement: StoredJudgement
+    reason: WaitReason
+
+    @property
+    def key(self) -> PairKey:
+        return self.judgement.key
+
+    def priority(self) -> tuple[int, float]:
+        return _WAIT_ORDER[self.reason], -self.judgement.confidence
+
+
 @dataclass(frozen=True, slots=True)
 class Decisions:
     matches: list[MatchDecision]
-    waiting: list[StoredJudgement]  # for the human review queue
+    waiting: list[Waiting]  # for the human review queue
 
 
 def decide(
@@ -102,23 +137,34 @@ def decide(
 ) -> Decisions:
     judged = {j.key: j for j in judgements}
     matches: list[MatchDecision] = []
-    waiting: list[StoredJudgement] = []
+    waiting: list[Waiting] = []
     for key, score, blocked in candidates:
         if not (blocked and key.cross_platform):
             continue
         in_zone = policy.judge_low <= score < policy.judge_high
         verdict = judged.get(key) if in_zone else None
+        rule = MatchDecision(key, score, Decider.RULE) if score >= policy.threshold else None
         if verdict is None:
-            if score >= policy.threshold:
-                matches.append(MatchDecision(key, score, Decider.RULE))
+            matches.extend([rule] if rule else [])
             continue
         confident = verdict.confidence >= policy.judge_min_confidence
         if verdict.verdict == "match" and confident:
-            # Below every rule match outside the zone: rules stay the strongest evidence.
-            weight = policy.judge_low - 1 + verdict.confidence
-            matches.append(MatchDecision(key, weight, Decider.JUDGE))
-        elif verdict.verdict != "non_match" or not confident:
-            waiting.append(verdict)
+            if policy.judge_merges:
+                # Below every rule match outside the zone: rules stay the strongest evidence.
+                weight = policy.judge_low - 1 + verdict.confidence
+                matches.append(MatchDecision(key, weight, Decider.JUDGE))
+            elif rule:
+                matches.append(rule)  # the judge agrees with the rules
+            else:
+                waiting.append(Waiting(verdict, WaitReason.SUGGESTED))
+        elif verdict.verdict == "non_match" and confident:
+            if rule and not policy.judge_vetoes:
+                matches.append(rule)
+                waiting.append(Waiting(verdict, WaitReason.DISPUTED))
+        else:
+            if rule and not policy.judge_vetoes:
+                matches.append(rule)
+            waiting.append(Waiting(verdict, WaitReason.UNSURE))
     return Decisions(matches, waiting)
 
 
@@ -151,7 +197,7 @@ class BuildVillas:
 
     async def clustering(
         self, policy: DecisionPolicy, labeler: str | None
-    ) -> tuple[list[ListingId], Clustering, list[StoredJudgement]]:
+    ) -> tuple[list[ListingId], Clustering, list[Waiting]]:
         listing_ids = [
             x.id for platform in self._platforms for x in await self._listings.listings(platform)
         ]
@@ -191,18 +237,19 @@ class BuildVillas:
             report.queued = await self._enqueue(self._human_queue, waiting)
         return report
 
-    async def _enqueue(self, queue: str, waiting: Sequence[StoredJudgement]) -> int:
+    async def _enqueue(self, queue: str, waiting: Sequence[Waiting]) -> int:
         """Append the waiting pairs the queue does not hold yet (labelled ones stay as history),
-        so running again adds nothing and the labeller's positions never move."""
+        most useful first (suggestions, disputes, then unsure; confident first), so running
+        again adds nothing and the labeller's positions never move."""
         items = await self._labels.queue(queue)
         held = {item.key for item in items}
         start = max((item.position for item in items), default=-1) + 1
-        new = [j for j in waiting if j.key not in held]
+        new = sorted((w for w in waiting if w.key not in held), key=Waiting.priority)
         await self._labels.save_queue(
             queue,
             [
-                QueueItem(start + i, j.key, f"judge:{j.verdict}", len(new))
-                for i, j in enumerate(new)
+                QueueItem(start + i, w.key, f"judge:{w.reason.value}", len(new))
+                for i, w in enumerate(new)
             ],
         )
         return len(new)

@@ -13,7 +13,9 @@ CONFIG = Path(__file__).parents[4] / "config" / "er.toml"
 
 def test_the_repository_policy_is_the_adr_0014_operating_point() -> None:
     config = load_er_config(CONFIG)
-    assert config.policy == DecisionPolicy(-0.25, -2.0, 3.0, 0.8)
+    assert config.policy == DecisionPolicy(
+        -0.25, -2.0, 3.0, 0.8, judge_merges=False, judge_vetoes=False
+    )  # advisory: the rules merge, the judge orders the human queue
     assert config.human_queue == "er-human"
 
 
@@ -24,6 +26,8 @@ def test_the_repository_policy_is_the_adr_0014_operating_point() -> None:
         "[policy]\nthreshold = 0\njudge_low = 3\njudge_high = -2\njudge_min_confidence = 0.8\n"
         '[human]\nqueue = "q"\n',  # an empty zone
         "not toml",
+        "[policy]\nthreshold = 0\njudge_low = 0\njudge_high = 1\njudge_min_confidence = 0.8\n"
+        'judge_merges = "no"\n[human]\nqueue = "q"\n',  # a flag that is not a boolean
     ],
 )
 def test_a_bad_policy_file_is_refused(tmp_path: Path, text: str) -> None:

@@ -9,6 +9,13 @@ from villasanj.entity_resolution.application.villas import DecisionPolicy, ErCon
 from villasanj.shared.application.errors import ConfigurationError
 
 
+def _flag(table: dict[str, object], name: str) -> bool:
+    value = table.get(name, True)
+    if not isinstance(value, bool):
+        raise TypeError(f"{name} must be true or false")
+    return value
+
+
 def load_er_config(path: Path) -> ErConfig:
     try:
         with path.open("rb") as handle:
@@ -20,6 +27,8 @@ def load_er_config(path: Path) -> ErConfig:
                 float(policy["judge_low"]),
                 float(policy["judge_high"]),
                 float(policy["judge_min_confidence"]),
+                _flag(policy, "judge_merges"),
+                _flag(policy, "judge_vetoes"),
             ),
             str(data["human"]["queue"]),
         )

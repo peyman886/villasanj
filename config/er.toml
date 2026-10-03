@@ -5,6 +5,12 @@ threshold = -0.25             # rule score of a match
 judge_low = -2.0              # the judge decides scores in [judge_low, judge_high)
 judge_high = 3.0
 judge_min_confidence = 0.8    # a verdict below this waits for a human, whichever way it leans
+# Advisory judge (ADR-0014 amendment, 2026-10-03): with the gold-v1 labels, judge merges below the
+# threshold cannot be shown to meet the precision bar (2-3 labelled pairs there, each standing for
+# ~84) and its vetoes cost recall (5 of 7 labelled vetoes contradict a "same villa" label: units of
+# one complex). So the rules merge; judge suggestions and disputes wait in the human queue.
+judge_merges = false
+judge_vetoes = false
 
 [human]
 queue = "er-human"            # label at /label?queue=er-human; each label rebuilds the villas

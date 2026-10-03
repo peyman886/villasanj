@@ -1525,6 +1525,8 @@ def _er_policy(
     judge_low: float | None,
     judge_high: float | None,
     judge_min_confidence: float | None,
+    judge_merges: bool | None = None,
+    judge_vetoes: bool | None = None,
 ) -> DecisionPolicy:
     base = container.er_config().policy
     return DecisionPolicy(
@@ -1532,6 +1534,8 @@ def _er_policy(
         base.judge_low if judge_low is None else judge_low,
         base.judge_high if judge_high is None else judge_high,
         base.judge_min_confidence if judge_min_confidence is None else judge_min_confidence,
+        base.judge_merges if judge_merges is None else judge_merges,
+        base.judge_vetoes if judge_vetoes is None else judge_vetoes,
     )
 
 
@@ -1569,12 +1573,22 @@ def er_villas_eval(
     judge_low: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
     judge_high: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
     judge_min_confidence: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
+    judge_merges: Annotated[bool | None, typer.Option(help=_POLICY_HELP)] = None,
+    judge_vetoes: Annotated[bool | None, typer.Option(help=_POLICY_HELP)] = None,
     queue: Annotated[str, typer.Option(help="Gold queue.")] = "gold-v1",
 ) -> None:
     """Pairwise (weighted) and B-cubed scores of the machine decisions against the labels."""
 
     async def run(container: Container) -> bool:
-        policy = _er_policy(container, threshold, judge_low, judge_high, judge_min_confidence)
+        policy = _er_policy(
+            container,
+            threshold,
+            judge_low,
+            judge_high,
+            judge_min_confidence,
+            judge_merges,
+            judge_vetoes,
+        )
         typer.echo(f"policy: {policy}")
         pairwise = await EvaluateDecisions(
             container.candidates(), container.labels(), container.judgements()
