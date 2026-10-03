@@ -45,6 +45,18 @@ async def test_dry_run_prices_without_calling_and_counts_cache_hits() -> None:
     assert after.expected_usd < before.expected_usd
 
 
+async def test_a_request_repeated_in_one_job_is_priced_once() -> None:
+    # Hosts reuse one description on many listings: only the first copy reaches the model.
+    estimator = DryRunEstimator(
+        routing(), catalog(), HeuristicTokenEstimator(catalog()), InMemoryLLMCache(), "fake"
+    )
+    once = await estimator.estimate([request()])
+    twice = await estimator.estimate([request(), request(), request(text="another pair")])
+    assert (twice.calls, twice.cache_hits) == (3, 1)
+    other = await estimator.estimate([request(text="another pair")])
+    assert twice.expected_usd == once.expected_usd + other.expected_usd
+
+
 async def test_expected_cost_never_exceeds_worst_case() -> None:
     small = request()
     capped = LLMRequest(

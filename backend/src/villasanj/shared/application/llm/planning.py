@@ -72,14 +72,17 @@ class DryRunEstimator:
 
     async def estimate(self, requests: Sequence[LLMRequest[Any]]) -> DryRunReport:
         totals: defaultdict[tuple[LLMTask, str], _Accumulator] = defaultdict(_Accumulator)
+        planned: set[str] = set()  # a request repeated in the job is answered by the first one
         for request in requests:
             route = self._routing.route(request.task)
             call = ModelCall(request=request, route=route, model=route.model, ctx=_DRY_RUN_CONTEXT)
             acc = totals[(request.task, route.model)]
             acc.calls += 1
-            if await self._cache.get(cache_key(self._provider, call)) is not None:
+            key = cache_key(self._provider, call)
+            if key in planned or await self._cache.get(key) is not None:
                 acc.cache_hits += 1
                 continue
+            planned.add(key)
             input_tokens = self._estimator.input_tokens(
                 route.model, request.messages, request.output_schema.model_json_schema()
             )
