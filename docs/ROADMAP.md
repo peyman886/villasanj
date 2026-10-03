@@ -23,14 +23,14 @@ hard cap $30). Estimates come from [ADR-0005](adr/0005-llm-model-selection-and-c
 | 1 | Skeleton & LLM platform | $0.20 | ✅ delivered |
 | 2 | First vertical slice (jabama → shab) | $0.50 | ✅ approved 2026-10-01 |
 | 3 | Hypothesis test (ER baseline + pricing core + H1–H3) | $0.50 | ✅ completed 2026-10-03 (gold-v1 labelled, eval, H1–H3; priorities kept) |
-| 4 | Coverage: permission-gated adapters, wider region, scheduled scenario crawls | $0.50 | **partly started in parallel** with M3 (only parts independent of M3 results) |
-| 5 | Full ER | $8.00 | report + precision sign-off |
-| 6 | Pricing complete & offers | $0.50 | report |
-| 7 | API & canonical villa page | $0.50 | report + UX review |
-| 8 | Search: intent, retrieval, ranking, drive time | $2.00 | report |
-| 9 | Enrichment & truth check | $6.00 | report |
-| 10 | Reviews & "why this villa?" | $6.00 | report |
-| 11 | Demo polish | $3.00 | final |
+| 4 | Coverage: permission-gated adapters, wider region, scheduled scenario crawls | $0.50 | ✅ crit. 2–4 met 2026-10-03; crit. 1 ⛔ no permission (ADR-0011) |
+| 5 | Full ER | $8.00 | ✅ 7/7 criteria met 2026-10-03 (`reports/er-eval-2026-10-03.md`); judge advisory (ADR-0014 amendment); **owner's sign-off pending** |
+| 6 | Pricing complete & offers | $0.50 | ✅ crit. 1, 2, 4; crit. 3 ⛔ no public direct quote |
+| 7 | API & canonical villa page | $0.50 | ✅ 5/5 criteria; **owner's UX review pending** |
+| 8 | Search: intent, retrieval, ranking, drive time | $2.00 | ✅ crit. 3, 4; crit. 1 provisional (owner's review of the query set); crit. 2 waits for relevance judgements |
+| 9 | Enrichment & truth check | $6.00 | ✅ 5/5 criteria (`reports/h4-2026-10-03.md`); VLM checks not built |
+| 10 | Reviews & "why this villa?" | $6.00 | ✅ crit. 1–3; crit. 4 ❌ explanation p95 uncached > 4 s (results do not wait for it) |
+| 11 | Demo polish | $3.00 | ✅ crit. 1, 2, 4 (`make demo`, `docs/demo-script.md`); crit. 3 dashboard reconciliation is the owner's; cache warm-up waits for the key quota |
 
 ---
 
@@ -297,7 +297,7 @@ results and the re-prioritisation review are not done and nothing provisional is
 |---|---|---|
 | Adapters for jajiga / otaghak / mihmansho | ⛔ blocked | No written permission yet (ADR-0011). |
 | Wider region | ⏸ waits for M3 | Only "if M3 shows too few cross-platform pairs" (H1). |
-| Same-window scenario capture (criterion 3) | ✅ built, **not run** | `make crawl-scenarios` plans the capture (currently jabama 2.9 h, shab 0.6 h, in parallel; LIVE=1 runs it). Running it now would change the catalog under the M3 gold set, so it runs after M3 or for the M11 final crawl. |
+| Same-window scenario capture (criterion 3) | ✅ **met 2026-10-03** | `make crawl-scenarios LIVE=1` after M3 (it is also M11's final crawl): jabama 2,987/2,987 listings in all three scenarios, observations spread over 3.2 h; shab 597/601 (99.3%; 4 unknown), spread 0.6 h. H1–H3 re-run on it: `reports/hypotheses-2026-10-03-same-window.md` (H2 and H3 hold). |
 | Crawl metrics | ✅ built | `make crawl-metrics`: traffic per host with measured pacing (every host: min interval ≥ 3.05 s, median ~3.7 s). |
 | Photo pipeline report (criterion 4) | ✅ met (2026-10-02): jabama 14,837/14,837 selected photos downloaded (100%), 0 failed, all fingerprinted, 14,466 distinct images embedded, 8.48 GB; shab 3,004/3,004, 1.09 GB | `catalog photo-report`: selected / downloaded / failed with reasons / coverage / hashed / embedded / storage. "≥ 99% of referenced photos" is read as ≥ 99% of the photos the policy selects (5 per listing, ADR-0012). The full 66k would be ~50 h of polite crawling for little ER gain. |
 | Regional coverage per platform (criterion 2) | ✅ built | `catalog inventory`. A second discovery pass was run before gold-v1 exists, so no label is affected. jabama search pages again (119 pages): **34 new stays**, catalog 2,951 → 2,985, 0 parse failures. shab sitemaps again: 0 new houses (601). Their coverage photos were queued too. |
@@ -330,6 +330,28 @@ Acceptance criteria:
 7. Human queue: every `UNSURE` or low-confidence judge verdict lands in the queue, and resolving it
    updates clusters idempotently.
 
+
+### M5 results (2026-10-03)
+
+Reproduce: `uv run villasanj er report` → `reports/er-eval-2026-10-03.md` (match run `3425556d`,
+dataset `dd0bcb81…`, gold-v1). Decisions: ADR-0014 and its amendment; the bake-off in ADR-0005.
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Blocking recall ≥ 98% with the candidate count | ✅ 100% of gold matches (Wilson 83.0–100%); 154,395 candidate pairs, 28,557 from production blocking (the rest is the wide net that measures it). |
+| 2 | End-to-end precision ≥ 95% (low ≥ 92%), recall reported | ✅ at the configured policy: precision 98.1% (93.0–99.5%), recall 67.1% (44.6–83.8%). The judge merging and vetoing would give 100% (81.6–100%) and 94.8%, but its lower bound misses the bar (too few labels in the geo band), so the judge is **advisory**: the recall it could add is reported, not taken. |
+| 3 | Pairwise P/R/F1, B-cubed, PR curve, reproducible | ✅ the report: curve −3…8 in steps of 0.25 with the chosen threshold; five policies with B-cubed (rules: 0.987 / 0.980 / 0.984). |
+| 4 | Judge bake-off, model and cost per pair in ADR-0005; MATCH precision ≥ 95% | ✅ 142 gold pairs × 3 models; gemini-3.8-flash: 0 false matches, weighted recall 93.8%, $0.0022 a pair in the bake-off, $0.0034 in the production run ($9.58 for 2,885 pairs). Its confident matches on labelled pairs: 71/71 correct (Wilson low 94.9%). |
+| 5 | ≤ 1 listing per platform per villa; every merge traceable | ✅ unique index plus domain check and tests; 107 same-platform merges refused in production; merges by decider (rule 200, owner 121) and the id history in `er.villa_event`. |
+| 6 | Ablations (H5) | ✅ photos alone: best F1 0.563 at 50% precision; other evidence alone: 0.246; neither reaches the bar, the full score does (H5 holds). |
+| 7 | Human queue for unsure / low-confidence verdicts; idempotent resolution | ✅ queue `er-human` at `/label?queue=er-human`: 376 pairs (83 suggested matches, 81 disputes, 212 unsure), most useful first. A label there rebuilds the villas after the API responds (one rebuild at a time); a second rebuild changes nothing. A split could give two villas one id: fixed (`1d5a1e2`). |
+
+Production villas (advisory policy, owner's labels applied): 3,267 villas from 3,588 listings, 321 on
+both platforms. Scope changes: no Splink (ADR-0014); gold-set v2 from new platforms does not apply
+(no new platform, ADR-0011). Owner decision pending: the "same villa" labels on units of one complex
+(5 cross-platform pairs the judge vetoes, 41 same-platform pairs from M3) — the protocol's rule 2
+would mark them N or U, and the answer moves the operating point (ADR-0014 amendment).
+
 ---
 
 ## M6 — Pricing complete & offers
@@ -355,6 +377,16 @@ descriptions almost never give a fee amount (0 heating fees with an amount; ~24 
 separate fee in words only). Optional fees stay unknown, which the open bound of every offer
 already says; no parser is built for data that does not exist.
 
+
+### M6 status (2026-10-03)
+
+| # | Result |
+|---|---|
+| 1 | ✅ property test `test_every_quote_carries_provenance_for_every_component` (hypothesis). |
+| 2 | ✅ `pricing offers`: every offer of both platforms is `OPEN` (≥ X) in all scenarios × groups, because neither platform publishes its fees; e.g. jabama weekend ×4: 2,276 bookable offers, shab weekend ×4: 452. |
+| 3 | ⛔ no public direct-quote source was found on either platform; nothing to compare against. |
+| 4 | ✅ `stale` on every offer in the API (24 h); 0 stale right after the same-window capture. |
+
 ---
 
 ## M7 — API & canonical villa page
@@ -371,6 +403,19 @@ Acceptance criteria:
    random numbers and asserts that a provenance popover is shown.
 4. Accessibility: no critical axe violations. Keyboard navigation works for calendar and offers.
 5. p95 API latency < 300 ms for villa + offers on the demo dataset (local).
+
+
+### M7 status (2026-10-03)
+
+| # | Result |
+|---|---|
+| 1 | ✅ `make openapi-check` passes; the TS client compiles strict; API tests in `make test`. |
+| 2 | ✅ smoke: 50 sampled two-platform villas and 50 listings render without errors (`make test-smoke`, 2/2). |
+| 3 | ✅ E2E clicks 10 numbers on the listing, search and villa pages and finds their provenance (16/16 on the host servers and on the stack). |
+| 4 | ✅ axe: no serious or critical violations on the listing, search and villa pages; calendar keyboard in E2E (Escape and Tab on popovers checked by hand). |
+| 5 | ✅ villa + offers p95 20 ms on 50 villas (host API, local db). |
+
+The owner's UX review is still to come.
 
 ---
 
@@ -391,6 +436,16 @@ Acceptance criteria:
 3. Drive time: free-flow OSRM time from Tehran for 100% of villas with coordinates; displayed as a range
    when the location is obfuscated. A coverage note is shown ("with 2 h → X villas, with 3 h → Y").
 4. Every ranked result exposes its score breakdown in the API and UI.
+
+
+### M8 status (2026-10-03)
+
+| # | Result |
+|---|---|
+| 1 | ⚠️ provisional: on the 50-query draft (written by the agent) gpt-5.4-mini with prompt v4 has 100% slots, 0 invented numbers, p95 1.4 s; it counts once the owner reviews the set. |
+| 2 | ⏸ needs 30 queries with judged relevant villas (the owner's judgements). Retrieval is filters plus transparent ranking; dense retrieval is not shipped, as the criterion requires until it proves itself. |
+| 3 | ✅ free-flow OSRM time from Azadi Square for 100% of 3,588 listings, shown as a range under the blur circle; the coverage note on the search page. |
+| 4 | ✅ every result's score breakdown in the API and on the card; villa-level results (one per villa, the other platform's own offer on the card). |
 
 ---
 
@@ -413,6 +468,20 @@ Acceptance criteria:
 5. The dry-run estimate for the full enrichment job is within ±25% of the ledger actual (validates the
    estimator).
 
+
+### M9 status (2026-10-03)
+
+| # | Result |
+|---|---|
+| 1 | ✅ on the owner's 60 descriptions (claims-v1): rules plus the LLM residue, precision 93.7% (84.8–97.5%), recall 80.8% (70.3–88.2%); every quote verbatim (a quote not in the text goes back once, then is dropped). |
+| 2 | ✅ on the owner's 336 photo labels: pool, jacuzzi, forest and barbecue used (precision ≥ 85%); sea_view and fireplace not used. |
+| 3 | ✅ verdict rule tests (best case, walk and drive readings). |
+| 4 | ✅ `reports/h4-2026-10-03.md`: listings with a CONTRADICTED or INCONSISTENT_ACROSS_PLATFORMS claim — jabama 9.8% (8.6–11.1%), shab 5.5% (3.9–7.6%). The research report expected ≥ 25%: not supported. Cross-platform: 22 of 317 compared villas disagree (parking 12, pool 10). |
+| 5 | ✅ review summaries +3%; claim reading +22% after a dry run learned that a request repeated in one job is paid once (`52e384e`; +39% before). |
+
+Not built: targeted VLM checks for the unused tags (sea_view, fireplace). They would cost LLM calls
+on composite grids, and the key's monthly quota is spent (2026-10-03).
+
 ---
 
 ## M10 — Reviews & "why this villa?"
@@ -430,6 +499,19 @@ Acceptance criteria:
    recorded either way).
 4. Explanation latency p95 ≤ 4 s uncached; cached demo paths are instant.
 
+
+### M10 status (2026-10-03)
+
+| # | Result |
+|---|---|
+| 1 | ✅ verifier unit tests (digits outside slots, unknown slots, contradicting comparisons, uncited points). |
+| 2 | ✅ every displayed text passed the verifier by construction (a failing one is replaced by the template); fallback rate: explanations 0% template on the 20 draft queries, summaries 48/48 first try. Without a model answer at all the template still explains (`1a7cb0a`). |
+| 3 | ✅ the owner's blind review: **20/20 faithful** (summaries-v1). |
+| 4 | ❌ explanation p95 6.1–10.6 s uncached (ADR-0005 amendment); results come first and the explanation streams in; cached demo paths are instant. |
+
+Cross-platform aggregation: the villa page lists every platform's reviews with their source and one
+summary over all of them (`GET /villas/{id}/review-summary`, citations `platform:review_id`).
+
 ---
 
 ## M11 — Demo polish
@@ -445,9 +527,26 @@ Acceptance criteria:
 3. Total project LLM spend ≤ $30 (ledger) and reconciled with the AvalAI dashboard.
 4. E2E Playwright suite green for the storyboard paths.
 
+
+### M11 status (2026-10-03)
+
+| # | Result |
+|---|---|
+| 1 | ✅ `make demo-bundle` (55 MB database dump with the LLM cache) and `make demo`: a separate stack on :3400 restored from it, `LLM__PROVIDER=offline` (cached answers only); health `db=ok blob=ok llm=offline-ok`, every page 200, no outbound request from the API. Photos are hotlinked from the platforms by design and stay grey without network (serving local copies is the owner's call). |
+| 2 | ✅ `docs/demo-script.md`: every number in the narration names its generated report (`hypotheses-2026-10-03-same-window`, `er-eval-2026-10-03`, `h4-2026-10-03`, `/metrics`). |
+| 3 | ⚠️ ledger $12.31 of $30. AvalAI reports 13.18 of the key's 13.10 monthly units used (the key's own limit, now reached); reconciling with the dashboard is the owner's. |
+| 4 | ✅ E2E 16/16 and smoke 2/2 on the paths the script uses. |
+
+Before recording: raise the key's monthly limit, open the script's paths once online so their model
+answers are cached, then `make demo-bundle`. The final same-window crawl is the capture of
+2026-10-03 (M4 crit. 3).
+
 ---
 
 ## Work done ahead of its milestone (while M3 waits for the photo crawl and labels)
+
+A log of what was built before its milestone opened; each row's status is as of that row. The
+current status per criterion is in each milestone's section above.
 
 The owner asked to use the waiting time for work that does **not** depend on M3's final outputs
 (gold-v1, threshold calibration, precision/recall, H1–H3) or on final entity resolution. Everything
@@ -501,15 +600,18 @@ result.
 | Canonical villa page `/villas/{id}` and API (`/villas/{id}`, `/offers`, `/calendar`, `/reviews`, `/of/{p}/{id}`, `/sample`): members with conflict badges per platform (each value with its source), each platform's own offer side by side (rule 3), the merged calendar with hidden nights, each member's truth check, every review with its platform; listing pages link to their villa. Built from `er villas` at −0.25 with the owner's labels: 3,265 villas, 321 on both platforms. Smoke: 50/50 sampled two-platform villas render with no error; villa + offers p95 15 ms on 50 villas (host API, local db) | M7 crit. 2–5 (villa level) | ✅ done | the judge's merges (M5) |
 | Villa-level search: a villa on two platforms is one result, ranked by its best listing; the card shows the other platform's own offer (or that it was not free) with its source and links to the villa page; never a merged price | M8 (villa-level ranking) | ✅ done | — |
 
-Still blocked or waiting:
-- **M1 crit. 8:** compare the ledger with the AvalAI dashboard (needs the owner's dashboard access).
-- **M4:** new adapters (no written permission); wider region (H1); the same-window scenario capture (crit. 3) runs after M3 so the catalog under gold-v1 does not change.
-- **M5:** Splink / supervised model, judge bake-off, ablations, human review queue for UNSURE, clustering on real data — all need the gold set.
-- **M6 crit. 3:** direct-quote comparison: no public quote source found on either platform.
-- **M8:** the 50-query eval set needs the owner's review before its result counts; the latency target is met by gpt-5.4-mini on the draft set (p95 1.4 s with prompt v4, ADR-0005 amendments) but is provisional with the set; retrieval eval (crit. 2) and villa-level ranking need M5.
-- **M9:** distance claims are judged against the coastline and OSM places (ADR-0013 and its amendment); the 60-description claim eval (`/label/claims`, claims-v1 drawn) is labelled (claims-v1) and the photo tags are evaluated and used (see the rows above).
-- **M10:** the blind review of 20 summaries (`/label/summaries`) is the owner's; explanation latency (crit. 4) is not met uncached.
-- **M11:** `make demo` (local data bundle; the basemap is done), storyboard rehearsal with final data.
+Still blocked or waiting (2026-10-03):
+- **Owner:** raise or remove the AvalAI key's monthly limit (13.10 units, reached); reconcile the
+  ledger with the dashboard (M1 crit. 8, M11 crit. 3); decide on the complex-unit labels (ADR-0014
+  amendment); label the `er-human` queue as far as useful (its first 83 pairs are the judge's
+  suggested matches); review the 50-query draft (M8 crit. 1); judge relevance for 30 queries
+  (M8 crit. 2); review the villa page UX (M7); decide whether the offline demo may serve local
+  copies of photos.
+- **Needs the LLM quota:** warm the demo's cached paths and re-bundle; judge the one zone pair that
+  failed and new candidates; VLM checks for sea_view and fireplace (M9).
+- **Blocked by others:** new platforms (no written permission, ADR-0011); a direct-quote comparison
+  (M6 crit. 3, no public quote).
+- **Not met:** explanation latency p95 ≤ 4 s uncached (M10 crit. 4).
 
 ---
 

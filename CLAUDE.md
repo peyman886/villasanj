@@ -21,36 +21,27 @@ Context files (local):
 
 ## Current status
 
-- M0 (design) approved 2026-10-01.
-- M1 (skeleton & LLM platform) delivered 2026-10-01.
-- M2 (first vertical slice: jabama → shab) delivered and approved 2026-10-01. Catalog: 2,951 jabama
-  + 601 shab listings, 278k calendar observations; gazetteer v1 in `config/gazetteer.toml`.
-- **M3 completed 2026-10-03.** gold-v1: 362 owner labels (1.1% unsure). Baseline matcher at
-  threshold −0.25: precision 98.1% (93.0–99.5%), recall 67.1% (44.6–83.8%), weighted by stratum;
-  blocking recall 100%. H1–H3 in `reports/hypotheses-2026-10-02.md`. Recall is the gap (close pairs
-  whose 5 coverage photos do not overlap); same-platform "matches" are units of one complex with
-  shared photos (ROADMAP "M3 results"). Also labelled: photos-v1, claims-v1, summaries-v1.
-- **M4 partly started in parallel** (owner's instruction): only parts independent of M3's final
-  outputs. Done: scenario capture tool (built, not run while M3 is open), crawl metrics, photo
-  report, inventory, a second discovery pass. Blocked: new adapters (no permission). Waiting for
-  M3: wider region. See ROADMAP M4.
-- **Built ahead of M5–M10, provisional until the M3 review** (owner's instruction; ROADMAP section
-  "Work done ahead of its milestone"): offers with provenance and staleness (M6); the ADR-0007
-  slot verifier (M10); reviews per listing with a Bayesian prior (M10); constrained clustering and
-  `er.villa*` schema, **not run** (M5); listing API + typed TS client (M7); the gray-zone judge,
-  **dry-run only** (M5); listing page with provenance popovers (M7); distance and feature claims
-  (M9); date resolver, holiday calendar, query understanding, ranking, search API and `/search`
-  page at listing level (M8); review summaries and explanations (M10); `llm spend`.
-  Added 2026-10-02: geo evidence from OSM (coastline + places, OSRM drive times; ADR-0013 and its
-  amendment), the truth check on listing pages and as a search caution, photo tags (SigLIP 2,
-  thresholds wait for labels), `/metrics`, `/how-we-rank`, per-person shares, the explanation
-  eval and bake-off (explanation streamed after results), the blind summary review tool
-  (`/label/summaries`, queue summaries-v1), the 50-listing smoke test, query prompt v4
-  (`unhandled` wishes). Never run clustering or live judging before the gold set exists.
-- Owner reviews pending: ~300 ER pairs (`/label`, gold-v1, after the crawl), ~300 photos
-  (`/label/photos`, photos-v1), 20 summaries (`/label/summaries`), the 50-query draft set
-  (`eval/query-understanding/draft-v1.jsonl`) and the explanation texts
-  (`docs/reference/explanation-bakeoff-2026-10-02.md`). LLM spend so far: ledger `llm spend`.
+- M0–M3 done (M3 completed 2026-10-03: gold-v1, 362 owner labels; threshold −0.25; H1–H3).
+- **2026-10-03, owner's instruction "complete every milestone as far as dependencies allow":**
+  status per criterion is in each milestone's section of `docs/ROADMAP.md`. In short:
+  - M4: same-window capture done (jabama 3.2 h, shab 0.6 h); new platforms ⛔ (no permission).
+  - M5: done, 7/7 (`reports/er-eval-2026-10-03.md`). The machine merges are the rules' (P 98.1%,
+    R 67.1%); the gemini-3.8-flash judge is **advisory** (`config/er.toml`: `judge_merges` and
+    `judge_vetoes` false) because its merges cannot be verified at the bar with gold-v1, and it
+    orders the human queue `er-human` (376 pairs). ADR-0014 and its amendment.
+  - M6–M10: met except M6 crit. 3 (no public quote), M8 crit. 1–2 (owner's query review and
+    relevance judgements), M10 crit. 4 (explanation latency uncached).
+  - M11: `make demo` (offline stack from a database bundle), `docs/demo-script.md`; cache warm-up
+    and the dashboard reconciliation wait.
+- Production villas: 3,267 from 3,588 listings, 321 on both platforms.
+- **The AvalAI key's monthly limit (13.10 units, set by the owner) is reached** (2026-10-03 18:23
+  UTC): every call answers 429 `monthly_quota_exceeded`, which is now a non-retried
+  `ProviderQuotaError`. Ledger: $12.31 of the $30 cap. Pages degrade (summaries omitted,
+  explanations fall back to the template); nothing needing new LLM calls can run until the owner
+  raises the limit.
+- Owner decisions pending: the complex-unit labels (5 cross-platform pairs the judge vetoes, 41
+  same-platform pairs), local photo copies for the offline demo, the `er-human` queue, the M8 query
+  set and relevance judgements, the M7 UX review.
 
 ## Working agreement (from the owner)
 
@@ -170,6 +161,7 @@ make osm-download / osm-prepare         # Geofabrik Iran snapshot -> clipped ext
 make routing-up / routing-down          # OSRM (compose profile routing); core stack untouched
 make geo                                # coastline + places into PostGIS, distances, drive times, truth checks
 make basemap                            # offline basemap (Protomaps extract, 13 MB) in data/basemap
+make demo-bundle / demo / demo-down     # DB bundle (with LLM cache) -> offline stack on :3400 (own volume)
 make seed                               # nothing to seed until M11
 ```
 
@@ -188,9 +180,12 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `discovery search <query>` (query → ranked listings with reasons; one LLM call),
 `discovery eval-understanding <cases.jsonl> [--dry-run]` (M8 crit. 1 harness), `enrichment coast`,
 `enrichment truth-sea`, `enrichment places-load` / `places` / `truth-distances`, `discovery drive-times` (OSRM up), `enrichment tag-photos` / `photo-queue` /
-`photo-tags-eval` (SigLIP 2 tags, gated by labels at `/label/photos`). Search page: `/search`.
-Labelling UIs (stack on 3300): `/label` (ER pairs, gold-v1), `/label/photos` (photos-v1), `/label/summaries`
-(summaries-v1, M10 blind review); `/metrics` shows progress. Host dev: `npm run dev` with `API_URL` set.
+`photo-tags-eval` (SigLIP 2 tags, gated by labels at `/label/photos`), `er report` (M5 evaluation
+into reports/), `er villas` / `er villas-eval` (policy from `config/er.toml`, flags override),
+`er judge-zone`, `enrichment h4 [--out]`. Search page: `/search`; villa page: `/villas/<id>`.
+Labelling UIs (stack on 3300): `/label` (ER pairs, gold-v1), `/label?queue=er-human` (the judge's
+suggestions and disputes; each label rebuilds the villas), `/label/photos` (photos-v1),
+`/label/summaries` (summaries-v1), `/label/claims` (claims-v1); `/metrics` shows progress. Host dev: `npm run dev` with `API_URL` set.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.
 On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0.1:5433).
@@ -240,6 +235,11 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
 - **Gazetteer edits:** `config/gazetteer.toml` is curated, precision first. Add only real place
   names seen in data; never alias roads/streets or guess typo merges. `make report` shows the
   resolution rate and the top unresolved texts.
+- **Restart host servers after backend changes:** the `api-host` preview (uvicorn on 8801, no
+  reload) keeps running old code; a label in `er-human` triggers a villa rebuild with whatever code
+  it runs. The E2E suite targets the host dev server (3301 → 8801) unless `E2E_BASE_URL` is set.
+- **ER policy lives in `config/er.toml`**; the CLI flags only override it. Rebuilding villas after a
+  policy change reconciles ids (history in `er.villa_event`).
 - **Never commit the probe/recon by-products**: raw responses live in `var/blobs` and `data/audit`
   (git-ignored); fixtures are trimmed and scrubbed (no host or reviewer names).
 
@@ -254,7 +254,8 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
 
 - `docs/ARCHITECTURE.md`: contexts, layers, diagrams, domain model, schema, ports, assumptions.
 - `docs/ROADMAP.md`: milestones M0–M11 with acceptance criteria and LLM caps.
-- `docs/adr/`: decisions 0001–0012.
+- `docs/adr/`: decisions 0001–0014 (0014: ER decisions, the judge zone, the advisory amendment).
+- `reports/`: generated, reproducible reports (hypotheses, er-eval, h4); `docs/demo-script.md`.
 - `docs/er-labeling-protocol.md`: how the owner labels gold-set pairs (Persian).
 - `docs/sources/README.md`: robots/ToS audit, crawl-time observations, inventory, photo experiment.
 - `docs/research-review.md`: critique of the research report.
