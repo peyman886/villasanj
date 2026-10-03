@@ -40,13 +40,18 @@ ROADMAP M5 · Reproduce with `er judge-eval`, `er judge-zone`, `er villas`, `er 
    which waits for a human). Latency does not matter in a batch job.
 3. **The zone is [−2, 3).** Every cross-platform match the rules miss scores in [−2, −0.25)
    (none among the 110 labelled cross-platform pairs below −2), and both false matches are inside
-   it. In the zone a confident "match" (≥ 0.8) merges, a "non_match" vetoes even a rule match,
-   and "unsure" waits for a human. Above 3 the rules merge; below −2 nothing merges. About 2,900
-   candidate pairs, run once (`er judge-zone`) and cached.
-4. **The owner's labels win.** A "same villa" label is a must-link, a "not the same villa" label a
+   it. In the zone a confident "match" (≥ 0.8) merges, a confident "non_match" vetoes even a
+   rule match, and "unsure" or any verdict below 0.8 waits for a human without merging. Above 3
+   the rules merge; below −2 nothing merges. About 2,900 candidate pairs, run once
+   (`er judge-zone`) and cached. The operating point lives in `config/er.toml`.
+4. **Waiting pairs go to a human queue.** `er villas` appends them to the `er-human` label queue
+   (append-only: running again adds nothing, labelled pairs stay as history), and a label there
+   rebuilds the villas after the API responds (one rebuild at a time). A rebuild with the same
+   labels yields the same villas and ids (M5 criterion 7).
+5. **The owner's labels win.** A "same villa" label is a must-link, a "not the same villa" label a
    cannot-link no machine decision overrides. Clustering is greedy, strongest first, at most one
    listing per platform (product rule 4, also a unique index); refused merges are reported.
-5. **Evaluation stays honest.** The policy is scored end to end on the gold set with the labels
+6. **Evaluation stays honest.** The policy is scored end to end on the gold set with the labels
    *not* applied (`er villas-eval`: weighted pairwise precision and recall, plus B-cubed). The judge
    was chosen on these same gold pairs, so the end-to-end numbers are optimistic by however much
    that choice fits them; a gold-v2 sample from the new villas is the clean test.

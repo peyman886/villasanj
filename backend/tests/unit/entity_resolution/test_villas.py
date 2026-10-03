@@ -52,11 +52,17 @@ class Villas:
 
 
 class Judgements:
+    def __init__(self, judged: Sequence[StoredJudgement] | None = None) -> None:
+        default = [StoredJudgement(B, "match", 0.9, "m"), StoredJudgement(D, "match", 0.95, "m")]
+        self._judged = list(judged or default)
+
     async def all(self) -> list[StoredJudgement]:
-        return [StoredJudgement(B, "match", 0.9, "m"), StoredJudgement(D, "match", 0.95, "m")]
+        return list(self._judged)
 
 
-def setup() -> tuple[BuildVillas, LabelStoreFake, Villas]:
+def setup(
+    judged: Sequence[StoredJudgement] | None = None, human_queue: str | None = None
+) -> tuple[BuildVillas, LabelStoreFake, Villas]:
     candidates = CandidateStoreFake(
         [
             scored(A, 6.0, BlockingSource.PHOTO_HASH),
@@ -74,7 +80,8 @@ def setup() -> tuple[BuildVillas, LabelStoreFake, Villas]:
         villas,
         ListingsFake([J1, J2, J3, S1, S2, S3]),
         ["jabama", "shab"],
-        Judgements(),
+        Judgements(judged),
+        human_queue,
     )
     return build, labels, villas
 
@@ -93,9 +100,12 @@ def test_the_judge_decides_its_zone_and_the_rules_the_rest() -> None:
     assert by_key[B].decided_by is Decider.JUDGE
     assert by_key[B].weight < by_key[A].weight
     assert C not in by_key  # vetoed
-    assert found.waiting == [D]  # unsure: a human decides
-    low = decisions([(B, -1.5, True)], [StoredJudgement(B, "match", 0.7, "m")], ZONE)
-    assert low == []  # below the confidence floor
+    assert [j.key for j in found.waiting] == [D]  # unsure: a human decides
+    low = decide([(B, -1.5, True)], [StoredJudgement(B, "match", 0.7, "m")], ZONE)
+    assert low.matches == []  # below the confidence floor...
+    assert [j.key for j in low.waiting] == [B]  # ...a human decides
+    shaky = decide([(C, 1.0, True)], [StoredJudgement(C, "non_match", 0.6, "m")], ZONE)
+    assert (shaky.matches, [j.key for j in shaky.waiting]) == ([], [C])  # no merge meanwhile
     unjudged = decisions([(C, 1.0, True)], [], ZONE)
     assert [d.decided_by for d in unjudged] == [Decider.RULE]  # not judged: the rules decide
     judge_off = decisions(rows, judged, DecisionPolicy(-0.25))
@@ -116,6 +126,28 @@ async def test_villas_keep_one_listing_per_platform_and_obey_the_owner() -> None
     assert (report.villas, report.multi_platform) == (4, 2)
     again = await build.run(ZONE)
     assert again.events.get("created", 0) == 0  # same clusters, same ids
+
+
+async def test_unsure_pairs_wait_for_a_human_and_a_label_resolves_them_once() -> None:
+    judged = [StoredJudgement(B, "unsure", 0.5, "m"), StoredJudgement(D, "match", 0.6, "m")]
+    build, labels, villas = setup(judged, human_queue="human")
+    first = await build.run(ZONE)
+    queue = await labels.queue("human")
+    assert [(i.position, i.key, i.stratum) for i in queue] == [
+        (0, B, "judge:unsure"),
+        (1, D, "judge:match"),
+    ]
+    assert (first.waiting_for_human, first.queued) == (2, 2)
+    again = await build.run(ZONE)
+    assert (again.queued, len(await labels.queue("human"))) == (0, 2)  # nothing added twice
+    await labels.save_label(PairLabel(B, Label.MATCH, "owner", NOW))
+    resolved = await build.run(ZONE)
+    assert frozenset({J2.id, S2.id}) in {frozenset(m) for m in villas.stored.values()}
+    assert (resolved.waiting_for_human, resolved.queued) == (1, 0)
+    assert resolved.applied[Decider.HUMAN.value] == 1
+    assert resolved.events["merged"] == 1
+    settled = await build.run(ZONE)
+    assert not settled.events  # the same labels: the same villas, the same ids
 
 
 async def test_bcubed_compares_the_machine_clustering_with_the_labels() -> None:

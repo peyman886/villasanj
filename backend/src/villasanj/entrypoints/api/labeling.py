@@ -1,12 +1,15 @@
 """Labelling API for the gold set (local tool; no auth, never exposed beyond localhost).
 
 Scores, strata and model suggestions are deliberately absent from the responses, so the labeller
-is not anchored by the matcher (ADR-0009).
+is not anchored by the matcher (ADR-0009). A label in the human review queue (pairs the judge was
+unsure about, ADR-0014) rebuilds the villas after the response: the label is a must-link or a
+cannot-link, and a rebuild with the same labels changes nothing (M5 criterion 7).
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+import structlog
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
 from villasanj.catalog.domain.listing import Listing
@@ -18,6 +21,7 @@ MAX_PHOTOS = 24
 MAX_DESCRIPTION = 900
 
 router = APIRouter(prefix="/er", tags=["entity-resolution"])
+log = structlog.get_logger(__name__)
 
 
 class ListingOut(BaseModel):
@@ -138,8 +142,22 @@ async def task(
     )
 
 
+async def _rebuild_villas(container: Container) -> None:
+    try:
+        report = await container.rebuild_villas()
+    except Exception:  # the label is saved; the next rebuild applies it
+        log.exception("er.villas.rebuild_failed")
+        return
+    log.info(
+        "er.villas.rebuilt",
+        villas=report.villas,
+        multi_platform=report.multi_platform,
+        waiting_for_human=report.waiting_for_human,
+    )
+
+
 @router.post("/labels", status_code=status.HTTP_201_CREATED)
-async def record_label(body: LabelIn, request: Request) -> LabelOut:
+async def record_label(body: LabelIn, request: Request, background: BackgroundTasks) -> LabelOut:
     container: Container = request.app.state.container
     try:
         key = PairKey.parse(body.pair)
@@ -149,6 +167,8 @@ async def record_label(body: LabelIn, request: Request) -> LabelOut:
     if key not in queued:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "pair is not in this queue")
     decision = await container.labeling().record(key, body.label, body.labeler, body.seconds)
+    if body.queue == container.er_config().human_queue:
+        background.add_task(_rebuild_villas, container)
     return LabelOut(
         pair=str(decision.key), label=decision.label, labeled_at=decision.labeled_at.isoformat()
     )

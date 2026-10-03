@@ -116,6 +116,10 @@ class Settings(BaseSettings):
         return self.config_dir / "routing.toml"
 
     @property
+    def er_path(self) -> Path:
+        return self.config_dir / "er.toml"
+
+    @property
     def holidays_path(self) -> Path:
         return self.config_dir / "holidays.toml"
 

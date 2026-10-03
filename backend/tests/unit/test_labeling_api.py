@@ -17,6 +17,8 @@ from villasanj.entity_resolution.application.labeling import (
     QueuePlan,
 )
 from villasanj.entity_resolution.application.ports import ScoredCandidate
+from villasanj.entity_resolution.application.villas import DecisionPolicy, ErConfig, VillaReport
+from villasanj.entity_resolution.domain.labels import QueueItem
 from villasanj.entity_resolution.domain.pairs import BlockingSource, PairKey
 from villasanj.entity_resolution.domain.scoring import Score
 from villasanj.entrypoints.api.app import create_app
@@ -33,6 +35,14 @@ class _Stub:
         self.crawl = SimpleNamespace(
             adapters={"jabama": SimpleNamespace(profile=SimpleNamespace(display_name="جاباما"))}
         )
+        self.rebuilds = 0
+
+    def er_config(self) -> ErConfig:
+        return ErConfig(DecisionPolicy(-0.25, -2.0, 3.0), "human")
+
+    async def rebuild_villas(self) -> VillaReport:
+        self.rebuilds += 1
+        return VillaReport("run")
 
     def labels(self) -> LabelStoreFake:
         return self.store
@@ -45,8 +55,12 @@ class _Stub:
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
-    stub = _Stub()
+def stub() -> _Stub:
+    return _Stub()
+
+
+@pytest.fixture
+def client(stub: _Stub) -> Iterator[TestClient]:
     candidates = [
         ScoredCandidate(key, frozenset({BlockingSource.PHOTO_HASH}), True, None, Score(9.5, ()))
         for key in PAIRS
@@ -120,3 +134,13 @@ def test_a_queue_not_drawn_yet_is_not_a_finished_one(client: TestClient) -> None
     missing = client.get("/er/queues/gold-v9/task")
     assert missing.status_code == 404
     assert missing.json()["detail"] == "no queue gold-v9"
+
+
+def test_a_label_in_the_human_queue_rebuilds_the_villas(client: TestClient, stub: _Stub) -> None:
+    gold = {"queue": "gold", "pair": str(PAIRS[0]), "label": "match", "labeler": "owner"}
+    assert client.post("/er/labels", json=gold).status_code == 201
+    assert stub.rebuilds == 0  # gold labels apply at the next `er villas` run
+    asyncio.run(stub.store.save_queue("human", [QueueItem(0, PAIRS[1], "judge:unsure", 1)]))
+    human = {"queue": "human", "pair": str(PAIRS[1]), "label": "non_match", "labeler": "owner"}
+    assert client.post("/er/labels", json=human).status_code == 201
+    assert stub.rebuilds == 1

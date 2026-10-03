@@ -76,9 +76,15 @@ from villasanj.entity_resolution.application.judge import JudgePairs
 from villasanj.entity_resolution.application.judge_eval import EvaluateJudge
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
 from villasanj.entity_resolution.application.matching import MatchListings
-from villasanj.entity_resolution.application.villas import BuildVillas, EvaluateVillas
+from villasanj.entity_resolution.application.villas import (
+    BuildVillas,
+    ErConfig,
+    EvaluateVillas,
+    VillaReport,
+)
 from villasanj.entity_resolution.infrastructure.grid import PillowGridRenderer
 from villasanj.entity_resolution.infrastructure.photo_index import NumpyPhotoIndex
+from villasanj.entity_resolution.infrastructure.policy_file import load_er_config
 from villasanj.entity_resolution.infrastructure.repositories import (
     PgCandidateStore,
     PgJudgementStore,
@@ -170,6 +176,7 @@ class Container:
     health: CheckHealth
     http_fetchers: list[HttpxFetcher] = field(default_factory=list)
     _image_embedder: ImageEmbedder | None = None
+    _villa_lock: asyncio.Lock = field(default_factory=asyncio.Lock)  # one rebuild at a time
 
     def catalog_ingest(self) -> IngestListingSnapshots:
         return IngestListingSnapshots(
@@ -229,6 +236,9 @@ class Container:
     def villa_store(self) -> PgVillaStore:
         return PgVillaStore(self.engine, self.clock)
 
+    def er_config(self) -> ErConfig:
+        return load_er_config(self.settings.er_path)
+
     def build_villas(self) -> BuildVillas:
         return BuildVillas(
             self.candidates(),
@@ -237,7 +247,13 @@ class Container:
             self.listings,
             sorted(self.crawl.adapters),
             self.judgements(),
+            self.er_config().human_queue,
         )
+
+    async def rebuild_villas(self) -> VillaReport:
+        """The villas at the configured policy with the owner's labels (after a human decides)."""
+        async with self._villa_lock:
+            return await self.build_villas().run(self.er_config().policy)
 
     def villas_eval(self) -> EvaluateVillas:
         return EvaluateVillas(self.build_villas(), self.labels())

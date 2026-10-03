@@ -94,7 +94,7 @@ class LabelStoreFake:
         self.decisions: dict[tuple[PairKey, str], PairLabel] = {}
 
     async def save_queue(self, queue: str, items: Sequence[QueueItem]) -> None:
-        self.queues.setdefault(queue, list(items))
+        self.queues.setdefault(queue, []).extend(items)  # appends, like the INSERT it fakes
 
     async def queue(self, queue: str) -> list[QueueItem]:
         return list(self.queues.get(queue, []))

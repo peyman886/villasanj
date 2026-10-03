@@ -1,0 +1,10 @@
+# Entity resolution decision policy (ADR-0014). The threshold comes from the gold set by
+# ADR-0009's rule; the judge zone from where the rules' errors lie on gold-v1.
+[policy]
+threshold = -0.25             # rule score of a match
+judge_low = -2.0              # the judge decides scores in [judge_low, judge_high)
+judge_high = 3.0
+judge_min_confidence = 0.8    # a verdict below this waits for a human, whichever way it leans
+
+[human]
+queue = "er-human"            # label at /label?queue=er-human; each label rebuilds the villas

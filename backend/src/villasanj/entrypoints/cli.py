@@ -1490,22 +1490,44 @@ def er_judge_zone(
     asyncio.run(_with_container(run))
 
 
+_POLICY_HELP = "Overrides config/er.toml."
+
+
+def _er_policy(
+    container: Container,
+    threshold: float | None,
+    judge_low: float | None,
+    judge_high: float | None,
+    judge_min_confidence: float | None,
+) -> DecisionPolicy:
+    base = container.er_config().policy
+    return DecisionPolicy(
+        base.threshold if threshold is None else threshold,
+        base.judge_low if judge_low is None else judge_low,
+        base.judge_high if judge_high is None else judge_high,
+        base.judge_min_confidence if judge_min_confidence is None else judge_min_confidence,
+    )
+
+
 @er_app.command("villas")
 def er_villas(
-    threshold: Annotated[float, typer.Option(help="Rule score of a match (from the gold set).")],
-    judge_low: Annotated[float, typer.Option(help="The judge decides from this score...")] = 0.0,
-    judge_high: Annotated[float, typer.Option(help="...up to (not including) this one.")] = 0.0,
-    judge_min_confidence: Annotated[float, typer.Option(help="Judge match floor.")] = 0.8,
+    threshold: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
+    judge_low: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
+    judge_high: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
+    judge_min_confidence: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
     labels: Annotated[bool, typer.Option(help="Apply the owner's labels.")] = True,
 ) -> None:
-    """Cluster the match decisions into canonical villas (<= 1 listing per platform)."""
+    """Cluster the match decisions into canonical villas (<= 1 listing per platform); pairs the
+    judge was unsure about join the human queue (label them at /label?queue=<queue>)."""
 
     async def run(container: Container) -> bool:
-        policy = DecisionPolicy(threshold, judge_low, judge_high, judge_min_confidence)
+        policy = _er_policy(container, threshold, judge_low, judge_high, judge_min_confidence)
         r = await container.build_villas().run(policy, "owner" if labels else None)
+        typer.echo(f"policy: {policy}")
         typer.echo(
             f"run={r.run_id} listings={r.listings} villas={r.villas} "
-            f"on_both_platforms={r.multi_platform} waiting_for_a_human={r.waiting_for_human}"
+            f"on_both_platforms={r.multi_platform} waiting_for_a_human={r.waiting_for_human} "
+            f"newly_queued={r.queued} queue={container.er_config().human_queue}"
         )
         typer.echo(f"  merges applied by decider: {dict(sorted(r.applied.items()))}")
         typer.echo(f"  merges refused: {dict(sorted(r.blocked.items()))}")
@@ -1517,16 +1539,17 @@ def er_villas(
 
 @er_app.command("villas-eval")
 def er_villas_eval(
-    threshold: Annotated[float, typer.Option(help="Rule score of a match.")],
-    judge_low: Annotated[float, typer.Option(help="Judge zone start.")] = 0.0,
-    judge_high: Annotated[float, typer.Option(help="Judge zone end.")] = 0.0,
-    judge_min_confidence: Annotated[float, typer.Option(help="Judge match floor.")] = 0.8,
+    threshold: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
+    judge_low: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
+    judge_high: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
+    judge_min_confidence: Annotated[float | None, typer.Option(help=_POLICY_HELP)] = None,
     queue: Annotated[str, typer.Option(help="Gold queue.")] = "gold-v1",
 ) -> None:
     """Pairwise (weighted) and B-cubed scores of the machine decisions against the labels."""
 
     async def run(container: Container) -> bool:
-        policy = DecisionPolicy(threshold, judge_low, judge_high, judge_min_confidence)
+        policy = _er_policy(container, threshold, judge_low, judge_high, judge_min_confidence)
+        typer.echo(f"policy: {policy}")
         pairwise = await EvaluateDecisions(
             container.candidates(), container.labels(), container.judgements()
         ).run(policy, queue, "owner")

@@ -34,7 +34,7 @@ from villasanj.entity_resolution.domain.evaluation import (
     bcubed,
     evaluate,
 )
-from villasanj.entity_resolution.domain.labels import Label
+from villasanj.entity_resolution.domain.labels import Label, QueueItem
 from villasanj.entity_resolution.domain.pairs import PairKey
 
 HUMAN_WEIGHT = 1e9  # a human must-link is applied before any machine decision
@@ -58,15 +58,22 @@ class DecisionPolicy:
 
     At or above ``judge_high`` the rules merge. In [``judge_low``, ``judge_high``) the judge's
     verdict decides when there is one: "match" at ``judge_min_confidence`` or more merges,
-    "non_match" vetoes even a rule match, "unsure" or low confidence waits for a human. A pair
-    in the zone the judge has not seen, and every pair outside it, follows the rule threshold.
-    ``judge_low == judge_high`` turns the judge off.
+    "non_match" at that confidence vetoes even a rule match, and "unsure" or any verdict below
+    the floor waits for a human (nothing merges meanwhile). A pair in the zone the judge has not
+    seen, and every pair outside it, follows the rule threshold. ``judge_low == judge_high``
+    turns the judge off.
     """
 
     threshold: float  # rule score of a match (from the gold set)
     judge_low: float = 0.0
     judge_high: float = 0.0
     judge_min_confidence: float = 0.8
+
+
+@dataclass(frozen=True, slots=True)
+class ErConfig:
+    policy: DecisionPolicy
+    human_queue: str  # the label queue of pairs waiting for a human (M5 criterion 7)
 
 
 @dataclass(slots=True)
@@ -78,13 +85,14 @@ class VillaReport:
     applied: Counter[str] = field(default_factory=Counter)  # decider -> merges applied
     blocked: Counter[str] = field(default_factory=Counter)  # reason -> merges refused
     events: Counter[str] = field(default_factory=Counter)  # id history: created, merged, ...
-    waiting_for_human: int = 0  # unsure or low-confidence judge verdicts in the zone
+    waiting_for_human: int = 0  # unsure or low-confidence judge verdicts not yet labelled
+    queued: int = 0  # of those, added to the human queue by this run
 
 
 @dataclass(frozen=True, slots=True)
 class Decisions:
     matches: list[MatchDecision]
-    waiting: list[PairKey]  # for the human review queue
+    waiting: list[StoredJudgement]  # for the human review queue
 
 
 def decide(
@@ -94,7 +102,7 @@ def decide(
 ) -> Decisions:
     judged = {j.key: j for j in judgements}
     matches: list[MatchDecision] = []
-    waiting: list[PairKey] = []
+    waiting: list[StoredJudgement] = []
     for key, score, blocked in candidates:
         if not (blocked and key.cross_platform):
             continue
@@ -104,12 +112,13 @@ def decide(
             if score >= policy.threshold:
                 matches.append(MatchDecision(key, score, Decider.RULE))
             continue
-        if verdict.verdict == "match" and verdict.confidence >= policy.judge_min_confidence:
+        confident = verdict.confidence >= policy.judge_min_confidence
+        if verdict.verdict == "match" and confident:
             # Below every rule match outside the zone: rules stay the strongest evidence.
             weight = policy.judge_low - 1 + verdict.confidence
             matches.append(MatchDecision(key, weight, Decider.JUDGE))
-        elif verdict.verdict != "non_match":
-            waiting.append(key)
+        elif verdict.verdict != "non_match" or not confident:
+            waiting.append(verdict)
     return Decisions(matches, waiting)
 
 
@@ -130,6 +139,7 @@ class BuildVillas:
         listings: ListingReader,
         platforms: Sequence[str],
         judgements: JudgementStore | None = None,
+        human_queue: str | None = None,
     ) -> None:
         self._candidates = candidates
         self._labels = labels
@@ -137,10 +147,11 @@ class BuildVillas:
         self._listings = listings
         self._platforms = tuple(platforms)
         self._judgements = judgements
+        self._human_queue = human_queue
 
     async def clustering(
         self, policy: DecisionPolicy, labeler: str | None
-    ) -> tuple[list[ListingId], Clustering, list[PairKey]]:
+    ) -> tuple[list[ListingId], Clustering, list[StoredJudgement]]:
         listing_ids = [
             x.id for platform in self._platforms for x in await self._listings.listings(platform)
         ]
@@ -160,7 +171,7 @@ class BuildVillas:
                 elif label.label is Label.NON_MATCH:
                     cannot.append(label.key)
         labelled = {lb.key for lb in await self._labels.labels(labeler)} if labeler else set()
-        waiting = [k for k in decided.waiting if k not in labelled]
+        waiting = [j for j in decided.waiting if j.key not in labelled]
         return listing_ids, cluster(listing_ids, [*human, *machine], cannot), waiting
 
     async def run(self, policy: DecisionPolicy, labeler: str | None = "owner") -> VillaReport:
@@ -176,7 +187,25 @@ class BuildVillas:
         report.blocked.update(b.reason.value for b in clustering.blocked)
         report.events.update(e.kind.value for e in reconciliation.events)
         report.waiting_for_human = len(waiting)
+        if self._human_queue is not None:
+            report.queued = await self._enqueue(self._human_queue, waiting)
         return report
+
+    async def _enqueue(self, queue: str, waiting: Sequence[StoredJudgement]) -> int:
+        """Append the waiting pairs the queue does not hold yet (labelled ones stay as history),
+        so running again adds nothing and the labeller's positions never move."""
+        items = await self._labels.queue(queue)
+        held = {item.key for item in items}
+        start = max((item.position for item in items), default=-1) + 1
+        new = [j for j in waiting if j.key not in held]
+        await self._labels.save_queue(
+            queue,
+            [
+                QueueItem(start + i, j.key, f"judge:{j.verdict}", len(new))
+                for i, j in enumerate(new)
+            ],
+        )
+        return len(new)
 
 
 @dataclass(frozen=True, slots=True)
@@ -258,7 +287,7 @@ class EvaluateDecisions:
         rows = [(c.key, c.score.value, c.blocked) for c in current.values() if c.score is not None]
         decided = decide(rows, await self._judgements.all(), policy)
         merged = {d.key for d in decided.matches}
-        waiting = set(decided.waiting)
+        waiting = {j.key for j in decided.waiting}
         gold = []
         for item in items:
             label = labels.get(item.key)
