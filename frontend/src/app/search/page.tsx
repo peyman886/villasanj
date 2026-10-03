@@ -391,6 +391,42 @@ function ResultCard({ result, rank, now }: { result: SearchResultOut; rank: numb
             )}
           </p>
         ) : null}
+        {result.also_on.length > 0 ? (
+          <p className="text-xs text-stone-700 tabular-nums">
+            همین ویلا در{" "}
+            {result.also_on.map((other, index) => (
+              <span key={other.listing_id}>
+                {index > 0 ? "، " : ""}
+                {other.platform_name}:{" "}
+                {other.total && other.status === "bookable" ? (
+                  <Sourced
+                    id={`also-${id}-${other.platform}`}
+                    label={`قیمت همین ویلا در ${other.platform_name}`}
+                    value={faToman(other.total)}
+                    provenance={other.total_provenance}
+                    sourceName={other.platform_name}
+                    now={now}
+                  >
+                    {faToman(other.total)}
+                  </Sourced>
+                ) : (
+                  <span className="text-stone-600">برای این تاریخ آزاد نبود</span>
+                )}
+              </span>
+            ))}
+            {result.villa_id ? (
+              <>
+                {" · "}
+                <Link
+                  href={`/villas/${result.villa_id}`}
+                  className={cn("underline underline-offset-4", FOCUS)}
+                >
+                  مقایسه کنار هم
+                </Link>
+              </>
+            ) : null}
+          </p>
+        ) : null}
         {result.mentions.length > 0 ? (
           <p className="text-xs text-stone-600">
             <Sourced

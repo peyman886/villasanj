@@ -283,6 +283,7 @@ class Container:
             self.place_store(),
             self.photo_features(),
             self.read_claims(),
+            self.villa_store(),
         )
 
     def routing_origin(self) -> Origin:

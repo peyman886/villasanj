@@ -58,6 +58,18 @@ class ContributionOut(BaseModel):
     points: float
 
 
+class AlsoOnOut(BaseModel):
+    """The same villa on another platform: its own offer, never merged (rule 3)."""
+
+    listing_id: str
+    platform: str
+    platform_name: str
+    external_id: str
+    status: str
+    total: MoneyOut | None
+    total_provenance: ProvenanceOut
+
+
 class ResultOut(BaseModel):
     listing_id: str
     platform: str
@@ -75,6 +87,8 @@ class ResultOut(BaseModel):
     cautions: list[str]
     geo: GeoOut | None
     mentions: list[str]  # the query's unhandled wishes this listing's own text mentions
+    villa_id: str | None  # set when the villa is on more than one platform
+    also_on: list[AlsoOnOut]
     listing_provenance: ProvenanceOut  # the listing page those words were read from
 
 
@@ -140,7 +154,24 @@ def _result_out(
         cautions=sorted(ranked.warnings),
         geo=_geo(result, key, origin),
         mentions=list(result.mentions.get(key, ())),
+        villa_id=result.villa_of.get(key),
+        also_on=[_also_on(container, result, other) for other in result.siblings.get(key, ())],
         listing_provenance=ProvenanceOut.of(listing.provenance),
+    )
+
+
+def _also_on(container: Container, result: SearchResult, key: str) -> AlsoOnOut:
+    offer, listing = result.offers[key], result.listings[key]
+    adapter = container.crawl.adapters.get(listing.id.platform)
+    total = offer.quote.total
+    return AlsoOnOut(
+        listing_id=key,
+        platform=listing.id.platform,
+        platform_name=adapter.profile.display_name if adapter else listing.id.platform,
+        external_id=listing.id.external_id,
+        status=offer.quote.status.value,
+        total=MoneyOut.of(total) if total else None,
+        total_provenance=ProvenanceOut.of(offer.quote.provenance),
     )
 
 

@@ -1,6 +1,55 @@
 {
   "components": {
     "schemas": {
+      "AlsoOnOut": {
+        "description": "The same villa on another platform: its own offer, never merged (rule 3).",
+        "properties": {
+          "external_id": {
+            "title": "External Id",
+            "type": "string"
+          },
+          "listing_id": {
+            "title": "Listing Id",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "platform_name": {
+            "title": "Platform Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total_provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          }
+        },
+        "required": [
+          "listing_id",
+          "platform",
+          "platform_name",
+          "external_id",
+          "status",
+          "total",
+          "total_provenance"
+        ],
+        "title": "AlsoOnOut",
+        "type": "object"
+      },
       "CalendarNightOut": {
         "properties": {
           "availability": {
@@ -1648,6 +1697,13 @@
       },
       "ResultOut": {
         "properties": {
+          "also_on": {
+            "items": {
+              "$ref": "#/components/schemas/AlsoOnOut"
+            },
+            "title": "Also On",
+            "type": "array"
+          },
           "cautions": {
             "items": {
               "type": "string"
@@ -1754,6 +1810,17 @@
           },
           "total_provenance": {
             "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "villa_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Villa Id"
           }
         },
         "required": [
@@ -1773,6 +1840,8 @@
           "cautions",
           "geo",
           "mentions",
+          "villa_id",
+          "also_on",
           "listing_provenance"
         ],
         "title": "ResultOut",

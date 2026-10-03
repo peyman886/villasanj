@@ -108,6 +108,7 @@ def search(
     listings: Sequence[Listing] = LISTINGS,
     places: object = None,
     photos: object = None,
+    villas: object = None,
 ) -> SearchListings:
     reader = Calendars(listings)
     clock = FixedClock()
@@ -126,6 +127,8 @@ def search(
         ORIGIN,
         places,  # type: ignore[arg-type]
         photos,  # type: ignore[arg-type]
+        None,
+        villas,  # type: ignore[arg-type]
     )
 
 
@@ -234,3 +237,16 @@ async def test_photos_turn_a_described_feature_into_a_seen_one() -> None:
     (only,) = result.ranking.results
     assert only.candidate.features[Feature.POOL] is FeatureEvidence.PHOTO
     assert Caution.FEATURE_ONLY_DESCRIBED not in only.warnings
+
+
+async def test_a_villa_on_two_platforms_is_one_result_with_both_offers() -> None:
+    class Villas:
+        async def current(self) -> dict[str, frozenset[ListingId]]:
+            return {"v-1": frozenset({ListingId("p", "pool"), ListingId("p", "contradicted")})}
+
+    query = "ویلای استخردار در رامسر برای ۴ نفر آخر هفته زیر ۵ میلیون"
+    result = await search(WEEKEND, villas=Villas()).run(query, CTX)
+    assert result.ranking is not None
+    assert [r.candidate.id for r in result.ranking.results] == ["p:pool"]  # the better-ranked
+    assert result.villa_of["p:pool"] == "v-1"
+    assert result.siblings == {"p:pool": ("p:contradicted",)}

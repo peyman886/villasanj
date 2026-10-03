@@ -554,6 +554,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AlsoOnOut
+         * @description The same villa on another platform: its own offer, never merged (rule 3).
+         */
+        AlsoOnOut: {
+            /** External Id */
+            external_id: string;
+            /** Listing Id */
+            listing_id: string;
+            /** Platform */
+            platform: string;
+            /** Platform Name */
+            platform_name: string;
+            /** Status */
+            status: string;
+            total: components["schemas"]["MoneyOut"] | null;
+            total_provenance: components["schemas"]["ProvenanceOut"];
+        };
         /** CalendarNightOut */
         CalendarNightOut: {
             /** Availability */
@@ -1101,6 +1119,8 @@ export interface components {
         };
         /** ResultOut */
         ResultOut: {
+            /** Also On */
+            also_on: components["schemas"]["AlsoOnOut"][];
             /** Cautions */
             cautions: string[];
             /** Confirmed Features */
@@ -1130,6 +1150,8 @@ export interface components {
             title: string;
             total: components["schemas"]["MoneyOut"] | null;
             total_provenance: components["schemas"]["ProvenanceOut"];
+            /** Villa Id */
+            villa_id: string | null;
         };
         /** ReviewOut */
         ReviewOut: {

@@ -12,10 +12,11 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
+from typing import Protocol
 
 from villasanj.catalog.application.reading import ListingReader
 from villasanj.catalog.domain.gazetteer import Gazetteer, Place
-from villasanj.catalog.domain.listing import Listing
+from villasanj.catalog.domain.listing import Listing, ListingId
 from villasanj.catalog.domain.review import RatingPrior
 from villasanj.discovery.application.dates import BuildHolidayCalendar
 from villasanj.discovery.application.intent import SearchIntent, without
@@ -25,6 +26,7 @@ from villasanj.discovery.domain.dates import ResolvedDates, resolve
 from villasanj.discovery.domain.ranking import (
     BudgetBasis,
     Candidate,
+    Ranked,
     Ranking,
     Requirements,
     drive_coverage,
@@ -79,6 +81,16 @@ class SearchResult:
     drive_coverage: Mapping[int, int] = field(default_factory=dict)  # hours -> results
     # The query's unhandled wishes each result's own text mentions (the host's word, not checked)
     mentions: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    # Villas on more than one platform: a result's villa and its other listings with an offer
+    # (one card per villa, each platform's own price; ranked by the villa's best listing).
+    villa_of: Mapping[str, str] = field(default_factory=dict)
+    siblings: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+
+
+class VillaMembers(Protocol):
+    async def current(self) -> dict[str, frozenset[ListingId]]:
+        """Villa id -> its member listings."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +125,7 @@ class SearchListings:
         places: PlaceDistanceStore | None = None,
         photos: PhotoFeatures | None = None,
         read_claims: ReadClaimStore | None = None,
+        villas: VillaMembers | None = None,
     ) -> None:
         self._understand = understand
         self._holidays = holidays
@@ -128,6 +141,7 @@ class SearchListings:
         self._place_distances = places
         self._photos = photos
         self._read_claims = read_claims
+        self._villas = villas
 
     async def run(self, query: str, ctx: JobContext, drop: Sequence[str] = ()) -> SearchResult:
         """``drop``: constraints the user removed from the understood query (editable chips)."""
@@ -197,6 +211,8 @@ class SearchListings:
                 )
         wants = _requirements(intent, dates)
         ranking = rank(candidates, wants)
+        villa_of, siblings = await self._villa_groups(offers)
+        ranking = replace(ranking, results=_one_per_villa(ranking.results, villa_of))
         mentions = {
             key: found
             for key, listing in listings.items()
@@ -217,7 +233,27 @@ class SearchListings:
             geos,
             coverage,
             mentions,
+            villa_of,
+            {k: siblings[k] for r in ranking.results if (k := r.candidate.id) in siblings},
         )
+
+    async def _villa_groups(
+        self, offers: Mapping[str, Offer]
+    ) -> tuple[dict[str, str], dict[str, tuple[str, ...]]]:
+        """Each listing of a multi-platform villa -> its villa, and -> its villa's other
+        listings that have an offer for this stay."""
+        if self._villas is None:
+            return {}, {}
+        villa_of: dict[str, str] = {}
+        siblings: dict[str, tuple[str, ...]] = {}
+        for villa_id, members in (await self._villas.current()).items():
+            if len(members) < 2:  # noqa: PLR2004 - a villa on one platform has nothing to group
+                continue
+            keys = sorted(str(m) for m in members)
+            for key in keys:
+                villa_of[key] = villa_id
+                siblings[key] = tuple(k for k in keys if k != key and k in offers)
+        return villa_of, siblings
 
     def _places(self, intent: SearchIntent) -> tuple[tuple[Place, ...], tuple[str, ...]]:
         found, unknown = [], []
@@ -321,3 +357,17 @@ def mentioned(wishes: Sequence[str], listing: Listing) -> tuple[str, ...]:
     """The wishes the listing's own title or description mentions, word for word."""
     text = f" {_words(f'{listing.title_norm or ""} {listing.description_norm or ""}')} "
     return tuple(w for w in wishes if f" {_words(w)} " in text)
+
+
+def _one_per_villa(results: Sequence[Ranked], villa_of: Mapping[str, str]) -> tuple[Ranked, ...]:
+    """The best-ranked listing of each villa (results are already in rank order)."""
+    seen: set[str] = set()
+    kept = []
+    for result in results:
+        villa = villa_of.get(result.candidate.id)
+        if villa is not None:
+            if villa in seen:
+                continue
+            seen.add(villa)
+        kept.append(result)
+    return tuple(kept)

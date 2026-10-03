@@ -1468,14 +1468,21 @@ def er_judge_zone(
         ctx = await container.jobs.start("judge_zone", Decimal(budget_usd), {})
         counts: Counter[str] = Counter()
         failed = 0
-        for item in inputs:
-            try:
-                judged = await container.judge().run([item], ctx)
-            except LLMError:
-                failed += 1
-                continue
-            await container.judgements().save(judged)
+        gate = asyncio.Semaphore(4)  # the er_judge route's concurrency
+        judge, store = container.judge(), container.judgements()
+
+        async def one(item: JudgeInput) -> None:
+            nonlocal failed
+            async with gate:
+                try:
+                    judged = await judge.run([item], ctx)
+                except LLMError:
+                    failed += 1
+                    return
+            await store.save(judged)  # saved as it goes: an interrupted run resumes
             counts.update(j.verdict.verdict for j in judged)
+
+        await asyncio.gather(*(one(item) for item in inputs))
         await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
         typer.echo(f"judged={sum(counts.values())} {dict(counts)} failed={failed}")
         return True
