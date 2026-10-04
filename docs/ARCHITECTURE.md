@@ -4,8 +4,11 @@
 > listings across Iranian rental platforms: all-in offers for a concrete stay and group size, a merged
 > calendar, aggregated reviews, and a "truth check" of listing claims against evidence.
 >
-> Status: **Milestone 0 (design).** No executable code exists yet. Decisions are recorded in
-> [`docs/adr/`](adr/README.md); the plan and acceptance criteria live in [`ROADMAP.md`](ROADMAP.md).
+> Status (2026-10-04): M0–M11 are built as far as their dependencies allow; the status of every
+> acceptance criterion is generated into [`ROADMAP.md`](ROADMAP.md) and shown at `/docs/milestones`.
+> This document began as the M0 design. Sections marked *as built* describe the implementation;
+> decisions are recorded in [`docs/adr/`](adr/README.md). The in-app documentation portal (`/docs`)
+> explains the same architecture in Persian with diagrams and the measured results.
 
 ---
 
@@ -143,18 +146,19 @@ flowchart TB
   PHOTO --> CATDB
 
   CATDB --> BLOCK["ER: blocking<br/>place+rooms±1 · pHash LSH · image kNN"]
-  BLOCK --> SCORE["ER: scoring<br/>features → Splink match weight"]
-  SCORE -->|high| AUTO[auto MATCH]
-  SCORE -->|gray zone| JUDGE["LLM judge<br/>structured verdict + rationale"]
-  JUDGE -->|UNSURE / low conf| HQ[Human review queue]
-  SCORE -->|low| NON[NON_MATCH]
-  AUTO & JUDGE & HQ --> CLUST["Constrained clustering<br/>≤1 listing per platform · cannot-links"]
-  CLUST --> VILLA[(er.canonical_villa + memberships)]
+  BLOCK --> SCORE["ER: evidence → transparent rule score<br/>(no Splink, ADR-0014)"]
+  SCORE -->|≥ threshold, outside the judge zone| AUTO[rule MATCH]
+  SCORE -->|zone −2 … 3| JUDGE["LLM judge<br/>verdict + confidence + rationale"]
+  JUDGE -->|confident non-match: veto| NON
+  JUDGE -->|suggested match / unsure| HQ[Human queue er-human]
+  SCORE -->|below threshold| NON[no merge]
+  AUTO & JUDGE & HQ --> CLUST["Constrained clustering<br/>≤1 listing per platform · owner's must/cannot-links"]
+  CLUST --> VILLA[(er.villa + er.villa_member + er.villa_event)]
 
   CATDB --> PRICE["Pricing engine<br/>scenarios × guests → PriceQuote (ranges)"]
   CATDB --> ENR["Enrichment<br/>claims · photo tags · verdicts · review summaries"]
   VILLA --> ENR
-  VILLA & PRICE & ENR --> PROJ["Discovery projection<br/>villa_search_document · drive_time (OSRM)"]
+  VILLA & PRICE & ENR --> PROJ["Discovery<br/>ranking over villas · drive_time (OSRM)"]
 ```
 
 ### 4.2 Online request path (search)
@@ -361,24 +365,27 @@ Key domain rules:
 
 ## 6. Ports and adapters
 
-| Port (layer) | Purpose | Adapters (planned) |
+Ports and their adapters as built (2026-10-04). A port exists only where it isolates I/O or a
+vendor, or has two real implementations.
+
+| Port (layer) | Purpose | Adapters |
 |---|---|---|
-| `SourceAdapter` (ingestion.application) | `profile`, `seed_requests(region)`, `discover(page, region)`, `parse_listing(page) → ParsedListing`, `parse_calendar(page) → ParsedCalendar` (for platforms that serve calendars separately). **No I/O.** Contract-tested on trimmed fixtures. | `jabama`, `shab` (built in M2); `jajiga`/`otaghak`/`mihmansho` only with written permission (ADR-0011). Registered via the `villasanj.sources` entry-point group. |
-| `Fetcher` (ingestion.application) | Fetch one `PageRequest` → `FetchedPage`; never follows redirects itself. | `HttpxFetcher` (standard `Accept`, no cookies kept), wrapped by `PoliteFetcher` (host allow-list, RFC 9309 robots re-checked per redirect hop, per-host pacing with Crawl-delay + jitter, stop-on-block). `SnapshotReplayFetcher` for offline mode. |
-| `RobotsPolicy` | Is a URL allowed for our UA? Crawl-delay? | `ProtegoRobotsPolicy` (robots.txt cached as a snapshot). |
-| `SnapshotStore` / `BlobStore` | Immutable content-addressed bytes + metadata. | `LocalFsBlobStore` (Docker volume). `S3BlobStore` only if needed ([ADR-0002](adr/0002-technology-stack.md)). |
-| Repositories + `UnitOfWork` (each context's application) | Persistence of aggregates. | SQLAlchemy 2 (async, psycopg 3). In-memory fakes for unit tests. |
-| `PerceptualHasher` (catalog.application) | pHash/dHash of image bytes. | `ImagehashHasher`. |
-| `ImageEmbedder` (catalog.application) | Image → vector. | `Dinov2Embedder` (CPU in Docker; optional host MPS), `SiglipEmbedder` (zero-shot tags, M9). |
-| `PairScorer` (er.application) | Evidence → `MatchScore`. | `RuleBaselineScorer` (M3), `SplinkScorer` (M5). |
-| `MatchJudge` (er.application) | Gray-zone pair → structured verdict. | `LlmMatchJudge` (application strategy over `LLMClient`). |
-| `LLMClient` (shared.application) | `generate(request: LLMRequest[T], ctx: JobContext) → LLMResponse[T]`, multimodal messages, Pydantic-validated output. | `AvalAIProvider` + decorators (`Caching`, `Fallback`, `Retrying`, `CostGoverning`), `FakeLLMProvider` (deterministic, scripted), `OllamaProvider` (future). |
-| `TextEmbedder` (shared.application) | Text → vector. | `AvalAIEmbedder` (default), `LocalSentenceEmbedder` (bge-m3, optional) ([ADR-0006](adr/0006-embeddings-text-and-image.md)). |
-| `Gazetteer` (catalog.domain) | Resolve place names/aliases → `Place`. | `load_gazetteer` reads `config/gazetteer.toml` (v1: 117 places curated from observed names; OSM not used yet). |
-| `RoutingService` (discovery.application) | Free-flow drive time/distance between points. | `OsrmRoutingService`. |
-| `CoastlineIndex` (enrichment.application) | Distance from a point to the Caspian coastline. | `PostgisCoastlineIndex` (OSM `natural=coastline`). |
-| `SearchIndex` (discovery.application) | Lexical (+ optional dense) scoring over candidates. | `PostgresSearchIndex` (FTS `simple` config on normalized text + `pg_trgm` + pgvector). Swappable for OpenSearch without touching use cases. |
-| `Clock`, `IdGenerator` (shared.application) | Deterministic tests. | `SystemClock`, `FixedClock`. |
+| `SourceAdapter` (ingestion.application) | `profile`, `seed_requests(region)`, `discover(page, region)`, `parse_listing(page) → ParsedListing`, `parse_calendar(page)`. **No I/O.** Contract-tested on trimmed fixtures. | `jabama`, `shab`, registered via the `villasanj.sources` entry-point group; `jajiga`/`otaghak`/`mihmansho` only with written permission (ADR-0011). |
+| `Fetcher` (ingestion.application) | Fetch one `PageRequest` → `FetchedPage`; never follows redirects itself. | `HttpxFetcher` (standard `Accept`, no cookies kept) wrapped by `PoliteFetcher` (host allow-list, robots.txt re-checked per redirect hop, per-host pacing with Crawl-delay + jitter, stop-on-block); `SnapshotReplayFetcher` for offline mode. |
+| `RobotsParser` | Is a URL allowed for our UA? Crawl-delay? | `ProtegoRobotsParser` (robots.txt stored as a snapshot). |
+| `BlobStore` | Immutable content-addressed bytes. | `LocalFsBlobStore` (Docker volume). |
+| Repositories and stores (each context's application) | Persistence. | SQLAlchemy 2 Core (async, psycopg 3): `PgListingRepository`, `PgCandidateStore`, `PgLabelStore` (with revisions), `PgVillaStore`, `PgJudgementStore`, …; in-memory fakes in `tests/fakes`. |
+| `PhotoIndex`, `ImageEmbedder` (catalog / er) | Nearest photos; image → vector. | `NumpyPhotoIndex` (exact, in memory); `DinoV2Embedder` (pinned revision, MPS on the host, CPU in Docker). |
+| `PhotoTagger` (enrichment) | Zero-shot photo tags. | `SigLip2Tagger` (local, thresholds from the owner's labels). |
+| `MatchJudge` (er.application) | Zone pair → structured verdict. | `JudgePairs` over `LLMClient`, photo grids from `PillowGridRenderer`. |
+| `LLMClient` (shared.application) | `generate(request: LLMRequest[T], ctx) → LLMResponse[T]`, multimodal, Pydantic-validated output. | `AvalAIProvider` behind the decorator chain (6.1); `FakeLLMProvider` (tests); `OfflineProvider` (cache only, the offline demo). |
+| `RoutingService` (discovery.application) | Free-flow drive time between points. | `OsrmRoutingService`. |
+| `CoastlineIndex`, `PlaceIndex` (enrichment.application) | Distances to the coastline and to OSM places. | `PgCoastline`, `PgPlaces` (PostGIS). |
+| `Clock` (shared.application) | Deterministic tests. | system clock; fixed and stepping clocks in tests. |
+
+Not built: text embeddings and a lexical/dense `SearchIndex` (ADR-0006). Search ranks the villas
+in memory with the transparent policy; a vector index ships only if the M8 retrieval evaluation
+shows it helps.
 
 ### 6.1 LLM decorator chain (as built in M1)
 
@@ -429,67 +436,47 @@ One PostgreSQL 17 instance with PostGIS and pgvector, **one schema per context**
 the crawl queue (`SELECT … FOR UPDATE SKIP LOCKED`) and the LLM cache/ledger store
 ([ADR-0010](adr/0010-persistence-postgres.md)).
 
+Tables as built (2026-10-04; migrations up to `0017`). Every observed value carries `snapshot_id`
+and `observed_at`. Offers, quotes and rankings are computed on request from these tables, not stored.
+
 ```mermaid
 erDiagram
   SNAPSHOT ||--o{ LISTING : "last parsed from"
   LISTING ||--o{ PHOTO : has
   LISTING ||--o{ REVIEW : has
   LISTING ||--o{ CALENDAR_OBSERVATION : observed
-  LISTING ||--o{ RATE_OBSERVATION : observed
-  LISTING ||--o{ QUOTE_OBSERVATION : observed
-  PHOTO ||--o{ PHOTO_EMBEDDING : "per model"
-  LISTING ||--o{ CANDIDATE_PAIR : "a or b"
-  CANDIDATE_PAIR ||--o{ MATCH_SCORE : "per run"
-  CANDIDATE_PAIR ||--o{ MATCH_DECISION : "history"
-  CANDIDATE_PAIR ||--o| GROUND_TRUTH_LABEL : "gold"
-  CANDIDATE_PAIR ||--o{ REVIEW_TASK : queued
-  CANONICAL_VILLA ||--o{ VILLA_MEMBERSHIP : "≤1 per platform"
-  LISTING ||--o| VILLA_MEMBERSHIP : "in at most one villa"
-  LISTING ||--o{ PRICE_QUOTE : "per scenario"
-  LISTING ||--o{ CLAIM : asserts
-  CLAIM ||--o{ CLAIM_VERDICT : "per verifier version"
-  CANONICAL_VILLA ||--o| REVIEW_SUMMARY : has
-  CANONICAL_VILLA ||--o| VILLA_SEARCH_DOCUMENT : projected
-  CANONICAL_VILLA ||--o{ DRIVE_TIME : "per origin"
+  PHOTO ||--o{ PHOTO_EMBEDDING : "per content hash and model"
+  RUN ||--o{ CANDIDATE : "per match run"
+  CANDIDATE ||--o| JUDGEMENT : "LLM judge"
+  CANDIDATE ||--o{ LABEL : "owner's labels"
+  LABEL ||--o{ LABEL_REVISION : "history"
+  VILLA ||--o{ VILLA_MEMBER : "≤1 per platform"
+  VILLA ||--o{ VILLA_EVENT : "merges and splits"
+  LISTING ||--o| VILLA_MEMBER : "in at most one villa"
+  LISTING ||--o{ PLACE_DISTANCE : "nearest place per kind"
+  LISTING ||--o| COAST_DISTANCE : "with blur range"
+  LISTING ||--o| DRIVE_TIME : "per origin"
   LLM_CALL }o--|| JOB : "belongs to"
 ```
 
-Main tables (columns abbreviated; every observed value carries `snapshot_id` + `observed_at`):
-
 | Schema.table | Key columns |
 |---|---|
-| `ingestion.crawl_run` | id, platform, live, status, report jsonb, started_at, finished_at *(built M2)* |
-| `ingestion.frontier` | id, platform, request_key (unique), kind, method, url, body, headers, context, status, attempts, next_attempt_at, last_error, discovered_from, snapshot_id *(built M2)* |
-| `ingestion.snapshot` | id, platform, request_key, kind, method, url, request_headers, request_body, context, status, final_url, headers, blob_key, size, fetcher, fetched_at, run_id *(built M2)* |
-| `catalog.listing` | (platform, external_id) PK, url, title, title_norm, description, description_norm, property_type, city_fa, city_slug, locality_fa, lat, lon, **geog** (generated PostGIS geography), location_radius_m, bedrooms, bathrooms, area_m2, base/extra capacity, rating, check-in/out, min_nights, instant_booking, host_ref, cancellation text, vat_applies, rate card (6 rial columns), photos/amenities/distance_claims jsonb, snapshot_id, observed_at *(built M2)* |
-| `catalog.calendar_observation` | (platform, external_id, night, snapshot_id) PK, availability, nightly_rial, extra_guest_rial, min_nights, is_holiday, observed_at *(built M2; append-only)* |
-| `catalog.photo` | (platform, external_id, position) PK, url, snapshot_id, sha256, width, height, phash, dhash, observed_at *(built M2)* |
-| `catalog.parse_failure` | snapshot_id PK, platform, reason *(quarantine, built M2)* |
-| `catalog.place` | gazetteer (planned; M2 keeps it as versioned config) |
-| `catalog.photo_embedding` | photo_id, model_id, embedding vector (partial HNSW index per model) *(planned M5)* |
-| `catalog.review` | listing, platform_review_id, rating, text_norm, stayed_on (no reviewer names) *(planned M10)* |
-| `catalog.quote_observation` | listing, check_in, check_out, guests, total, breakdown *(only if a platform publishes direct quotes)* |
-| `er.candidate_pair` | id, listing_a < listing_b, blocking_keys text[], created_run_id |
-| `er.match_score` | pair_id, run_id, scorer, probability, match_weight, breakdown jsonb, features jsonb |
-| `er.match_decision` | id, pair_id, verdict, decided_by, actor, confidence, rationale, evidence jsonb, created_at, supersedes_id |
-| `er.review_task` | id, pair_id, reason, priority, status, resolved_decision_id |
-| `er.ground_truth_label` | pair_id, label (match/non_match/unsure), annotator, note, stratum, labeled_at |
-| `er.canonical_villa` | id, slug, created_at, retired_at, merged_into |
-| `er.villa_membership` | villa_id, listing_id (unique), platform, **unique(villa_id, platform)**, since_run_id |
-| `er.photo_group` | id, villa_id, representative_photo_id, member_photo_ids |
-| `er.evaluation_run` | id, dataset_hash, params jsonb, metrics jsonb, created_at, code_version |
-| `pricing.fee_policy` | platform, component, rate_min, rate_max, basis, source_url, snapshot_id, observed_at |
-| `pricing.scenario` | id, name, check_in, check_out, guests |
-| `pricing.price_quote` | listing_id, scenario_id, total_min_rial, total_max_rial, components jsonb, completeness, computed_at, inputs_observed_at_min |
-| `enrichment.photo_tag` | photo_id, tag, score, model_id |
-| `enrichment.claim` | id, listing_id, kind, value jsonb, span int4range, source_text, extractor |
-| `enrichment.claim_verdict` | claim_id, status, evidence jsonb, rationale, verifier_version |
-| `enrichment.review_summary` | villa_id, content jsonb (points + cited review ids), model_id, input_hash, verified |
-| `discovery.villa_search_document` | villa_id, tsv tsvector, embedding vector, facets jsonb, refreshed_at |
-| `discovery.drive_time` | platform, external_id, origin, dataset, center/low/high seconds, center metres, routed points, radius (assumed?), computed_at; per listing, a villa's range is its members' union (ADR-0013) |
-| `ops.job` | id, kind, params jsonb, budget_usd, spent_usd, status, started_at, finished_at |
-| `ops.llm_cache` | key (sha256 pk), task, model, response jsonb, usage jsonb, created_at |
-| `ops.llm_call` | id, job_id, task, model, attempt, cache_hit, input/cached/output/reasoning tokens, usage_source (reported/estimated), cost_usd, latency_ms, status, error_code |
+| `ingestion.crawl_run`, `ingestion.frontier`, `ingestion.snapshot` | runs; the resumable request queue (`FOR UPDATE SKIP LOCKED`); every response with request, status, blob key, fetcher and `fetched_at` |
+| `catalog.listing` | (platform, external_id) PK, normalized text, place, `geog` (PostGIS), blur radius, structure, rate card (rial), photos/amenities/distance claims, snapshot, `observed_at` |
+| `catalog.calendar_observation` | (platform, external_id, night, snapshot_id) PK, availability, nightly and extra-guest rial, min nights, holiday flag; append-only |
+| `catalog.photo`, `catalog.photo_embedding` | page photos with sha256, pHash, dHash; DINOv2 vectors per (content hash, model id) |
+| `catalog.review`, `catalog.parse_failure` | reviews without reviewer names; quarantined snapshots |
+| `er.run`, `er.candidate` | match runs (dataset hash); candidate pairs with blocking flag, evidence and rule score |
+| `er.judgement` | the LLM judge's verdict, confidence and rationale per pair |
+| `er.queue_item`, `er.label`, `er.label_revision` | labelling queues (gold-v1, er-human); the owner's labels; every revision with its reason |
+| `er.villa`, `er.villa_member`, `er.villa_event` | canonical villas; members with **unique (villa, platform)**; id history (merges, splits) |
+| `enrichment.coastline`, `enrichment.coast_distance` | OSM coastline (geography); distance per listing with its blur range |
+| `enrichment.place`, `enrichment.place_distance` | OSM places by kind; the nearest per listing and kind with its range |
+| `enrichment.llm_claim`, `enrichment.claim_label*` | the LLM residue of claim extraction; the owner's claim labels (claims-v1) |
+| `enrichment.photo_tag_*` | SigLIP 2 scores, the owner's photo labels (photos-v1), thresholds per tag |
+| `enrichment.summary_review_*` | the owner's blind review of summaries (summaries-v1) |
+| `discovery.drive_time` | free-flow OSRM time per listing and origin: pin, min, max, dataset, `radius_assumed` |
+| `ops.job`, `ops.llm_cache`, `ops.llm_call` | jobs with budgets; cached model answers (review summaries and explanations included); the ledger, one row per attempt |
 
 ---
 
@@ -573,6 +560,6 @@ villasanj/
 | A19 | A budget's basis (per night or whole stay) is kept only when the query says it in words («شبی», «هر شب», «کل», «کلاً», «جمعاً», «مجموع», «روی هم»); otherwise it is `unknown` and the search shows counts under both readings. Applied in code after the LLM, without a retry. | A user who means the whole stay but does not say so is asked once instead of being guessed for; a basis word outside the list is read as unknown. |
 | A20 | A town's centre is the area within **1.5 km** of its OSM point, and the nearest centre (OSM `place=city|town`, or a village that platforms call a city) is the best case for «مرکز شهر» claims. Shops, restaurants, medical centres and woods on OSM are a partial list: they can support a distance claim, never contradict it (ADR-0013 amendment). | A host who means a farther town's centre is judged against the nearest one, which can only make a contradiction less likely. |
 | A21 | A photo tag (SigLIP 2, threshold at ≥ 85% precision per photo from the owner's labels) only **corroborates** a feature the description claims; alone it confirms nothing and it never overrides a "no". Five photos per listing give five chances of a false positive, so listing-level precision of a tag alone is lower than per photo (estimated ~80% for pools). | A feature visible in the photos but not written anywhere stays unconfirmed. |
-| A22 | Until labels can show the judge's precision at the bar, the LLM judge is **advisory** (ADR-0014 amendment): the rules merge, the judge's matches below the threshold and its disputes of rule matches wait for a human. | Recall stays at the rules' 67% where the judge could reach ~95%; the owner's labels in `er-human` recover it with verified precision. |
+| A22 | *Revised 2026-10-04 (ADR-0014 amendment "label revision").* In the judge zone the LLM judge **vetoes** a rule merge it confidently calls different villas, and an unsure verdict holds the merge for a human; its merges below the threshold stay off until labels can show their precision, so they wait in `er-human` as suggestions. (Before the owner corrected the complex-unit labels the judge was advisory only.) | Recall stays at the rules' 65% where the judge could reach more; the owner's labels in `er-human` recover it with verified precision. |
 | A23 | Two listings of one villa are **inconsistent** on a claim only when what the platforms themselves state (amenity list, description) says yes on one and no on the other, each uncontested on its own platform, or when their distance claims to one named target cannot overlap under any reading; the map and the photos are evidence, not statements (M9). | A disagreement hidden in vague wording is not flagged; nothing is called inconsistent that one reading could reconcile. |
 | A24 | The offline demo serves model answers from the cache only and does not copy listing photos: they stay hotlinked and are grey without network, until the owner decides otherwise. | A demo recorded offline shows no photos; one recorded online shows the platforms' own. |

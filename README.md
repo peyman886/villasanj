@@ -8,9 +8,16 @@ choice.** Each real villa gets one page that brings its listings from different 
 together, with the all-in price for your dates and group, a calendar, reviews and a
 truth check of what the listing claims. Every number shown has a source and an observation time.
 
-Status (2026-10-03): M0–M3 done; M4–M11 complete as far as their dependencies allow, with the
-status of every acceptance criterion in [`docs/ROADMAP.md`](docs/ROADMAP.md). What remains is the
-owner's (reviews, labels, the LLM key's monthly limit) or blocked by others (new platforms).
+Status (2026-10-04): M0–M3 done; M4–M11 complete as far as their dependencies allow. The status of
+every acceptance criterion, with its evidence, is generated into [`docs/ROADMAP.md`](docs/ROADMAP.md)
+and shown in the app at **`/docs/milestones`**. What remains is the owner's (reviews, labels, the
+AvalAI dashboard), waits for AvalAI credit (the account is out of credit; pages degrade without
+it), or is blocked by others (new platforms, a public direct quote).
+
+**Documentation and technical report: [`/docs`](http://localhost:3300/docs)** inside the app
+(Persian): architecture, entity resolution and the label-correction history, search, truth check,
+LLM use and cost, every evaluation with its confidence interval, tests, milestones, ADRs and the
+generated reports, with 20 diagrams. It works in the offline demo too.
 
 ## What works today
 
@@ -22,10 +29,10 @@ owner's (reviews, labels, the LLM key's monthly limit) or blocked by others (new
 | Understand | A Persian query becomes a structured intent (LLM). A verifier rejects any number the query did not say; dates are resolved by code against a sourced holiday calendar. | draft 50-query eval (gpt-5.4-mini, prompt v4): 100% slots, 0 invented numbers, p95 1.4 s; wishes it cannot measure are said back (provisional until the owner reviews the set) |
 | Rank | Filters with a stated reason, cautions for unknowns (including a contradicted claim), requested features confirmed first, then a transparent score (price per person and night, Bayesian rating). No commission factor; the rules are public at `/how-we-rank`. | `/search` |
 | Explain | The LLM writes Persian prose around fact slots (`{F1}`); code formats every number and decides every comparison; a verifier rejects digits, comparatives and availability stated as a fact; a template is the fallback, also when no model can answer. It streams in after the results. | 20 draft queries: 100% LLM text, 0% fallback; p95 6–10 s uncached (not yet the 4 s target) |
-| Truth check | Every published distance against the OSM coastline and OSM places (town centres can contradict; shops, restaurants and woods only support, the map lists only some), as ranges over the listing's blurred location; description features against the listing's own amenity list. "Contradicted" only when even the best case fails. Two listings of one villa that state a claim differently are shown side by side, never as which one is wrong. | H4 ([report](reports/h4-2026-10-03.md)): listings with a claim the map contradicts or the other platform states differently: jabama 9.8% (8.6–11.1%), shab 5.5% (3.9–7.6%) |
+| Truth check | Every published distance against the OSM coastline and OSM places (town centres can contradict; shops, restaurants and woods only support, the map lists only some), as ranges over the listing's blurred location; description features against the listing's own amenity list. "Contradicted" only when even the best case fails. Two listings of one villa that state a claim differently are shown side by side, never as which one is wrong. | H4 ([report](reports/h4-2026-10-04.md)): listings with a claim the map contradicts or the other platform states differently: jabama 9.8% (8.6–11.1%), shab 5.3% (3.8–7.5%) |
 | Drive time | Free-flow OSRM times from Tehran on a clipped OSM graph, as a range over the blur circle. | 100% of 3,588 listings routed |
-| Match listings | Blocking (location + rooms, photo hashes, DINOv2 image embeddings), evidence, a transparent rule score, constrained clustering (≤ 1 listing per platform). An LLM judge reads photo grids for close calls; until labels can verify it, it only orders a human queue (ADR-0014). | on 362 owner-labelled pairs: precision 98.1% (93.0–99.5%), recall 67.1% ([report](reports/er-eval-2026-10-03.md)) |
-| One villa | `/villas/<id>`: each platform's own offer side by side (never merged), both calendars with the nights free on one and taken on the other, where the listings disagree, every review with its platform and one cited summary. | 3,267 villas, 321 on both platforms; 21.1% of nights seen on both are free on one and taken on the other ([report](reports/hypotheses-2026-10-03-same-window.md)) |
+| Match listings | Blocking (location + rooms, photo hashes, DINOv2 image embeddings), evidence, a transparent rule score, constrained clustering (≤ 1 listing per platform). An LLM judge reads photo grids for close calls: it vetoes rule merges it calls different villas (units of one complex), and its own suggestions wait for a human (ADR-0014). | on 362 owner-labelled pairs (48 complex-unit labels corrected on 2026-10-04): precision 100% (95.9–100%), recall 65.0% ([report](reports/er-eval-2026-10-04.md)) |
+| One villa | `/villas/<id>`: each platform's own offer side by side (never merged), both calendars with the nights free on one and taken on the other, where the listings disagree, every review with its platform and one cited summary. | 3,283 villas, 305 on both platforms; 20.7% of nights seen on both are free on one and taken on the other ([report](reports/hypotheses-2026-10-04.md)) |
 
 ## Principles (enforced in code and tests)
 
@@ -51,7 +58,7 @@ make health             # web=ok db=ok blob=ok llm=fake-ok (or llm=avalai-ok wit
 ```
 
 - Web: <http://localhost:3300> (`/search`, `/villas/<id>`, `/listings/<platform>/<id>`, `/metrics`,
-  `/how-we-rank`; labelling: `/label`, `/label?queue=er-human`, `/label/photos`, `/label/summaries`,
+  `/how-we-rank`, **`/docs`**; labelling: `/label`, `/label?queue=er-human`, `/label/photos`, `/label/summaries`,
   `/label/claims`) · API:
   <http://localhost:8800/docs> · Postgres: `127.0.0.1:5433`.
 - Without `AVALAI_API_KEY` the stack runs with a deterministic fake LLM provider.
@@ -67,7 +74,8 @@ make demo-down
 ```
 
 The five-minute script is [`docs/demo-script.md`](docs/demo-script.md); every number in it names the
-generated report it comes from.
+generated report it comes from. The reviewer's guide is at `/docs/demo` (on the demo:
+<http://localhost:3400/docs/demo>); the documentation needs no network.
 
 ## Main flows
 
@@ -91,17 +99,21 @@ cd backend && uv run villasanj llm spend       # LLM cost from the ledger (hard 
 make test               # unit + architecture tests (no network, no Docker) + frontend tests
 make test-integration   # Postgres + PostGIS in a throwaway container
 make test-e2e           # Playwright on the running app: provenance clicks, axe, keyboard
-make lint               # ruff, mypy --strict, import-linter, tsc, eslint, prettier
+make lint               # ruff, mypy --strict, import-linter, tsc, eslint, prettier, diagrams
+make quality-report     # every suite with machine-readable results -> reports/quality-<date>.json
 make help               # every target
 ```
 
 ## Documentation
 
+- **In the app: `/docs`** (Persian, the full technical report with live numbers and diagrams;
+  reviewer's guide at `/docs/demo`)
 - [Architecture](docs/ARCHITECTURE.md): bounded contexts, layers, domain model, schema, ports, assumptions
 - [Roadmap](docs/ROADMAP.md): milestones, acceptance criteria, what was built ahead and what is blocked
 - [Decisions](docs/adr/README.md): ADRs 0001–0014 (LLM gateway and cost, provenance, crawling ethics,
   entity resolution, image matching, geo evidence, the ER decision policy)
-- [Reports](reports/): hypotheses H1–H3, the ER evaluation, H4 — generated from the database
+- [Reports](reports/): hypotheses H1–H3, the ER evaluation, H4, the judge bake-off, quality and
+  performance — generated, each with a JSON artifact (command, time, provenance)
 - [Sources](docs/sources/README.md): robots/ToS audit and what each platform publishes
 - [Labelling protocol](docs/er-labeling-protocol.md) (Persian) and the
   [research review](docs/research-review.md)

@@ -21,27 +21,32 @@ Context files (local):
 
 ## Current status
 
-- M0–M3 done (M3 completed 2026-10-03: gold-v1, 362 owner labels; threshold −0.25; H1–H3).
-- **2026-10-03, owner's instruction "complete every milestone as far as dependencies allow":**
-  status per criterion is in each milestone's section of `docs/ROADMAP.md`. In short:
-  - M4: same-window capture done (jabama 3.2 h, shab 0.6 h); new platforms ⛔ (no permission).
-  - M5: done, 7/7 (`reports/er-eval-2026-10-03.md`). The machine merges are the rules' (P 98.1%,
-    R 67.1%); the gemini-3.8-flash judge is **advisory** (`config/er.toml`: `judge_merges` and
-    `judge_vetoes` false) because its merges cannot be verified at the bar with gold-v1, and it
-    orders the human queue `er-human` (376 pairs). ADR-0014 and its amendment.
-  - M6–M10: met except M6 crit. 3 (no public quote), M8 crit. 1–2 (owner's query review and
-    relevance judgements), M10 crit. 4 (explanation latency uncached).
-  - M11: `make demo` (offline stack from a database bundle), `docs/demo-script.md`; cache warm-up
-    and the dashboard reconciliation wait.
-- Production villas: 3,267 from 3,588 listings, 321 on both platforms.
-- **The AvalAI key's monthly limit (13.10 units, set by the owner) is reached** (2026-10-03 18:23
-  UTC): every call answers 429 `monthly_quota_exceeded`, which is now a non-retried
-  `ProviderQuotaError`. Ledger: $12.31 of the $30 cap. Pages degrade (summaries omitted,
-  explanations fall back to the template); nothing needing new LLM calls can run until the owner
-  raises the limit.
-- Owner decisions pending: the complex-unit labels (5 cross-platform pairs the judge vetoes, 41
-  same-platform pairs), local photo copies for the offline demo, the `er-human` queue, the M8 query
-  set and relevance judgements, the M7 UX review.
+- M0–M3 done (M3 completed 2026-10-03: gold-v1, 362 owner labels; H1–H3). M4–M11 complete as far
+  as dependencies allow. **The status of every acceptance criterion is generated** from
+  `frontend/src/content/milestones.ts` + `reports/*.json` into `docs/ROADMAP.md` (top) and shown at
+  `/docs/milestones`; a Vitest test fails when they drift (`make roadmap` regenerates).
+- **2026-10-04, label revision (owner's instruction):** 48 gold-v1 labels on units of one complex
+  corrected (M → N/U, `eval/labels/gold-v1-revisions-2026-10-04.toml`, history in
+  `er.label_revision`). Policy now **"judge vetoes, a human merges"** (`config/er.toml`:
+  `judge_vetoes = true`, `judge_merges = false`): P 100% (95.9–100%), R 65.0%; rules alone at −0.25
+  fell to 91.9% and fail the bar. Villas 3,283 from 3,588 listings, 305 on both platforms.
+  Reports: `er-eval-2026-10-04`, `hypotheses-2026-10-04`, `h4-2026-10-04`, `judge-eval-*-2026-10-04`,
+  `quality-2026-10-04` (813 unit, 40 integration, 42 Vitest, 48 E2E, 2 smoke; lint clean),
+  `performance-2026-10-04`.
+- Open: M4 crit. 1 and M6 crit. 3 blocked (no permission / no public quote); M8 crit. 1 provisional
+  and crit. 2 waiting (owner's query review, relevance judgements); M10 crit. 4 not met (explanation
+  p95 uncached > 4 s); M1 crit. 8 / M11 crit. 3 dashboard reconciliation (owner).
+- **AvalAI has no credit** (since 2026-10-03; the owner will recharge later). The first quota answer
+  raises `ProviderQuotaError` (no retry, no fallback on the same key); the API answers 503 and pages
+  degrade (search says it cannot understand a new query, explanations use the template, uncached
+  summaries are omitted). Do not build weaker workarounds for the quota. Deferred until credit:
+  demo cache warm-up + `make demo-bundle`, judging new candidates, VLM checks (sea view, fireplace),
+  explanation latency re-measurement. Ledger: $12.31 of the $30 cap.
+- **UI:** design system "Caspian" (tokens in `globals.css`, components in `src/components/ui`);
+  in-app documentation portal at `/docs` (MDX pages, data components reading `reports/*.json` and
+  live `/metrics`, ADRs and reports rendered from the repo, 20 pre-rendered Mermaid diagrams).
+- Owner decisions pending: local photo copies for the offline demo, the `er-human` queue, the M8
+  query set and relevance judgements, the M7 UX review, the dashboard reconciliation.
 
 ## Working agreement (from the owner)
 
@@ -110,8 +115,9 @@ Context files (local):
   `finish_reason=length` on reasoning models = error. Project hard cap **$30**.
 - Current routing: query understanding → `gpt-5.4-mini` (bake-off 2026-10-02, fallback flash-lite);
   other bulk tasks → `gemini-3.1-flash-lite`; ER judge, review summary, explanation → `gemini-3.8-flash`
-  (`reasoning_effort = "low"` for summary and explanation); fallbacks → `gpt-5.4-mini`; embeddings → `gemini-embedding-001` @768
-  (fallback `text-embedding-3-small`). `gpt-5-nano` is excluded (failed the extraction probe).
+  (`reasoning_effort = "low"` for summary and explanation); fallbacks → `gpt-5.4-mini`. Text
+  embeddings (ADR-0006) are **not built**: no vector search until the M8 retrieval eval asks for it.
+  `gpt-5-nano` is excluded (failed the extraction probe).
 
 ## Crawling rules (ADR-0008)
 
@@ -139,7 +145,7 @@ make health            # end-to-end via web: "web=ok db=ok blob=ok llm=avalai-ok
 make test              # backend unit + architecture tests (domain coverage >= 95%) + frontend vitest
 make test-integration  # testcontainers Postgres built from infra/docker/postgres
 make test-live         # opt-in real AvalAI calls (live_llm marker, $0.05 cap)
-make lint              # ruff + mypy --strict + import-linter + tsc + eslint + prettier
+make lint              # ruff + mypy --strict + import-linter + tsc + eslint + prettier + diagrams check
 make fmt               # ruff format/fix + prettier
 make ci                # lint + test + test-integration
 make dry-run JOB=llm-smoke  # price an LLM job with zero calls (stack must be up)
@@ -162,7 +168,11 @@ make routing-up / routing-down          # OSRM (compose profile routing); core s
 make geo                                # coastline + places into PostGIS, distances, drive times, truth checks
 make basemap                            # offline basemap (Protomaps extract, 13 MB) in data/basemap
 make demo-bundle / demo / demo-down     # DB bundle (with LLM cache) -> offline stack on :3400 (own volume)
-make seed                               # nothing to seed until M11
+make quality-report                     # every suite + lint + coverage -> reports/quality-<date>.json, then make roadmap
+make perf-report                        # API latency -> reports/performance-<date>.json (API_URL, default :8800)
+make roadmap                            # regenerate ROADMAP status tables from milestones.ts + reports/*.json
+cd frontend && npm run diagrams         # render diagrams/*.mmd -> src/diagrams/generated.ts (needs Chrome)
+make seed                               # nothing to seed: config/*.toml is the reference data; the demo data is make demo-bundle
 ```
 
 Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --kind listing`
@@ -240,6 +250,14 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
   it runs. The E2E suite targets the host dev server (3301 → 8801) unless `E2E_BASE_URL` is set.
 - **ER policy lives in `config/er.toml`**; the CLI flags only override it. Rebuilding villas after a
   policy change reconciles ids (history in `er.villa_event`).
+- **Docs portal data:** the web app reads `REPORTS_DIR`, `DOCS_DIR`, `CONFIG_DIR` (repo folders on
+  the host; read-only mounts in compose). Every number in `/docs` must come from an artifact, live
+  `/metrics` or a dated ADR/report; when a report is regenerated, run `make roadmap`.
+- **Diagrams:** edit `frontend/diagrams/*.mmd`, then `npm run diagrams`; `diagrams:check` (in lint)
+  fails on a stale render. The generated file is prettier-ignored and must stay under the 600 KB
+  pre-commit limit (theme CSS is shared per diagram kind).
+- **Search latency** (~2.1 s cached) grows with `catalog.calendar_observation` (holiday-flag query
+  scans it per search; profile in `/docs/search-ranking`).
 - **Never commit the probe/recon by-products**: raw responses live in `var/blobs` and `data/audit`
   (git-ignored); fixtures are trimmed and scrubbed (no host or reviewer names).
 
@@ -254,8 +272,12 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
 
 - `docs/ARCHITECTURE.md`: contexts, layers, diagrams, domain model, schema, ports, assumptions.
 - `docs/ROADMAP.md`: milestones M0–M11 with acceptance criteria and LLM caps.
-- `docs/adr/`: decisions 0001–0014 (0014: ER decisions, the judge zone, the advisory amendment).
-- `reports/`: generated, reproducible reports (hypotheses, er-eval, h4); `docs/demo-script.md`.
+- `/docs` (in the app): the Persian documentation portal; content in `frontend/src/app/docs`,
+  `frontend/src/content` (nav, milestones, ADR cards) and `frontend/src/components/docs`.
+- `docs/adr/`: decisions 0001–0014 (0014: ER decisions, the judge zone, the advisory and the
+  label-revision amendments).
+- `reports/`: generated, reproducible reports with JSON artifacts (er-eval, hypotheses, h4,
+  judge-eval, quality, performance); `docs/demo-script.md`.
 - `docs/er-labeling-protocol.md`: how the owner labels gold-set pairs (Persian).
 - `docs/sources/README.md`: robots/ToS audit, crawl-time observations, inventory, photo experiment.
 - `docs/research-review.md`: critique of the research report.

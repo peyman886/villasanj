@@ -66,9 +66,9 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M0 | 4 | Model per LLM task proposed with evidence | ✅ done | ADR-0005; probe spend about $0.006. |
 | M0 | 5 | No executable project code written | ✅ done | Documents and decisions only. |
 | M1 | 1 | Clean clone: make setup && make up healthy; make health | ✅ done | Setup 17 s, up 29 s (2026-10-01). |
-| M1 | 2 | make lint = 0 findings | ✅ done | Clean (2026-10-01). |
+| M1 | 2 | make lint = 0 findings | ✅ done | Clean in the latest quality report. |
 | M1 | 3 | Architecture test with deliberately failing fixtures | ✅ done | Domain purity, no platform names in core, no invisible characters. |
-| M1 | 4 | Kernel tests; domain coverage ≥ 95% | ✅ done | 98% (2026-10-01). |
+| M1 | 4 | Kernel tests; domain coverage ≥ 95% | ✅ done | Domain coverage 99%. |
 | M1 | 5 | LLM stack unit tests (zero network) | ✅ done | Cache, validation retry, fallback, budget before calling, dry-run with 0 calls, stop on a spent key quota. |
 | M1 | 6 | Opt-in live test, spend < $0.05 | ✅ done | $0.0025 per run (2026-10-01). |
 | M1 | 7 | Secret hygiene | ✅ done | repr/log/error tests; gitleaks; .env never committed. |
@@ -83,7 +83,7 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M2 | 8 | Regional inventory | ✅ done | 3,554 listing pages (2026-10-01). |
 | M3 | 1 | Gold set v1 ≥ 300 stratified labels, protocol, unsure rate | ✅ done | 362 labels; unsure 2.8% (1.5–5.0%) after 48 label revisions. |
 | M3 | 2 | Baseline P/R/F1 at the chosen threshold with Wilson CIs | ✅ done | Rules alone on revised labels: threshold 2, precision 100.0% (95.1–100.0%), recall 33.2% (15.8–56.9%). On the labels as first given: threshold -0.25, precision 98.1% (93.0–99.5%). |
-| M3 | 3 | Pricing engine v1, 100% branch coverage on pricing/domain | ✅ done | Enforced by make test. |
+| M3 | 3 | Pricing engine v1, 100% branch coverage on pricing/domain | ✅ done | Coverage 100%, enforced by make test. |
 | M3 | 4 | Hypothesis report H1–H3 | ✅ done | H1: 302 pairs, about 464 corrected; H2: holiday median 1.25×; H3: 20.7% hidden nights. |
 | M3 | 5 | Owner review: M4–M11 priorities | ✅ done | Owner's instruction (2026-10-03): every milestone as far as dependencies allow. |
 | M4 | 1 | Adapters for platforms with written permission | ⛔ blocked | jajiga, otaghak and mihmansho forbid crawling in their terms; no written permission (ADR-0011). |
@@ -102,10 +102,10 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M6 | 3 | Direct-quote comparison on ≥ 100 listings | ⛔ blocked | No public direct-quote source was found. |
 | M6 | 4 | Stale offers flagged in the API | ✅ done | A stale flag on every offer (24 h). |
 | M7 | 1 | OpenAPI generated; TS client strict; contract tests | ✅ done | make openapi-check. |
-| M7 | 2 | Smoke over 50 multi-platform villas | ✅ done | make test-smoke. |
+| M7 | 2 | Smoke over 50 multi-platform villas | ✅ done | Two smoke tests (50 sampled listings, 50 sampled two-platform villas): 2 passed, 0 failed. |
 | M7 | 3 | Every number links to its provenance (E2E) | ✅ done | 10 random numbers on listing, villa and search pages. |
-| M7 | 4 | No critical axe violations; keyboard | ✅ done | make test-e2e. |
-| M7 | 5 | p95 villa + offers < 300 ms | ✅ done | p95 17.8 ms on 50 villas. |
+| M7 | 4 | No critical axe violations; keyboard | ✅ done | E2E (with axe): 48 passed, 0 failed. |
+| M7 | 5 | p95 villa + offers < 300 ms | ✅ done | p95 10.4 ms on 50 villas. |
 | M8 | 1 | Query understanding eval on 50 queries | ⚠️ provisional | On the agent-written 50-query draft: 100% slots, 0 invented numbers, p95 1.4 s; provisional until the owner reviews the set. |
 | M8 | 2 | Retrieval eval: 30 queries with judged relevant villas | 👤 needs the owner | Needs the owner's relevance judgements; dense retrieval is not shipped until it proves itself. |
 | M8 | 3 | Drive time for 100% of villas, coverage note | ✅ done | Free-flow OSRM from Azadi Square for all 3,588 listings. |
@@ -122,7 +122,7 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M11 | 1 | make demo from a local bundle, no network but cached LLM answers | ✅ done | Separate project on :3400, cached model answers only, no outbound request; photos stay hotlinked. |
 | M11 | 2 | Every number in the demo script in a generated report | ✅ done | docs/demo-script.md and the demo guide page. |
 | M11 | 3 | LLM spend ≤ $30 and reconciled with the dashboard | 👤 needs the owner | The ledger is under the cap; reconciling with the AvalAI dashboard is the owner's. |
-| M11 | 4 | E2E green for the storyboard paths | ✅ done | make test-e2e. |
+| M11 | 4 | E2E green for the storyboard paths | ✅ done | 48 E2E tests, 0 failed. |
 <!-- generated:criteria:end -->
 
 ### Still open
@@ -480,6 +480,30 @@ both platforms. Scope changes: no Splink (ADR-0014); gold-set v2 from new platfo
 (5 cross-platform pairs the judge vetoes, 41 same-platform pairs from M3) — the protocol's rule 2
 would mark them N or U, and the answer moves the operating point (ADR-0014 amendment).
 
+### M5 after the owner's label revision (2026-10-04)
+
+The owner confirmed that pairs of different units of one complex had been labelled "same villa" by
+mistake. 48 labels were revised under the protocol's rule 2 (41 same-platform: 38 → N, 3 → U; 7
+cross-platform: 4 → N, 3 → U), each with its reason in
+`eval/labels/gold-v1-revisions-2026-10-04.toml`; `er revise-labels` applied them and
+`er.label_revision` keeps every original label. Everything that depends on the labels was run again
+(`reports/er-eval-2026-10-04.md`, `hypotheses-2026-10-04.md`, `h4-2026-10-04.md`, the judge
+bake-off from the cache):
+
+| | Before (labels as first given, advisory judge) | After (revised labels, configured policy) |
+|---|---|---|
+| Policy | rules merge; the judge only orders the human queue | rules merge unless the judge vetoes; judge merges stay off; a human merges its suggestions |
+| Precision | 98.1% (93.0–99.5%) | 100% (95.9–100%) |
+| Recall | 67.1% (44.6–83.8%) | 65.0% (41.5–83.0%) |
+| Rules alone at −0.25 | 98.1%, meets the bar | 91.9% (84.7–95.9%), **fails** the bar |
+| Villas (on both platforms) | 3,267 (321) | 3,283 (305) |
+
+The rules' new false merges are exactly the complex units, and the judge vetoes all of them
+without losing a true gold match, so by ADR-0009's rule `config/er.toml` now sets
+`judge_vetoes = true` (ADR-0014 amendment "label revision"). The criterion table above is the
+generated one at the top of this file; the in-app portal explains the history at
+`/docs/entity-resolution`.
+
 ---
 
 ## M6 — Pricing complete & offers
@@ -728,7 +752,7 @@ result.
 | Canonical villa page `/villas/{id}` and API (`/villas/{id}`, `/offers`, `/calendar`, `/reviews`, `/of/{p}/{id}`, `/sample`): members with conflict badges per platform (each value with its source), each platform's own offer side by side (rule 3), the merged calendar with hidden nights, each member's truth check, every review with its platform; listing pages link to their villa. Built from `er villas` at −0.25 with the owner's labels: 3,265 villas, 321 on both platforms. Smoke: 50/50 sampled two-platform villas render with no error; villa + offers p95 15 ms on 50 villas (host API, local db) | M7 crit. 2–5 (villa level) | ✅ done | the judge's merges (M5) |
 | Villa-level search: a villa on two platforms is one result, ranked by its best listing; the card shows the other platform's own offer (or that it was not free) with its source and links to the villa page; never a merged price | M8 (villa-level ranking) | ✅ done | — |
 
-Still blocked or waiting (2026-10-03):
+Still blocked or waiting (2026-10-03; superseded by the generated "Still open" list at the top):
 - **Owner:** raise or remove the AvalAI key's monthly limit (13.10 units, reached); reconcile the
   ledger with the dashboard (M1 crit. 8, M11 crit. 3); decide on the complex-unit labels (ADR-0014
   amendment); label the `er-human` queue as far as useful (its first 83 pairs are the judge's

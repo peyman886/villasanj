@@ -602,11 +602,15 @@ export const MILESTONES: Milestone[] = [
         status: "done",
         evidence_fa: (e) => {
           const s = suite(e, "smoke");
-          return s ? `smoke: ${faInt(s.passed)} پاس، ${faInt(s.failed)} شکست.` : "make test-smoke.";
+          return s
+            ? `دو تست smoke (۵۰ آگهی نمونه و ۵۰ ویلای دوپلتفرمی نمونه): ${faInt(s.passed)} پاس، ${faInt(s.failed)} شکست.`
+            : "make test-smoke.";
         },
         evidence_en: (e) => {
           const s = suite(e, "smoke");
-          return s ? `smoke: ${s.passed} passed, ${s.failed} failed.` : "make test-smoke.";
+          return s
+            ? `Two smoke tests (50 sampled listings, 50 sampled two-platform villas): ${s.passed} passed, ${s.failed} failed.`
+            : "make test-smoke.";
         },
       },
       {
