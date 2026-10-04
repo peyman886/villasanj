@@ -7,16 +7,21 @@ import { faNumber } from "@/lib/listing";
 
 type Fact = { key: string; label: string; icon: ReactNode; value: ReactNode };
 
+// dt and dd are direct children of the tile (a <div> group inside the <dl>); the icon is
+// decoration inside the term.
 function FactTile({ fact }: { fact: Fact }) {
   return (
-    <div className="flex items-start gap-3 rounded-card border border-line bg-surface p-3">
-      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-sunken text-fg-muted">
-        {fact.icon}
-      </span>
-      <div className="min-w-0">
-        <dt className="text-xs text-fg-muted">{fact.label}</dt>
-        <dd className="mt-0.5 font-medium tabular-nums">{fact.value}</dd>
-      </div>
+    <div className="relative min-h-[3.75rem] rounded-card border border-line bg-surface p-3 ps-15">
+      <dt className="text-xs text-fg-muted">
+        <span
+          aria-hidden="true"
+          className="absolute start-3 top-3 grid size-9 place-items-center rounded-full bg-sunken text-fg-muted"
+        >
+          {fact.icon}
+        </span>
+        {fact.label}
+      </dt>
+      <dd className="mt-0.5 min-w-0 font-medium tabular-nums">{fact.value}</dd>
     </div>
   );
 }
