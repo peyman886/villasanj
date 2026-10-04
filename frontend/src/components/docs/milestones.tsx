@@ -149,7 +149,11 @@ export async function MilestoneChecklist() {
     <div>
       {MILESTONES.map((m) => (
         <section key={m.id} aria-labelledby={m.id.toLowerCase()} className="scroll-mt-24">
-          <Heading as="h2" id={m.id.toLowerCase()}>
+          <Heading
+            as="h2"
+            id={m.id.toLowerCase()}
+            className="first:mt-14 first:border-t first:pt-8"
+          >
             <span className="ltr me-2 font-mono text-accent">{m.id}</span>
             {m.name_fa}
           </Heading>
