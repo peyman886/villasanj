@@ -65,8 +65,15 @@ services:
     environment:
       API_URL: http://api:8000
       BASEMAP_DIR: /basemap  # offline basemap (make basemap); OSM raster tiles when it is empty
+      # The documentation portal reads the repository's own files at request time (never copied).
+      REPORTS_DIR: /project/reports
+      DOCS_DIR: /project/docs
+      CONFIG_DIR: /project/config
     volumes:
       - ./data/basemap:/basemap:ro
+      - ./reports:/project/reports:ro
+      - ./docs:/project/docs:ro
+      - ./config:/project/config:ro
     ports:
       - "127.0.0.1:${VILLASANJ_WEB_PORT:-3300}:3000"
     depends_on:
