@@ -89,6 +89,8 @@ class ErReport:
     villas_before: VillaCounts
     ablations: list[Ablation]
     stratum_of: dict[str, str] = field(default_factory=dict)  # pair -> its gold stratum
+    candidates: int = 0  # candidate pairs of the match run
+    blocked: int = 0  # of those, found by the production blocking (the rest: the wide net)
     verdicts: Counter[str] = field(default_factory=Counter)  # "below:match:confident", ...
     queue: Counter[str] = field(default_factory=Counter)  # human queue stratum -> pairs
 
@@ -173,7 +175,10 @@ class BuildErReport:
             ablations=await EvaluateAblations(self._candidates, self._labels).run(queue, labeler),
             stratum_of={str(i.key): i.stratum for i in await self._labels.queue(queue)},
         )
-        scores = {c.key: c.score.value for c in await self._candidates.current() if c.score}
+        current = await self._candidates.current()
+        report.candidates = len(current)
+        report.blocked = sum(c.blocked for c in current)
+        scores = {c.key: c.score.value for c in current if c.score}
         chosen = self._config.policy
         for j in await self._judgements.all():
             score = scores.get(j.key)
@@ -269,6 +274,7 @@ def render_markdown(report: ErReport) -> str:
     lines += [
         "## Rule score: precision-recall curve",
         "",
+        f"Candidate pairs: {report.candidates} ({report.blocked} from the production blocking). "
         f"Blocking recall on gold matches: {_pct(m.blocking_recall)}. TP, FP and FN count "
         "labelled pairs (unweighted); precision and recall are weighted.",
         "",
@@ -441,6 +447,7 @@ def to_artifact(report: ErReport) -> dict[str, object]:
                 }
                 for a in report.ablations
             ],
+            "candidates": {"total": report.candidates, "blocked": report.blocked},
             "judge_verdicts": dict(sorted(report.verdicts.items())),
             "human_queue": dict(sorted(report.queue.items())),
         },

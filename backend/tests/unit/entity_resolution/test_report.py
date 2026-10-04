@@ -53,3 +53,7 @@ async def test_the_report_scores_each_policy_before_and_after_the_revisions() ->
     artifact = to_artifact(report)
     assert artifact["kind"] == "er-eval"
     assert artifact["provenance"]["revisions"] == 1  # type: ignore[index]
+    candidates = artifact["data"]["candidates"]  # type: ignore[index]
+    assert candidates == {"total": report.candidates, "blocked": report.blocked}
+    assert report.candidates >= report.blocked > 0
+    assert f"Candidate pairs: {report.candidates}" in text

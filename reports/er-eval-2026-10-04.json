@@ -90,6 +90,10 @@
         "name": "full"
       }
     ],
+    "candidates": {
+      "blocked": 28557,
+      "total": 154395
+    },
     "human_queue": {
       "judge:disputed": 81,
       "judge:suggested": 83,
@@ -1192,9 +1196,9 @@
         {
           "bcubed": {
             "elements": 528,
-            "f1": 0.9794797800759776,
+            "f1": 0.9794797800759774,
             "precision": 0.9810606060606061,
-            "recall": 0.9779040404040407
+            "recall": 0.9779040404040404
           },
           "configured": false,
           "meets_bar": false,
@@ -2193,7 +2197,7 @@
             "elements": 525,
             "f1": 0.9882416288069998,
             "precision": 0.9847619047619047,
-            "recall": 0.9917460317460319
+            "recall": 0.9917460317460317
           },
           "configured": false,
           "meets_bar": false,
@@ -2223,9 +2227,9 @@
         {
           "bcubed": {
             "elements": 525,
-            "f1": 0.9603420899558239,
+            "f1": 0.9603420899558238,
             "precision": 0.9961904761904762,
-            "recall": 0.926984126984127
+            "recall": 0.9269841269841269
           },
           "configured": false,
           "meets_bar": true,
@@ -2257,7 +2261,7 @@
             "elements": 525,
             "f1": 0.9882416288069998,
             "precision": 0.9847619047619047,
-            "recall": 0.9917460317460319
+            "recall": 0.9917460317460317
           },
           "configured": false,
           "meets_bar": false,
@@ -2287,9 +2291,9 @@
         {
           "bcubed": {
             "elements": 525,
-            "f1": 0.9920633904761906,
+            "f1": 0.9920633904761904,
             "precision": 0.9923809523809524,
-            "recall": 0.9917460317460319
+            "recall": 0.9917460317460317
           },
           "configured": true,
           "meets_bar": true,
@@ -2319,9 +2323,9 @@
         {
           "bcubed": {
             "elements": 525,
-            "f1": 0.9939559854602973,
+            "f1": 0.9939559854602972,
             "precision": 0.9904761904761905,
-            "recall": 0.9974603174603176
+            "recall": 0.9974603174603174
           },
           "configured": false,
           "meets_bar": false,
@@ -2353,7 +2357,7 @@
             "elements": 525,
             "f1": 0.9806052197505741,
             "precision": 0.9752380952380952,
-            "recall": 0.9860317460317461
+            "recall": 0.9860317460317459
           },
           "configured": false,
           "meets_bar": false,
@@ -2852,7 +2856,7 @@
       "villas": 3283
     }
   },
-  "generated_at": "2026-10-04T05:26:03.571030+00:00",
+  "generated_at": "2026-10-04T06:09:01.758456+00:00",
   "kind": "er-eval",
   "provenance": {
     "dataset_hash": "dd0bcb8164341d398103c0a3df01f3dc40f0934951d687f03906a61d849d30d3",
