@@ -3,21 +3,20 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { apiClient } from "@/lib/api/client";
-import { cn } from "@/lib/cn";
 import { faNumber } from "@/lib/listing";
 
-export const metadata: Metadata = { title: "چطور رتبه‌بندی می‌کنیم · ویلاسنج" };
-
-const FOCUS =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700";
+export const metadata: Metadata = { title: "چطور رتبه‌بندی می‌کنیم" };
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="mt-8">
+    <section
+      aria-labelledby={id}
+      className="scroll-mt-24 rounded-card border border-line bg-surface p-6 shadow-raised"
+    >
       <h2 id={id} className="text-lg font-semibold text-balance">
         {title}
       </h2>
-      <div className="mt-2 space-y-2 text-pretty text-stone-700">{children}</div>
+      <div className="mt-3 space-y-3 leading-8 text-pretty text-fg">{children}</div>
     </section>
   );
 }
@@ -41,14 +40,14 @@ export default async function HowWeRankPage() {
   const price = share("price");
   const rating = share("rating");
   return (
-    <main className="mx-auto max-w-3xl px-4 pt-6 pb-16">
-      <p className="text-sm text-stone-500">
-        <Link href="/" className={cn("underline-offset-4 hover:underline", FOCUS)}>
+    <div className="mx-auto max-w-3xl space-y-5 px-4 pt-8 pb-16 sm:px-6">
+      <nav aria-label="مسیر" className="text-sm text-fg-muted">
+        <Link href="/" className="focus-ring rounded-sm hover:text-fg">
           ویلاسنج
         </Link>
-      </p>
-      <h1 className="mt-1 text-2xl font-semibold text-balance">چطور رتبه‌بندی می‌کنیم</h1>
-      <p className="mt-2 text-pretty text-stone-600">
+      </nav>
+      <h1 className="text-3xl font-bold text-balance">چطور رتبه‌بندی می‌کنیم</h1>
+      <p className="text-lg text-pretty text-fg-muted">
         هیچ پلتفرمی برای جایگاه بالاتر به ما پول نمی‌دهد و در رتبه‌بندی هیچ ضریب کمیسیون یا تبلیغی
         نیست. هر چه این‌جا می‌بینید از کدی می‌آید که نتیجه‌ها را می‌سازد.
       </p>
@@ -115,6 +114,6 @@ export default async function HowWeRankPage() {
           از نمایش بررسی می‌شود؛ اگر متن مدل از بررسی رد شود، یک قالب ثابت جای آن می‌نشیند.
         </p>
       </Section>
-    </main>
+    </div>
   );
 }

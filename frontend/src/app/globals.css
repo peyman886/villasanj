@@ -1,10 +1,112 @@
 @import "tailwindcss";
 @import "@fontsource-variable/vazirmatn";
 
+/*
+ * Villasanj design tokens ("Caspian"). One system for the product and the docs:
+ * - brand: a deep sea-forest teal, the colour of verification and of the primary action;
+ * - sand: warm greys for almost everything (text, surfaces, lines);
+ * - state colours only carry meaning: verified (brand), caution (amber), contradicted (rose),
+ *   info (sky); never decoration.
+ * Components use the semantic roles (canvas, surface, line, fg...), not the raw ramps.
+ */
 @theme {
   --font-sans: "Vazirmatn Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  --color-brand-50: oklch(0.975 0.014 182);
+  --color-brand-100: oklch(0.945 0.03 182);
+  --color-brand-200: oklch(0.89 0.055 182);
+  --color-brand-300: oklch(0.8 0.085 182);
+  --color-brand-400: oklch(0.69 0.1 182);
+  --color-brand-500: oklch(0.59 0.1 183);
+  --color-brand-600: oklch(0.5 0.092 184);
+  --color-brand-700: oklch(0.42 0.078 186);
+  --color-brand-800: oklch(0.35 0.064 188);
+  --color-brand-900: oklch(0.29 0.05 190);
+  --color-brand-950: oklch(0.2 0.036 192);
+
+  --color-sand-50: oklch(0.985 0.004 85);
+  --color-sand-100: oklch(0.965 0.006 85);
+  --color-sand-200: oklch(0.925 0.009 85);
+  --color-sand-300: oklch(0.865 0.011 85);
+  --color-sand-400: oklch(0.71 0.012 80);
+  --color-sand-500: oklch(0.55 0.012 75);
+  --color-sand-600: oklch(0.47 0.011 75);
+  --color-sand-700: oklch(0.38 0.01 75);
+  --color-sand-800: oklch(0.29 0.009 75);
+  --color-sand-900: oklch(0.22 0.008 75);
+  --color-sand-950: oklch(0.16 0.007 75);
+
+  /* semantic roles */
+  --color-canvas: var(--color-sand-50);
+  --color-surface: oklch(1 0 0);
+  --color-sunken: var(--color-sand-100);
+  --color-line: var(--color-sand-200); /* decorative dividers */
+  --color-line-strong: var(--color-sand-400); /* borders that identify a control (3:1) */
+  --color-fg: var(--color-sand-900);
+  --color-fg-muted: var(--color-sand-600);
+  --color-fg-subtle: var(--color-sand-500);
+  --color-accent: var(--color-brand-700);
+
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+
+  --shadow-raised: 0 1px 2px oklch(0.3 0.02 75 / 0.06), 0 1px 3px oklch(0.3 0.02 75 / 0.08);
+  --shadow-float: 0 4px 6px oklch(0.3 0.02 75 / 0.06), 0 10px 24px oklch(0.3 0.02 75 / 0.1);
+  --shadow-overlay: 0 10px 20px oklch(0.3 0.02 75 / 0.1), 0 20px 48px oklch(0.3 0.02 75 / 0.16);
+
+  --animate-fade-in: fade-in 160ms ease-out both;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+}
+
+@utility ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 html {
   -webkit-text-size-adjust: 100%;
+  scroll-padding-top: 5rem;
+}
+
+body {
+  line-height: 1.75;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.35;
+}
+
+::selection {
+  background: var(--color-brand-200);
+  color: var(--color-brand-950);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -12,7 +12,7 @@ import {
   ReviewSummarySection,
   ReviewSummarySkeleton,
   reviewAnchor,
-} from "../../listings/[platform]/[id]/sections";
+} from "@/components/listing/reviews";
 import { VerdictForm } from "./verdict-form";
 
 export const metadata: Metadata = {

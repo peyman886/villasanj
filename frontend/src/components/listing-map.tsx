@@ -129,14 +129,14 @@ export function ListingMap({
           id: "blur-fill",
           type: "fill",
           source: "blur",
-          paint: { "fill-color": "#047857", "fill-opacity": 0.15 },
+          paint: { "fill-color": "#147a72", "fill-opacity": 0.16 },
         });
         instance.addLayer({
           id: "blur-line",
           type: "line",
           source: "blur",
           paint: {
-            "line-color": "#065f46",
+            "line-color": "#0d5b56",
             "line-width": 2,
             ...(assumed ? { "line-dasharray": [2, 2] } : {}),
           },
@@ -147,7 +147,7 @@ export function ListingMap({
           source: "pin",
           paint: {
             "circle-radius": 5,
-            "circle-color": "#065f46",
+            "circle-color": "#0d5b56",
             "circle-stroke-color": "#ffffff",
             "circle-stroke-width": 2,
           },
@@ -161,13 +161,13 @@ export function ListingMap({
   }, [lat, lon, radiusM, assumed, basemap]);
 
   return (
-    <figure className="mt-6">
+    <figure>
       <div
         ref={container}
         aria-hidden="true"
-        className="h-64 w-full overflow-hidden rounded-lg border border-stone-200 bg-stone-100 sm:h-80"
+        className="h-64 w-full overflow-hidden rounded-card border border-line bg-sunken sm:h-80"
       />
-      <figcaption className="mt-2 text-xs text-pretty text-stone-600">
+      <figcaption className="mt-2 text-xs text-pretty text-fg-muted">
         نقطه‌ای که پلتفرم منتشر کرده و دایره‌ای به شعاع {faNumber(radiusM)} متر که ویلا در آن است
         {assumed ? " (پلتفرم شعاع را اعلام نکرده؛ این شعاع فرض ماست)" : ""}. جای دقیق ویلا را
         پلتفرم‌ها پنهان می‌کنند.
