@@ -1,0 +1,42 @@
+flowchart TB
+  accTitle: معماری کل سامانه‌ی ویلاسنج
+  accDescr: مرورگر به وب Next.js وصل است که از API و گزارش‌ها می‌خواند؛ API و کارهای دسته‌ای از Postgres، ذخیره‌ساز فایل، دروازه‌ی مدل زبانی و OSRM استفاده می‌کنند.
+  user(["کاربر و بازبین<br/>Browser"]):::human
+  subgraph web ["وب · Next.js (SSR، RTL)"]
+    pages["صفحه‌های محصول<br/>/ /search /villas /listings"]
+    docs["پورتال مستندات<br/>/docs"]
+    tiles["نقشه‌ی آفلاین<br/>/basemap (PMTiles)"]
+  end
+  subgraph api ["API · FastAPI"]
+    routes["مسیرها<br/>listings, villas, search, metrics"]
+    root["ریشه‌ی ترکیب<br/>container.py"]
+  end
+  subgraph batch ["کارهای دسته‌ای · CLI"]
+    crawl["crawl مؤدبانه"]
+    match["تطبیق و ارزیابی"]
+    enrich["غنی‌سازی و حقیقت‌سنجی"]
+    reports["گزارش‌ها<br/>reports/*.json"]
+  end
+  pg[("Postgres<br/>PostGIS + pgvector")]:::store
+  blobs[("ذخیره‌ساز فایل<br/>snapshot و عکس")]:::store
+  llm["دروازه‌ی مدل زبانی<br/>AvalAI یا آفلاین"]:::llm
+  osrm["مسیریابی<br/>OSRM"]:::ext
+  platforms["جاباما و شب"]:::ext
+  user --> pages & docs
+  pages --> routes
+  pages --> tiles
+  docs --> reports
+  docs --> routes
+  routes --> root
+  root --> pg
+  root --> llm
+  crawl --> platforms
+  crawl --> blobs
+  crawl --> pg
+  match --> pg
+  match --> llm
+  enrich --> pg
+  enrich --> osrm
+  enrich --> llm
+  match --> reports
+  enrich --> reports

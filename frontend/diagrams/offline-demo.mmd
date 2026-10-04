@@ -1,0 +1,13 @@
+flowchart TB
+  accTitle: معماری دموی آفلاین
+  accDescr: بسته‌ی پایگاه داده به‌همراه کش مدل زبانی در یک پروژه‌ی compose جدا بازیابی می‌شود؛ API با ارائه‌دهنده‌ی آفلاین فقط از کش پاسخ می‌دهد و وب نقشه و گزارش‌ها را از دیسک می‌خواند.
+  dev[("پایگاه داده‌ی توسعه")]:::store --> bundle["make demo-bundle<br/>pg_dump با کش مدل"]
+  bundle --> file[("data/demo<br/>بسته + checksum")]:::store
+  file --> restore["make demo<br/>بازیابی یک‌باره"]
+  subgraph demo ["پروژه‌ی جدای villasanj-demo"]
+    restore --> db[("Postgres دمو")]:::store
+    db --> api["API<br/>LLM__PROVIDER=offline"]
+    api --> web["وب<br/>نقشه و گزارش‌ها از دیسک"]
+  end
+  web --> browser["مرورگر<br/>localhost:3400"]:::human
+  api -. "هیچ درخواست بیرونی" .-x net["اینترنت"]:::ext

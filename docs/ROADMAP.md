@@ -17,8 +17,136 @@ Changes vs. the initial proposal (and why):
 LLM budget column = planned cap for that milestone (hard caps are enforced by the ledger; project
 hard cap $30). Estimates come from [ADR-0005](adr/0005-llm-model-selection-and-cost.md).
 
-| M | Name | LLM cap | Checkpoint with owner |
+| M | Name | LLM cap |
+|---|---|---|
+| 0 | Understanding & design | $0.05 |
+| 1 | Skeleton & LLM platform | $0.20 |
+| 2 | First vertical slice (jabama → shab) | $0.50 |
+| 3 | Hypothesis test (ER baseline + pricing core + H1–H3) | $0.50 |
+| 4 | Coverage: permission-gated adapters, wider region, scheduled scenario crawls | $0.50 |
+| 5 | Full ER | $8.00 |
+| 6 | Pricing complete & offers | $0.50 |
+| 7 | API & canonical villa page | $0.50 |
+| 8 | Search: intent, retrieval, ranking, drive time | $2.00 |
+| 9 | Enrichment & truth check | $6.00 |
+| 10 | Reviews & "why this villa?" | $6.00 |
+| 11 | Demo polish | $3.00 |
+
+## Status (generated)
+
+The three blocks below are generated from `frontend/src/content/milestones.ts` and the newest
+artifacts in `reports/*.json` (the same source as the portal's `/docs/milestones`); a test fails when
+they drift, and `make roadmap` rewrites them. Each milestone's own section keeps its dated results.
+
+<!-- generated:summary:begin -->
+| M | Name | Status | Criteria done |
 |---|---|---|---|
+| M0 | Understanding & design | ✅ done (2026-10-01) | 5/5 |
+| M1 | Skeleton & LLM platform | ◐ partly done (2026-10-01) | 7/8 |
+| M2 | First vertical slice: jabama → shab | ✅ done (2026-10-01) | 8/8 |
+| M3 | Hypothesis test | ✅ done (2026-10-03) | 5/5 |
+| M4 | Coverage: platforms, region, same-window capture | ◐ partly done | 3/4 |
+| M5 | Full entity resolution | ✅ done (2026-10-04) | 7/7 |
+| M6 | Pricing complete & offers | ◐ partly done | 3/4 |
+| M7 | API & canonical villa page | ✅ done (2026-10-03) | 5/5 |
+| M8 | Search: intent, retrieval, ranking, drive time | ◐ partly done | 2/4 |
+| M9 | Enrichment & truth check | ✅ done | 5/5 |
+| M10 | Reviews & “why this villa?” | ◐ partly done | 3/4 |
+| M11 | Demo polish | ◐ partly done | 3/4 |
+<!-- generated:summary:end -->
+
+### Every criterion with its evidence
+
+<!-- generated:criteria:begin -->
+| M | # | Criterion | Status | Evidence |
+|---|---|---|---|---|
+| M0 | 1 | All context files read; understanding summarised | ✅ done | Approved by the owner on 2026-10-01. |
+| M0 | 2 | Hardware/environment inventoried | ✅ done | Apple M4, 16 GB, Docker with 7.75 GB (CLAUDE.md). |
+| M0 | 3 | .env checked without printing; models fetched; tier inferred | ✅ done | 365 models from /v1/models; tier 3. |
+| M0 | 4 | Model per LLM task proposed with evidence | ✅ done | ADR-0005; probe spend about $0.006. |
+| M0 | 5 | No executable project code written | ✅ done | Documents and decisions only. |
+| M1 | 1 | Clean clone: make setup && make up healthy; make health | ✅ done | Setup 17 s, up 29 s (2026-10-01). |
+| M1 | 2 | make lint = 0 findings | ✅ done | Clean (2026-10-01). |
+| M1 | 3 | Architecture test with deliberately failing fixtures | ✅ done | Domain purity, no platform names in core, no invisible characters. |
+| M1 | 4 | Kernel tests; domain coverage ≥ 95% | ✅ done | 98% (2026-10-01). |
+| M1 | 5 | LLM stack unit tests (zero network) | ✅ done | Cache, validation retry, fallback, budget before calling, dry-run with 0 calls, stop on a spent key quota. |
+| M1 | 6 | Opt-in live test, spend < $0.05 | ✅ done | $0.0025 per run (2026-10-01). |
+| M1 | 7 | Secret hygiene | ✅ done | repr/log/error tests; gitleaks; .env never committed. |
+| M1 | 8 | Ledger vs AvalAI dashboard | 👤 needs the owner | Needs the owner's dashboard access. |
+| M2 | 1 | robots.txt, pacing and stop-on-block tested | ✅ done | Unit and integration tested; no disallowed request was sent. |
+| M2 | 2 | jabama: every regional listing, parse ≥ 98% | ✅ done | 100% parsed; the 31-listing gap was closed by a second pass. |
+| M2 | 3 | ≥ 6 trimmed fixtures per adapter | ✅ done | 6 for jabama, 6 for shab; review fixtures added later. |
+| M2 | 4 | Normalizer ≥ 60 table-driven cases | ✅ done | 111 cases. |
+| M2 | 5 | make reparse: 0 network requests, identical hashes | ✅ done | Socket-blocking test; two rebuilds with identical hashes. |
+| M2 | 6 | OCP proof | ✅ done | The shab commit touched only its folder, fixtures and one entry point (after one generic core extension). |
+| M2 | 7 | Scenario capture ≥ 90% within 24 h | ✅ done | jabama 100%, shab 99.3%. |
+| M2 | 8 | Regional inventory | ✅ done | 3,554 listing pages (2026-10-01). |
+| M3 | 1 | Gold set v1 ≥ 300 stratified labels, protocol, unsure rate | ✅ done | 362 labels; unsure 2.8% (1.5–5.0%) after 48 label revisions. |
+| M3 | 2 | Baseline P/R/F1 at the chosen threshold with Wilson CIs | ✅ done | Rules alone on revised labels: threshold 2, precision 100.0% (95.1–100.0%), recall 33.2% (15.8–56.9%). On the labels as first given: threshold -0.25, precision 98.1% (93.0–99.5%). |
+| M3 | 3 | Pricing engine v1, 100% branch coverage on pricing/domain | ✅ done | Enforced by make test. |
+| M3 | 4 | Hypothesis report H1–H3 | ✅ done | H1: 302 pairs, about 464 corrected; H2: holiday median 1.25×; H3: 20.7% hidden nights. |
+| M3 | 5 | Owner review: M4–M11 priorities | ✅ done | Owner's instruction (2026-10-03): every milestone as far as dependencies allow. |
+| M4 | 1 | Adapters for platforms with written permission | ⛔ blocked | jajiga, otaghak and mihmansho forbid crawling in their terms; no written permission (ADR-0011). |
+| M4 | 2 | Regional coverage reported per platform | ✅ done | jabama 2,987, shab 601 listings. |
+| M4 | 3 | Same-window capture with spread ≤ 6 h | ✅ done | 2026-10-03: jabama 2,987/2,987 in 3.2 h, shab 597/601 in 0.6 h. |
+| M4 | 4 | Photo pipeline ≥ 99%, pHash, storage reported | ✅ done | 100% of selected photos on both platforms; 8.48 and 1.09 GB. |
+| M5 | 1 | Blocking recall ≥ 98% with the candidate count | ✅ done | 100.0% (81.4–100.0%) of gold matches; 154,395 candidate pairs, 28,557 from production blocking. |
+| M5 | 2 | End-to-end precision ≥ 95% (Wilson low ≥ 92%), recall reported | ✅ done | Configured policy (judge vetoes, a human merges): precision 100.0% (95.9–100.0%), recall 65.0% (41.5–83.0%). Rules alone at −0.25 no longer pass: 91.9% (84.7–95.9%). |
+| M5 | 3 | Pairwise P/R/F1, B-cubed, PR curve; reproducible | ✅ done | reports/er-eval-*.md from er report, with the match run and dataset hash. |
+| M5 | 4 | Judge bake-off; MATCH precision ≥ 95% | ✅ done | gemini-3.8-flash on 141 gold pairs: 71 correct MATCH verdicts, 0 false; stratum-weighted precision 100.0% (75.4–100.0%) (wide because strata carry different weights). |
+| M5 | 5 | ≤ 1 listing per platform; every merge traceable | ✅ done | DB constraint and tests; merges by decider: human 118, rule 187. |
+| M5 | 6 | Ablations (H5) | ✅ done | Photos alone and other evidence alone miss the bar; together they clear it. |
+| M5 | 7 | Human queue; idempotent resolution | ✅ done | Queue er-human: disputed 81, suggested 83, unsure 212; each label rebuilds the villas. |
+| M6 | 1 | Every quote component has provenance (property test) | ✅ done | test_every_quote_carries_provenance_for_every_component. |
+| M6 | 2 | Each offer EXACT, RANGE or OPEN, reported | ✅ done | All OPEN: no platform publishes its fees (pricing offers). |
+| M6 | 3 | Direct-quote comparison on ≥ 100 listings | ⛔ blocked | No public direct-quote source was found. |
+| M6 | 4 | Stale offers flagged in the API | ✅ done | A stale flag on every offer (24 h). |
+| M7 | 1 | OpenAPI generated; TS client strict; contract tests | ✅ done | make openapi-check. |
+| M7 | 2 | Smoke over 50 multi-platform villas | ✅ done | make test-smoke. |
+| M7 | 3 | Every number links to its provenance (E2E) | ✅ done | 10 random numbers on listing, villa and search pages. |
+| M7 | 4 | No critical axe violations; keyboard | ✅ done | make test-e2e. |
+| M7 | 5 | p95 villa + offers < 300 ms | ✅ done | p95 17.8 ms on 50 villas. |
+| M8 | 1 | Query understanding eval on 50 queries | ⚠️ provisional | On the agent-written 50-query draft: 100% slots, 0 invented numbers, p95 1.4 s; provisional until the owner reviews the set. |
+| M8 | 2 | Retrieval eval: 30 queries with judged relevant villas | 👤 needs the owner | Needs the owner's relevance judgements; dense retrieval is not shipped until it proves itself. |
+| M8 | 3 | Drive time for 100% of villas, coverage note | ✅ done | Free-flow OSRM from Azadi Square for all 3,588 listings. |
+| M8 | 4 | Score breakdown in API and UI | ✅ done | 'Why this rank?' on every result card. |
+| M9 | 1 | Claim extraction on 60 descriptions: P ≥ 90%, R ≥ 80% | ✅ done | Rules + LLM residue: precision 93.7% (84.8–97.5%), recall 80.8% (70.3–88.2%); every quote verbatim (2026-10-03). |
+| M9 | 2 | Photo tags on 300 photos; < 85% precision unused | ✅ done | 336 owner labels; pool, jacuzzi, forest, barbecue used; sea view and fireplace not. |
+| M9 | 3 | Verdict rule tests (best case; walk and drive) | ✅ done | Unit tests. |
+| M9 | 4 | H4 measured with CI | ✅ done | jabama 9.8% (8.6–11.1%), shab 5.3% (3.8–7.5%); the ≥ 25% hypothesis is not supported. |
+| M9 | 5 | Dry-run estimate within ±25% of the ledger | ✅ done | Review summaries +3%; claim reading +22% after counting repeated requests once. |
+| M10 | 1 | Verifier unit tests | ✅ done | Digits outside slots, unknown slots, contradicting comparisons, uncited points. |
+| M10 | 2 | 100% of displayed text verified; fallback rate | ✅ done | 0% template in the explanation eval; 48/48 summaries first try; without a model, the template. |
+| M10 | 3 | Owner's blind review ≥ 18/20 faithful | ✅ done | 20/20. |
+| M10 | 4 | Explanation p95 ≤ 4 s uncached | ❌ not met | 6.1–10.6 s uncached; results do not wait for it and cached paths are instant. Re-measuring needs AvalAI credit. |
+| M11 | 1 | make demo from a local bundle, no network but cached LLM answers | ✅ done | Separate project on :3400, cached model answers only, no outbound request; photos stay hotlinked. |
+| M11 | 2 | Every number in the demo script in a generated report | ✅ done | docs/demo-script.md and the demo guide page. |
+| M11 | 3 | LLM spend ≤ $30 and reconciled with the dashboard | 👤 needs the owner | The ledger is under the cap; reconciling with the AvalAI dashboard is the owner's. |
+| M11 | 4 | E2E green for the storyboard paths | ✅ done | make test-e2e. |
+<!-- generated:criteria:end -->
+
+### Still open
+
+<!-- generated:open:begin -->
+- **Not met:**
+  - Uncached explanation latency is above 4 s (M10 crit. 4).
+- **Blocked by others:**
+  - New platforms until written permission arrives (M4 crit. 1, ADR-0011).
+  - Direct-quote comparison: no public source (M6 crit. 3).
+- **Needs AvalAI credit:**
+  - Warm the cache for the demo paths and rebuild the demo bundle.
+  - Judge the failed pair and new candidates; VLM checks for sea view and fireplace.
+  - Re-measure explanation latency and bake off faster models (M10 crit. 4).
+- **Needs the owner:**
+  - Reconcile the ledger with the AvalAI dashboard (M1 crit. 8, M11 crit. 3).
+  - Review the 50-query understanding set (M8 crit. 1).
+  - Judge relevance for 30 queries so the retrieval eval can run (M8 crit. 2).
+  - Label the er-human queue as far as useful; the judge's suggestions first.
+  - Review the villa page UX (M7).
+  - Whether the offline demo may serve local copies of photos.
+<!-- generated:open:end -->
+
+---|---|---|---|
 | 0 | Understanding & design | $0.05 | ✅ approved 2026-10-01 |
 | 1 | Skeleton & LLM platform | $0.20 | ✅ delivered |
 | 2 | First vertical slice (jabama → shab) | $0.50 | ✅ approved 2026-10-01 |

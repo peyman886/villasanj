@@ -52,7 +52,11 @@ export function Callout({
       <style.Icon aria-hidden="true" className={cn("mt-0.5 size-5 shrink-0", style.icon)} />
       <div className="min-w-0 text-pretty">
         {title ? <p className="font-semibold">{title}</p> : null}
-        {children ? <div className={cn(title && "mt-1", "space-y-2")}>{children}</div> : null}
+        {children ? (
+          <div className={cn(title && "mt-1", "space-y-2 [&_p]:my-0 [&_p]:leading-7")}>
+            {children}
+          </div>
+        ) : null}
       </div>
     </div>
   );

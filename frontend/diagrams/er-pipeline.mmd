@@ -1,0 +1,15 @@
+flowchart TB
+  accTitle: خط لوله‌ی تطبیق ویلاها
+  accDescr: جفت‌های نامزد از چند منبع blocking می‌آیند، شواهد و امتیاز قاعده‌ای می‌گیرند، داور مدل‌زبانی در ناحیه‌ی خاکستری نظر می‌دهد، و خوشه‌بندی مقید با برچسب‌های مالک ویلاها را می‌سازد.
+  listings[("آگهی‌ها و عکس‌ها")]:::store --> blocking["blocking<br/>چهار منبع نامزد"]
+  blocking --> evidence["شواهد جفتی<br/>عکس، موقعیت، ساختار، قیمت"]
+  evidence --> score["امتیاز قاعده‌ای شفاف<br/>جمع سهم‌های نام‌دار"]
+  score --> policy{"سیاست تصمیم<br/>config/er.toml"}:::decision
+  judge["داور مدل‌زبانی<br/>شبکه‌ی عکس + مشخصات"]:::llm --> policy
+  policy --> merges["ادغام‌های ماشینی"]:::good
+  policy --> queue["صف انسانی<br/>er-human"]:::human
+  labels["برچسب‌های مالک<br/>must-link و cannot-link"]:::human --> cluster
+  merges --> cluster["خوشه‌بندی حریصانه<br/>هر پلتفرم حداکثر یکی"]
+  queue -.-> labels
+  cluster --> reconcile["تطبیق شناسه‌ها<br/>با اجرای قبلی"]
+  reconcile --> villas[("er.villa و تاریخچه")]:::store

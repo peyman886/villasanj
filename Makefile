@@ -5,8 +5,8 @@ WEB_PORT ?= $(or $(VILLASANJ_WEB_PORT),3300)
 JOB ?= llm-smoke
 
 .DEFAULT_GOAL := help
-.PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live openapi openapi-check lint fmt \
-	test-e2e test-smoke basemap demo-bundle demo demo-down post-crawl osm-download osm-prepare routing-up routing-down geo \
+.PHONY: help setup build up down logs ps health migrate test test-integration test-ml test-live openapi openapi-check lint fmt roadmap \
+	test-e2e test-smoke quality-report perf-report basemap demo-bundle demo demo-down post-crawl osm-download osm-prepare routing-up routing-down geo \
 	typecheck ci dry-run llm-smoke llm-models seed crawl crawl-scenarios crawl-status crawl-metrics reparse report match eval eval-hypotheses
 
 help: ## Show available targets
@@ -71,6 +71,16 @@ test-e2e: ## Playwright E2E on the running app (provenance clicks, axe, keyboard
 test-smoke: ## 50 sampled listing pages render without errors (E2E_API_URL, E2E_BASE_URL to override)
 	cd frontend && PLAYWRIGHT_HTML_OPEN=never npx playwright test --grep @smoke
 
+quality-report: ## reports/quality-<date>.json: every suite's result, lint, coverage (app must be up for E2E)
+	cd backend && uv run python ../infra/reports/quality.py
+	$(MAKE) roadmap
+
+roadmap: ## Regenerate the status tables in docs/ROADMAP.md from milestones.ts and reports/*.json
+	cd frontend && UPDATE_ROADMAP=1 npx vitest run src/content/milestones.test.ts
+
+perf-report: ## reports/performance-<date>.json: API latency on the paths with a target (API_URL)
+	cd backend && API_URL=$${API_URL:-http://127.0.0.1:8800} uv run python ../infra/reports/performance.py
+
 osm-download: ## Download the Geofabrik Iran extract (230 MB on 2026-10-02) and check its MD5
 	mkdir -p data/osm && cd data/osm && curl -sSfL -o $(OSM_SNAPSHOT).osm.pbf.md5 \
 		https://download.geofabrik.de/asia/$(OSM_SNAPSHOT).osm.pbf.md5 \
@@ -113,12 +123,12 @@ openapi-check: ## Fail if the committed OpenAPI schema or TS types are out of da
 		&& diff -q $$tmp/openapi.json ../frontend/src/lib/api/openapi.json \
 		|| { echo "OpenAPI schema is stale: run make openapi"; exit 1; }
 
-lint: ## ruff, mypy --strict, import-linter, tsc, eslint, prettier
+lint: ## ruff, mypy --strict, import-linter, tsc, eslint, prettier, diagrams up to date
 	cd backend && uv run ruff check src tests migrations \
 		&& uv run ruff format --check src tests migrations \
 		&& uv run mypy \
 		&& uv run lint-imports
-	cd frontend && npm run typecheck && npm run lint && npm run format:check
+	cd frontend && npm run typecheck && npm run lint && npm run format:check && npm run diagrams:check
 
 typecheck: ## Type checks only
 	cd backend && uv run mypy

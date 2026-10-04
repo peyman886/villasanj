@@ -1,0 +1,11 @@
+flowchart TB
+  accTitle: مسیر منبع هر عدد
+  accDescr: هر مقدار مشاهده‌شده به snapshot و زمانش گره خورده؛ مقدار محاسبه‌شده ورودی‌ها و قدیمی‌ترین ورودی‌اش را نگه می‌دارد؛ API منبع را کنار عدد می‌فرستد و رابط کاربر آن را در کارت منبع نشان می‌دهد.
+  page["صفحه‌ی پلتفرم"]:::ext --> snap[("snapshot<br/>شناسه و زمان")]:::store
+  snap --> obs["مقدار مشاهده‌شده<br/>Provenance(observed)"]
+  obs --> derived["مقدار محاسبه‌شده<br/>derived_from، قدیمی‌ترین ورودی"]
+  llm["استخراج با مدل<br/>llm_extracted"]:::llm --> derived
+  human["برچسب انسانی<br/>human"]:::human --> derived
+  derived --> api["API<br/>ProvenanceOut کنار هر عدد"]
+  obs --> api
+  api --> card["کارت منبع<br/>روی هر عدد قابل کلیک"]:::good

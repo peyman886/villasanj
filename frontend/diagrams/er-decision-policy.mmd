@@ -1,0 +1,16 @@
+flowchart TB
+  accTitle: سیاست تصمیم تطبیق
+  accDescr: امتیاز بالاتر از ناحیه‌ی داور را قاعده ادغام می‌کند. در ناحیه، رأی مطمئن «یکی نیست» ادغام قاعده را رد می‌کند و «یکی است» زیر آستانه به صف انسانی می‌رود. نامطمئن یا کم‌اطمینان منتظر انسان می‌ماند.
+  start(["جفت نامزد با امتیاز قاعده"]) --> zone{"امتیاز در ناحیه‌ی داور؟<br/>judge_low ≤ score < judge_high"}:::decision
+  zone -- "بالاتر" --> rule["ادغام با قاعده"]:::good
+  zone -- "پایین‌تر" --> none["ادغام نمی‌شود<br/>مگر با برچسب مالک"]
+  zone -- "داخل" --> judged{"داور دیده است؟"}:::decision
+  judged -- "نه" --> thr{"score ≥ threshold؟"}:::decision
+  thr -- "بله" --> rule
+  thr -- "نه" --> none
+  judged -- "بله" --> verdict{"رأی داور با اطمینان ≥ کف"}:::decision
+  verdict -- "یکی است" --> above{"score ≥ threshold؟"}:::decision
+  above -- "بله" --> rule
+  above -- "نه" --> suggest["پیشنهاد به صف انسانی"]:::human
+  verdict -- "یکی نیست" --> veto["رد ادغام قاعده<br/>judge_vetoes"]:::warn
+  verdict -- "نامطمئن یا کم‌اطمینان" --> wait["منتظر انسان<br/>بدون ادغام"]:::human

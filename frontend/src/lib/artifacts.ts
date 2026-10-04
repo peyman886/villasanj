@@ -69,6 +69,7 @@ export type ErEval = {
   villas_now: VillaCounts;
   villas_before: VillaCounts;
   ablations: { name: string; at_bar: Metrics | null; best_f1: Metrics | null }[];
+  candidates?: { total: number; blocked: number };
   judge_verdicts: Record<string, number>;
   human_queue: Record<string, number>;
 };
@@ -130,6 +131,7 @@ export type JudgeEval = {
 export type Quality = {
   suites: { name: string; passed: number; failed: number; skipped: number; seconds: number }[];
   coverage: { name: string; percent: number }[];
+  lint: { ok: boolean; seconds: number };
 };
 
 export type Performance = {

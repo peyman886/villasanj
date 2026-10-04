@@ -1,0 +1,10 @@
+flowchart TB
+  accTitle: هرم تست
+  accDescr: پایه تست‌های واحد بدون شبکه با fake؛ بالاتر تست‌های معماری، یکپارچگی با Postgres واقعی، E2E با Playwright و axe، smoke روی نمونه‌ی صفحه‌ها، و در رأس تست زنده‌ی اختیاری با سقف هزینه.
+  live["تست زنده‌ی مدل · اختیاری، سقف ۰٫۰۵ دلار"]:::llm
+  smoke["smoke · نمونه‌ی ۵۰ آگهی و ۵۰ ویلا"]
+  e2e["E2E · Playwright: منبع اعداد، axe، صفحه‌کلید، موبایل، مستندات"]
+  integration["یکپارچگی · Postgres واقعی با testcontainers"]:::store
+  arch["معماری · import-linter، قراردادهای لایه و context"]
+  unit["واحد · دامنه و کاربرد با fake، بدون شبکه؛ پوشش دامنه ≥ ۹۵٪"]:::good
+  live --- smoke --- e2e --- integration --- arch --- unit

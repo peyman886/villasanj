@@ -1,0 +1,14 @@
+flowchart TB
+  accTitle: حلقه‌ی برچسب‌گذاری انسانی
+  accDescr: صف طبقه‌بندی‌شده ساخته می‌شود، مالک برچسب می‌زند، ارزیابی وزن‌دار با بازه‌ی Wilson سیاست را انتخاب می‌کند؛ اصلاح برچسب‌ها با دلیل ثبت می‌شود و گزارش قبل و بعد را نشان می‌دهد.
+  draw["نمونه‌ی طبقه‌بندی‌شده<br/>er queue"] --> ui["ابزار برچسب‌گذاری<br/>/label · M / N / U"]:::human
+  ui --> labels[("er.label")]:::store
+  labels --> eval["ارزیابی وزن‌دار<br/>Wilson ۹۵٪، B-cubed"]
+  eval --> choose{"بیشترین recall<br/>با دقت ≥ ۹۵٪ و کران پایین ≥ ۹۲٪"}:::decision
+  choose --> config["config/er.toml"]
+  config --> villas["ساخت ویلاها<br/>er villas"]
+  villas --> hq["صف er-human<br/>پیشنهاد، اعتراض، نامطمئن"]:::human
+  hq --> ui
+  revise["اصلاح برچسب با دلیل<br/>eval/labels/*.toml"]:::human --> history[("er.label_revision<br/>برچسب اصلی حفظ می‌شود")]:::store
+  history --> labels
+  history --> report["گزارش قبل و بعد<br/>er report"]

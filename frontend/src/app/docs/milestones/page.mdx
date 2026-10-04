@@ -1,0 +1,50 @@
+import { DocHeader } from "@/components/docs/blocks";
+import {
+  CriteriaProgress,
+  MilestoneChecklist,
+  MilestoneTimeline,
+  OpenItems,
+} from "@/components/docs/milestones";
+import { StatusBadge } from "@/components/ui/status";
+
+export const metadata = {
+  title: "مایل‌استون‌ها",
+  description: "M0 تا M11: هر معیار پذیرش با وضعیت و شاهدش.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="وضعیت پروژه" title="مایل‌استون‌ها و معیارهای پذیرش">
+  هر مایل‌استون معیارهای پذیرشی دارد که پیش از شروعش نوشته شده بود. این صفحه هر معیار را با وضعیت و
+  شاهدش نشان می‌دهد؛ شاهدهای اندازه‌گیری‌شده از آخرین گزارش‌های تولیدشده خوانده می‌شوند و جدول وضعیت
+  `docs/ROADMAP.md` از همین داده ساخته می‌شود.
+</DocHeader>
+
+## نمای کلی
+
+<CriteriaProgress />
+
+وضعیت‌ها:
+
+<span className="inline-flex flex-wrap gap-2 align-middle">
+  <StatusBadge status="done" />
+  <StatusBadge status="partial" />
+  <StatusBadge status="provisional" />
+  <StatusBadge status="owner_review" />
+  <StatusBadge status="deferred" />
+  <StatusBadge status="blocked" />
+  <StatusBadge status="not_met" />
+</span>
+
+«بخشی انجام شد» یعنی دست‌کم یک معیار باز است. «موقت» یعنی سنجیده شده ولی روی داده‌ای که هنوز بازبینی
+نشده. «مسدود» یعنی مانع بیرونی (مجوز، نبود منبع). «پاس نشده» یعنی سنجیده شده و به هدف نرسیده؛ پنهان
+نمی‌شود.
+
+## خط زمانی
+
+<MilestoneTimeline />
+
+<MilestoneChecklist />
+
+## آنچه هنوز باز است
+
+<OpenItems />

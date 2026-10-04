@@ -1,0 +1,17 @@
+flowchart TB
+  accTitle: خط لوله‌ی داده از سر تا ته
+  accDescr: صف crawl، دریافت مؤدبانه، snapshot، parser، کاتالوگ، عکس‌ها، تطبیق، ویلا، قیمت، غنی‌سازی، جستجو و رابط کاربر.
+  frontier["صف crawl<br/>frontier"] --> fetch["دریافت مؤدبانه<br/>PoliteFetcher"]
+  fetch --> snap[("snapshot<br/>content-addressed")]:::store
+  snap --> parse["parser خالص<br/>SourceAdapter"]
+  parse --> catalog[("کاتالوگ<br/>آگهی، تقویم، نظر")]:::store
+  catalog --> photos["عکس‌ها<br/>pHash، DINOv2، SigLIP"]
+  photos --> er["تطبیق آگهی‌ها<br/>blocking → شواهد → امتیاز"]
+  catalog --> er
+  er --> villas[("ویلای یکتا<br/>er.villa")]:::store
+  catalog --> pricing["قیمت نهایی<br/>Offer با منبع"]
+  catalog --> enrich["غنی‌سازی<br/>نقشه، ادعا، حقیقت‌سنجی"]
+  villas --> search["جستجو و رتبه<br/>discovery"]
+  pricing --> search
+  enrich --> search
+  search --> ui["رابط کاربر<br/>با منبع هر عدد"]:::human

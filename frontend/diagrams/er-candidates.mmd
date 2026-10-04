@@ -1,0 +1,15 @@
+flowchart TB
+  accTitle: تولید جفت‌های نامزد
+  accDescr: چهار منبع blocking جفت نامزد می‌سازند و یک تور گسترده‌ی نمونه‌گیری‌شده recall مرحله‌ی blocking را می‌سنجد.
+  subgraph sources ["منابع blocking"]
+    hash["عکس یکسان<br/>pHash با فاصله‌ی کم"]
+    knn["عکس شبیه<br/>kNN روی DINOv2"]
+    geo["نزدیک و هم‌اتاق<br/>شعاع محو + تعداد اتاق"]
+  end
+  wide["تور گسترده<br/>فقط برای سنجش recall"]:::ext
+  hash --> union["اجتماع جفت‌ها<br/>یک کلید برای هر جفت"]
+  knn --> union
+  geo --> union
+  union --> scored[("er.candidate<br/>با شواهد و امتیاز")]:::store
+  wide -.-> gold["نمونه‌ی طبقه‌بندی‌شده<br/>gold-v1"]:::human
+  scored --> gold

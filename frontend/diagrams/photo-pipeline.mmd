@@ -1,0 +1,14 @@
+flowchart TB
+  accTitle: خط لوله‌ی شواهد عکس
+  accDescr: از هر آگهی پنج عکس مؤدبانه دانلود می‌شود؛ pHash و embedding محلی DINOv2 برای تطبیق، و برچسب‌های SigLIP با آستانه‌ی برچسب‌های مالک فقط برای تأیید امکانات.
+  urls["نشانی عکس‌ها"] --> pick["پنج عکس برای هر آگهی"]
+  pick --> dl["دانلود مؤدبانه"]
+  dl --> blob[("ذخیره‌ساز فایل")]:::store
+  blob --> phash["pHash<br/>عکس یکسان"]
+  blob --> dino["DINOv2-small محلی<br/>عکس شبیه"]
+  blob --> siglip["SigLIP 2 محلی<br/>برچسب صحنه"]
+  phash --> er["شواهد تطبیق<br/>وزن با بسامد عکس"]
+  dino --> er
+  labels["برچسب‌های عکس مالک"]:::human --> thr["آستانه با دقت ≥ ۸۵٪"]
+  siglip --> thr
+  thr --> corro["فقط تأیید امکانی<br/>که توضیحات گفته"]:::good

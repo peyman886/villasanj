@@ -1,0 +1,14 @@
+flowchart TB
+  accTitle: داده‌ی جغرافیایی
+  accDescr: نسخه‌ی OSM ایران برش داده می‌شود؛ خط ساحل و مکان‌ها به PostGIS، گراف راه به OSRM و نقشه‌ی پایه به PMTiles محلی می‌رود.
+  osm["OSM ایران<br/>Geofabrik، نسخه‌ی ثابت"]:::ext --> clip["برش منطقه<br/>osmium"]
+  clip --> coast["خط ساحل"]
+  clip --> places["مکان‌ها<br/>مغازه، نانوایی، درمانی، مرکز شهر"]
+  clip --> roads["گراف راه<br/>OSRM MLD"]
+  coast --> pg[("PostGIS")]:::store
+  places --> pg
+  pg --> dist["فاصله‌ها به‌صورت بازه<br/>روی دایره‌ی محو"]
+  roads --> osrm["OSRM محلی"]:::ext
+  osrm --> drive["زمان رانندگی بدون ترافیک<br/>از میدان آزادی"]
+  pm["Protomaps<br/>استخراج منطقه"]:::ext --> pmtiles[("PMTiles محلی")]:::store
+  pmtiles --> map["MapLibre<br/>برچسب فارسی، بدون کاشی بیرونی"]:::good

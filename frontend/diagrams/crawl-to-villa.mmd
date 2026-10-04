@@ -1,0 +1,20 @@
+flowchart TB
+  accTitle: از crawl تا ویلای یکتا
+  accDescr: هر پاسخ پلتفرم یک snapshot ثابت است و parser از روی آن آگهی می‌سازد؛ دوباره‌سازی کاتالوگ بدون شبکه ممکن است.
+  subgraph ing ["ingestion"]
+    robots["robots.txt و شرایط استفاده<br/>تأیید مالک"]:::human --> polite["یک درخواست هم‌زمان برای هر میزبان<br/>دست‌کم ۳ ثانیه فاصله"]
+    polite --> block{"۴۰۳ یا captcha؟"}:::decision
+    block -- "بله" --> stop["توقف، بدون دور زدن"]:::warn
+    block -- "نه" --> snap[("snapshot<br/>var/blobs")]:::store
+  end
+  subgraph cat ["catalog"]
+    snap --> adapter["parser خالص<br/>تابع snapshot"]
+    adapter --> listing[("آگهی، تقویم، نظر، عکس")]:::store
+    reparse["make reparse<br/>بدون شبکه"] --> adapter
+  end
+  subgraph res ["entity_resolution"]
+    listing --> cand["جفت‌های نامزد"]
+    cand --> decide["سیاست تصمیم"]
+    decide --> cluster["خوشه‌بندی مقید<br/>هر پلتفرم حداکثر یکی"]
+    cluster --> villa[("ویلا با شناسه‌ی پایدار")]:::store
+  end

@@ -7,3 +7,4 @@ src/lib/api/schema.d.ts
 test-results
 playwright-report
 public/maplibre
+src/diagrams/generated.ts

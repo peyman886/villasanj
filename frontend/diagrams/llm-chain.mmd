@@ -1,0 +1,15 @@
+flowchart TB
+  accTitle: زنجیره‌ی فراخوانی مدل زبانی
+  accDescr: هر فراخوانی از درگاه LLMClient می‌گذرد؛ مسیریاب مدل اصلی و پشتیبان را انتخاب می‌کند، کش و دفتر هزینه پیش از ارائه‌دهنده‌اند، و خروجی ساختاری اعتبارسنجی می‌شود.
+  uc["مورد استفاده<br/>LLMRequest: task، prompt_version، schema"] --> route["RoutedLLMClient<br/>مدل اصلی و پشتیبان هر task"]
+  route --> cache{"در کش هست؟"}:::decision
+  cache -- "بله" --> hit["پاسخ کش‌شده<br/>بدون هزینه"]:::good
+  cache -- "نه" --> retry["RetryingInvoker<br/>تلاش دوباره برای خطای گذرا"]
+  retry --> cost["CostGoverningInvoker<br/>رزرو بدترین حالت، دفتر هزینه، سقف"]
+  cost --> structured["StructuredOutputInvoker<br/>اعتبارسنجی schema"]
+  structured --> provider{"ارائه‌دهنده"}:::decision
+  provider --> avalai["AvalAI"]:::ext
+  provider --> offline["آفلاین<br/>فقط کش"]
+  provider --> fake["Fake برای تست"]
+  avalai -- "سقف کلید پر" --> quota["ProviderQuotaError<br/>بدون تلاش دوباره"]:::warn
+  quota --> unavailable["LLMUnavailable<br/>API: 503 · صفحه: حالت کاهش‌یافته"]

@@ -1,0 +1,19 @@
+flowchart BT
+  accTitle: bounded contextها و جهت وابستگی
+  accDescr: shared پایه است؛ ingestion به آن، catalog به ingestion، entity_resolution و pricing به catalog، enrichment به هر دو، discovery به enrichment و entrypoints به همه وابسته است. import-linter این جهت را اجبار می‌کند.
+  shared["shared<br/>هسته‌ی مشترک: پول، تاریخ، منبع، پورت‌های مدل زبانی"]
+  ingestion["ingestion<br/>crawl، snapshot، parser"]
+  catalog["catalog<br/>آگهی، تقویم، نظر، عکس"]
+  er["entity_resolution<br/>جفت‌ها، شواهد، داور، ویلا"]
+  pricing["pricing<br/>قیمت نهایی، پیشنهاد"]
+  enrichment["enrichment<br/>جغرافیا، ادعا، حقیقت‌سنجی، خلاصه"]
+  discovery["discovery<br/>فهم پرسش، رتبه، توضیح"]
+  entry["entrypoints<br/>CLI، API، ریشه‌ی ترکیب"]:::decision
+  ingestion --> shared
+  catalog --> ingestion
+  er --> catalog
+  pricing --> catalog
+  enrichment --> er
+  enrichment --> pricing
+  discovery --> enrichment
+  entry --> discovery
