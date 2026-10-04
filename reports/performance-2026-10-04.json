@@ -2,9 +2,9 @@
   "version": 1,
   "kind": "performance",
   "command": "make perf-report",
-  "generated_at": "2026-10-04T06:08:22.526047+00:00",
+  "generated_at": "2026-10-04T07:01:04.345793+00:00",
   "provenance": {
-    "api": "http://127.0.0.1:8801",
+    "api": "http://127.0.0.1:8800",
     "sample": 50,
     "scenario": "weekend",
     "guests": 4
@@ -14,25 +14,25 @@
       {
         "name": "villa + offers",
         "samples": 50,
-        "p50_ms": 16.7,
-        "p95_ms": 17.8,
-        "max_ms": 25.3,
+        "p50_ms": 8.5,
+        "p95_ms": 10.4,
+        "max_ms": 33.6,
         "target_ms": 300.0
       },
       {
         "name": "listing + offer",
         "samples": 50,
-        "p50_ms": 4.4,
-        "p95_ms": 5.7,
-        "max_ms": 6.3,
+        "p50_ms": 3.3,
+        "p95_ms": 4.4,
+        "max_ms": 7.9,
         "target_ms": 300.0
       },
       {
         "name": "search (cached understanding)",
         "samples": 10,
-        "p50_ms": 2110.4,
-        "p95_ms": 2169.1,
-        "max_ms": 2169.1,
+        "p50_ms": 2095.5,
+        "p95_ms": 2134.7,
+        "max_ms": 2134.7,
         "target_ms": null
       }
     ]

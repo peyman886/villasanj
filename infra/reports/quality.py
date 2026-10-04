@@ -25,7 +25,9 @@ FRONTEND = ROOT / "frontend"
 
 def run(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> tuple[int, str, float]:
     start = time.monotonic()
-    done = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env={**os.environ, **(env or {})})
+    done = subprocess.run(
+        cmd, cwd=cwd, capture_output=True, text=True, env={**os.environ, **(env or {})}
+    )
     return done.returncode, done.stdout + done.stderr, time.monotonic() - start
 
 
@@ -35,7 +37,13 @@ def junit(name: str, path: Path, seconds: float) -> dict[str, object]:
     total = sum(int(s.get("tests", 0)) for s in suites)
     failed = sum(int(s.get("failures", 0)) + int(s.get("errors", 0)) for s in suites)
     skipped = sum(int(s.get("skipped", 0)) for s in suites)
-    return {"name": name, "passed": total - failed - skipped, "failed": failed, "skipped": skipped, "seconds": round(seconds, 1)}
+    return {
+        "name": name,
+        "passed": total - failed - skipped,
+        "failed": failed,
+        "skipped": skipped,
+        "seconds": round(seconds, 1),
+    }
 
 
 def playwright(name: str, report: dict[str, object], seconds: float) -> dict[str, object]:
@@ -57,17 +65,36 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp)
         code, _, secs = run(
-            ["uv", "run", "pytest", "-q", "--cov", "--cov-report=", f"--junitxml={out / 'unit.xml'}"], BACKEND
+            [
+                "uv",
+                "run",
+                "pytest",
+                "-q",
+                "--cov",
+                "--cov-report=",
+                f"--junitxml={out / 'unit.xml'}",
+            ],
+            BACKEND,
         )
         suites.append(junit("backend: unit + architecture", out / "unit.xml", secs))
-        for name, include in (("domain", "*/domain/*"), ("pricing domain", "*/pricing/domain/*"), ("all", "*")):
+        for name, include in (
+            ("domain", "*/domain/*"),
+            ("pricing domain", "*/pricing/domain/*"),
+            ("all", "*"),
+        ):
             _, text, _ = run(["uv", "run", "coverage", "report", f"--include={include}"], BACKEND)
             total = re.search(r"^TOTAL\s+.*?(\d+(?:\.\d+)?)%\s*$", text, re.M)
             if total:
                 coverage.append({"name": name, "percent": float(total.group(1))})
-        code, _, secs = run(["uv", "run", "pytest", "-m", "integration", "-q", f"--junitxml={out / 'int.xml'}"], BACKEND)
+        code, _, secs = run(
+            ["uv", "run", "pytest", "-m", "integration", "-q", f"--junitxml={out / 'int.xml'}"],
+            BACKEND,
+        )
         suites.append(junit("backend: integration (Postgres)", out / "int.xml", secs))
-        code, text, secs = run(["npx", "vitest", "run", "--reporter=json", f"--outputFile={out / 'vitest.json'}"], FRONTEND)
+        code, text, secs = run(
+            ["npx", "vitest", "run", "--reporter=json", f"--outputFile={out / 'vitest.json'}"],
+            FRONTEND,
+        )
         report = json.loads((out / "vitest.json").read_text())
         suites.append(
             {
@@ -79,7 +106,10 @@ def main() -> int:
             }
         )
         if not skip_e2e:
-            for name, grep in (("E2E (Playwright, axe)", ["--grep-invert", "@smoke"]), ("smoke (sampled pages)", ["--grep", "@smoke"])):
+            for name, grep in (
+                ("E2E (Playwright, axe)", ["--grep-invert", "@smoke"]),
+                ("smoke (sampled pages)", ["--grep", "@smoke"]),
+            ):
                 target = out / f"{name[:5]}.json"
                 code, text, secs = run(
                     ["npx", "playwright", "test", *grep, "--reporter=json"],
@@ -95,8 +125,17 @@ def main() -> int:
         "kind": "quality",
         "command": "make quality-report",
         "generated_at": now.isoformat(),
-        "provenance": {"commit": commit, "e2e": not skip_e2e},
-        "data": {"suites": suites, "coverage": coverage, "lint": {"ok": lint_code == 0, "seconds": round(lint_secs, 1)}},
+        "provenance": {
+            "commit": commit,
+            "e2e": not skip_e2e,
+            "e2e_base_url": os.environ.get("E2E_BASE_URL", "http://localhost:3301"),
+            "e2e_api_url": os.environ.get("E2E_API_URL", "http://localhost:8801"),
+        },
+        "data": {
+            "suites": suites,
+            "coverage": coverage,
+            "lint": {"ok": lint_code == 0, "seconds": round(lint_secs, 1)},
+        },
     }
     path = ROOT / "reports" / f"quality-{now:%Y-%m-%d}"
     path.with_suffix(".json").write_text(json.dumps(artifact, ensure_ascii=False, indent=2) + "\n")
@@ -107,7 +146,10 @@ def main() -> int:
         "",
         "| Suite | Passed | Failed | Skipped | Seconds |",
         "|---|---|---|---|---|",
-        *(f"| {s['name']} | {s['passed']} | {s['failed']} | {s['skipped']} | {s['seconds']} |" for s in suites),
+        *(
+            f"| {s['name']} | {s['passed']} | {s['failed']} | {s['skipped']} | {s['seconds']} |"
+            for s in suites
+        ),
         "",
         "| Coverage | Percent |",
         "|---|---|",

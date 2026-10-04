@@ -56,20 +56,29 @@ def timed(fn) -> float:  # type: ignore[no-untyped-def]
 
 def main() -> int:
     scenario = get("/scenarios")[0]  # type: ignore[index]
-    query = urllib.parse.urlencode({"check_in": scenario["check_in"], "check_out": scenario["check_out"], "guests": 4})
+    query = urllib.parse.urlencode(
+        {"check_in": scenario["check_in"], "check_out": scenario["check_out"], "guests": 4}
+    )
     villas = [v["villa_id"] for v in get(f"/villas/sample?n={SAMPLE}&seed=perf")]  # type: ignore[union-attr]
     listings = get(f"/listings/sample?n={SAMPLE}&seed=perf")
     measurements = [
         summary(
             "villa + offers",
-            [timed(lambda v=v: (get(f"/villas/{v}"), get(f"/villas/{v}/offers?{query}"))) for v in villas],
+            [
+                timed(lambda v=v: (get(f"/villas/{v}"), get(f"/villas/{v}/offers?{query}")))
+                for v in villas
+            ],
             300.0,
         ),
         summary(
             "listing + offer",
             [
-                timed(lambda x=x: (get(f"/listings/{x['platform']}/{x['external_id']}"),
-                                   get(f"/listings/{x['platform']}/{x['external_id']}/offer?{query}")))
+                timed(
+                    lambda x=x: (
+                        get(f"/listings/{x['platform']}/{x['external_id']}"),
+                        get(f"/listings/{x['platform']}/{x['external_id']}/offer?{query}"),
+                    )
+                )
                 for x in listings  # type: ignore[union-attr]
             ],
             300.0,
@@ -77,7 +86,14 @@ def main() -> int:
     ]
     post("/search", {"query": SEARCH, "explain": False})  # warm: the understanding is cached
     measurements.append(
-        summary("search (cached understanding)", [timed(lambda: post("/search", {"query": SEARCH, "explain": False})) for _ in range(10)], None)
+        summary(
+            "search (cached understanding)",
+            [
+                timed(lambda: post("/search", {"query": SEARCH, "explain": False}))
+                for _ in range(10)
+            ],
+            None,
+        )
     )
     now = datetime.now(UTC)
     artifact = {
