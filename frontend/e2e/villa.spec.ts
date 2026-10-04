@@ -30,7 +30,9 @@ test.describe("villa page", () => {
   });
 
   test("a member listing links back to the villa", async ({ page }) => {
-    await page.locator("main p a[href^='/listings/']").first().click();
-    await expect(page.getByRole("link", { name: /کنار هم ببینید/ })).toBeVisible();
+    await page.locator("main a[href^='/listings/']").first().click();
+    await expect(page).toHaveURL(/\/listings\//);
+    const back = page.getByRole("link", { name: "صفحه‌ی ویلا" });
+    await expect(back).toHaveAttribute("href", `/villas/${VILLA}`);
   });
 });

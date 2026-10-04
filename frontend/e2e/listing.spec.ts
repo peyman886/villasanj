@@ -59,7 +59,7 @@ test.describe("listing page", () => {
     const summary = page.locator("#summary-title");
     await expect(summary).toBeVisible({ timeout: 60_000 }); // streamed after the page
     const targets = await page
-      .locator("#summary-title ~ div a[href^='#review-']")
+      .locator("[aria-labelledby=summary-title] a[href^='#review-']")
       .evaluateAll((links) => links.map((a) => a.getAttribute("href") ?? ""));
     expect(targets.length).toBeGreaterThan(0);
     for (const target of new Set(targets)) {
