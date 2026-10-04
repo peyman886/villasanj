@@ -12,7 +12,7 @@ from villasanj.catalog.domain.photo import ListingPhoto, PerceptualFingerprint, 
 from villasanj.catalog.infrastructure.repositories import PgEmbeddingStore, PgPhotoRepository
 from villasanj.entity_resolution.application.ports import MatchRun, ScoredCandidate
 from villasanj.entity_resolution.domain.evidence import PairEvidence, PhotoEvidence
-from villasanj.entity_resolution.domain.labels import Label, PairLabel, QueueItem
+from villasanj.entity_resolution.domain.labels import Label, LabelRevision, PairLabel, QueueItem
 from villasanj.entity_resolution.domain.pairs import BlockingSource, PairKey
 from villasanj.entity_resolution.domain.scoring import Contribution, Score
 from villasanj.entity_resolution.infrastructure.repositories import PgCandidateStore, PgLabelStore
@@ -104,3 +104,18 @@ async def test_queue_and_labels_round_trip(engine: AsyncEngine) -> None:
     await labels.save_label(PairLabel(key, Label.NON_MATCH, "second-opinion", NOW))
     owner = await labels.labels("owner")
     assert [(x.key, x.label, x.seconds) for x in owner] == [(key, Label.UNSURE, None)]
+
+
+async def test_a_revision_changes_the_label_and_keeps_the_original(engine: AsyncEngine) -> None:
+    labels = PgLabelStore(engine, SteppingClock())
+    key = PairKey.of(ListingId("jabama", "r1"), ListingId("shab", "r2"))
+    who = f"owner-{id(engine)}"
+    await labels.save_label(PairLabel(key, Label.MATCH, who, NOW, 2.0))
+    revision = LabelRevision(key, who, Label.MATCH, Label.NON_MATCH, "units 2 and 4", "agent", NOW)
+    await labels.revise(revision)
+    ((now,),) = [[x.label for x in await labels.labels(who)]]
+    assert now is Label.NON_MATCH
+    assert await labels.revisions(who) == [revision]
+    with pytest.raises(ValueError, match="is not labelled match"):
+        await labels.revise(revision)  # the label no longer says "match": nothing changes
+    assert len(await labels.revisions(who)) == 1

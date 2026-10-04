@@ -10,7 +10,7 @@ from typing import Protocol
 from villasanj.catalog.domain.listing import ListingId
 from villasanj.entity_resolution.domain.clustering import CanonicalVilla, VillaEvent
 from villasanj.entity_resolution.domain.evidence import PairEvidence, PhotoSimilarity
-from villasanj.entity_resolution.domain.labels import PairLabel, QueueItem
+from villasanj.entity_resolution.domain.labels import LabelRevision, PairLabel, QueueItem
 from villasanj.entity_resolution.domain.pairs import BlockingSource, PairKey
 from villasanj.entity_resolution.domain.scoring import Score
 
@@ -85,6 +85,12 @@ class LabelStore(Protocol):
         ...
 
     async def labels(self, labeler: str) -> list[PairLabel]: ...
+
+    async def revise(self, revision: LabelRevision) -> None:
+        """Change a label and record the revision beside it, atomically."""
+        ...
+
+    async def revisions(self, labeler: str) -> list[LabelRevision]: ...
 
 
 class VillaStore(Protocol):

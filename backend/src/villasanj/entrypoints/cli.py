@@ -35,6 +35,7 @@ from villasanj.discovery.application.explanation import (
 )
 from villasanj.discovery.application.explanation_eval import EvaluateExplanations
 from villasanj.discovery.application.hypotheses import render_markdown
+from villasanj.discovery.application.hypotheses import to_artifact as hypotheses_artifact
 from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.application.understanding_eval import EvaluateUnderstanding
 from villasanj.discovery.domain.dates import (
@@ -51,7 +52,7 @@ from villasanj.discovery.infrastructure.eval_cases import load_cases
 from villasanj.enrichment.application.claim_extraction import ReadClaimsWithLLM
 from villasanj.enrichment.application.claim_labels import ClaimQueueExists
 from villasanj.enrichment.application.claims import MeasureClaimParsing
-from villasanj.enrichment.application.consistency import render_h4_markdown
+from villasanj.enrichment.application.consistency import h4_artifact, render_h4_markdown
 from villasanj.enrichment.application.features import MeasureFeatureClaims
 from villasanj.enrichment.application.photo_tags import EvaluatePhotoTags, PhotoQueueExists
 from villasanj.enrichment.application.summary_review import SummaryQueueExists
@@ -61,10 +62,14 @@ from villasanj.enrichment.infrastructure.coast import PgCoastDistanceStore
 from villasanj.enrichment.infrastructure.features import load_amenity_map
 from villasanj.entity_resolution.application.evaluation import EvaluateAblations, EvaluationReport
 from villasanj.entity_resolution.application.judge import JudgeInput
+from villasanj.entity_resolution.application.judge_eval import to_artifact as judge_eval_artifact
 from villasanj.entity_resolution.application.labeling import QueueExists
 from villasanj.entity_resolution.application.report import render_markdown as render_er_report
+from villasanj.entity_resolution.application.report import to_artifact as er_report_artifact
+from villasanj.entity_resolution.application.revisions import ReviseLabels
 from villasanj.entity_resolution.application.villas import DecisionPolicy, EvaluateDecisions
 from villasanj.entity_resolution.domain.evaluation import Interval, wilson
+from villasanj.entity_resolution.infrastructure.revisions_file import load_revisions
 from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container, build_container
 from villasanj.ingestion.application.capture import CAPTURE_KINDS, ScenarioCapture
@@ -75,6 +80,7 @@ from villasanj.pricing.domain.quote import Quote, StayRequest
 from villasanj.shared.application.errors import LLMError
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.application.llm.smoke import LLMSmokeCheck
+from villasanj.shared.application.llm.types import LLMTask
 from villasanj.shared.domain.jalali import iran_today
 from villasanj.shared.domain.money import MoneyRange
 from villasanj.shared.domain.stay import DateRange, GuestCount
@@ -86,6 +92,16 @@ from villasanj.shared.infrastructure.llm.models_snapshot import (
 )
 from villasanj.shared.infrastructure.scenarios import load_scenarios
 from villasanj.shared.infrastructure.settings import Settings
+
+
+def _write_report(path: Path, markdown: str, artifact: dict[str, object]) -> None:
+    """A generated report: markdown for people, JSON beside it for the documentation portal."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(markdown, encoding="utf-8")
+    path.with_suffix(".json").write_text(
+        json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
 
 HYPOTHESIS_WINDOW_DAYS = 75  # jabama shows ~76 days of calendar
 FEW_VOTES = 5  # below this a listing's own average is mostly noise
@@ -853,8 +869,10 @@ def enrichment_h4(
     async def run(container: Container) -> bool:
         rows = await container.h4().run(sorted(container.crawl.adapters))
         if out is not None:
-            out.write_text(render_h4_markdown(rows, container.clock.now()), encoding="utf-8")
-            typer.echo(f"wrote {out}")
+            now = container.clock.now()
+            command = f"uv run villasanj enrichment h4 --out {out}"
+            _write_report(out, render_h4_markdown(rows, now), h4_artifact(rows, now, command))
+            typer.echo(f"wrote {out} and {out.with_suffix('.json')}")
         for r in rows:
             typer.echo(
                 f"{r.platform:<7} listings={r.listings} in_two_platform_villas="
@@ -1386,31 +1404,36 @@ def er_hypotheses(
     """H1-H3 report from the current matches, pricing and calendars (zero network)."""
 
     async def run(container: Container) -> bool:
-        evaluation = await container.evaluate_matcher().run(queue, labeler)
-        point = evaluation.operating_point
         notes = []
         if threshold is not None:
-            chosen = threshold
+            policy = DecisionPolicy(threshold)
             notes.append(f"Threshold {threshold:g} was set by hand, not chosen from the gold set.")
-        elif point is not None:
-            chosen = point.threshold
         else:
-            typer.echo("no operating point yet (label the gold set, or pass --threshold)", err=True)
-            return False
+            policy = container.er_config().policy
+        evaluation = await EvaluateDecisions(
+            container.candidates(), container.labels(), container.judgements()
+        ).run(policy, queue, labeler)
+        metrics = evaluation.metrics
         latest = await container.candidates().latest_run()
         start = (latest.created_at if latest else datetime.now(UTC)).date()
         report = await container.hypothesis_report().run(
             sorted(container.crawl.adapters),
-            chosen,
+            policy,
             load_scenarios(container.settings.scenarios_path),
             DateRange(start, start + timedelta(days=HYPOTHESIS_WINDOW_DAYS)),
-            precision=point.precision if point and threshold is None else None,
-            recall=point.recall if point and threshold is None else None,
+            precision=metrics.precision if threshold is None else None,
+            recall=metrics.recall if threshold is None else None,
         )
         report = replace(report, notes=tuple(notes))
         path = out / f"hypotheses-{start.isoformat()}.md" if out.suffix != ".md" else out
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(render_markdown(report), encoding="utf-8")
+        command = "uv run villasanj er hypotheses" + (
+            f" --threshold {threshold}" if threshold else ""
+        )
+        _write_report(
+            path,
+            render_markdown(report),
+            hypotheses_artifact(report, container.clock.now(), command),
+        )
         typer.echo(f"pairs={report.pairs} report={path}")
         return True
 
@@ -1620,6 +1643,29 @@ def er_villas_eval(
         raise typer.Exit(code=1)
 
 
+@er_app.command("revise-labels")
+def er_revise_labels(
+    file: Annotated[Path, typer.Argument(help="A revision file under eval/labels/.")],
+) -> None:
+    """Apply label corrections from a committed file; the original labels are kept beside them."""
+
+    async def run(container: Container) -> bool:
+        planned = load_revisions(file)
+        report = await ReviseLabels(container.labels(), container.clock).run(
+            planned.revisions, planned.labeler, planned.revised_by
+        )
+        for conflict in report.conflicts:
+            typer.echo(f"conflict: {conflict}")
+        typer.echo(
+            f"labeler={planned.labeler} applied={report.applied} already={report.already} "
+            f"conflicts={len(report.conflicts)} (nothing applied when there is a conflict)"
+        )
+        return not report.conflicts
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
 @er_app.command("report")
 def er_report(
     queue: Annotated[str, typer.Option(help="Gold queue.")] = "gold-v1",
@@ -1632,7 +1678,7 @@ def er_report(
         now = container.clock.now()
         report = await container.er_report().run(queue, labeler, now)
         path = out or Path("../reports") / f"er-eval-{now:%Y-%m-%d}.md"
-        path.write_text(render_er_report(report), encoding="utf-8")
+        _write_report(path, render_er_report(report), er_report_artifact(report))
         typer.echo(f"wrote {path}")
         return True
 
@@ -1681,6 +1727,7 @@ def er_judge_eval(
     dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
     budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "2.00",
     show: Annotated[bool, typer.Option(help="Print each pair's verdict.")] = False,
+    out: Annotated[Path | None, typer.Option(help="Also write a report (and JSON) here.")] = None,
 ) -> None:
     """M5 criterion 4: the judge's verdicts on the gold pairs of a score band, against labels."""
 
@@ -1720,6 +1767,38 @@ def er_judge_eval(
                 j = p.judgement
                 verdict = f"{j.verdict.verdict}@{j.verdict.confidence:.2f}" if j else p.failure
                 typer.echo(f"  {p.label.value:<9} {verdict:<16} {p.score:+.2f} {p.key}")
+        if out is not None:
+            model = container.llm.routing.route(LLMTask.ER_JUDGE).model
+            command = f"uv run villasanj er judge-eval --low {low:g} --high {high:g}"
+            artifact = judge_eval_artifact(
+                report, model, (low, high), container.clock.now(), command
+            )
+            lines = [
+                f"# Judge evaluation: {model}",
+                "",
+                f"`{command}` on gold `{queue}` (labels of `{labeler}`), band [{low:g}, {high:g}]: "
+                f"{len(report.pairs)} pairs, {len(report.judged)} judged, unsure "
+                f"{report.unsure_rate:.1%}, cost ${report.cost_usd:.4f} (0 when replayed from the "
+                "cache; the first run's cost and latency are in ADR-0005).",
+                "",
+                "| Label | Verdicts |",
+                "|---|---|",
+                *(
+                    f"| {label} | {dict(sorted(v.items()))} |"
+                    for label, v in sorted(report.confusion.items())
+                ),
+                "",
+                "| Match at confidence ≥ | Precision | Recall |",
+                "|---|---|---|",
+                *(
+                    f"| {c:.1f} | {_interval(report.match_precision(c))} | "
+                    f"{_interval(report.match_recall(c))} |"
+                    for c in (0.0, 0.7, 0.8, 0.9)
+                ),
+                "",
+            ]
+            _write_report(out, "\n".join(lines), artifact)
+            typer.echo(f"wrote {out}")
         return True
 
     asyncio.run(_with_container(run))

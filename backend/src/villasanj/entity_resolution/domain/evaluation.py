@@ -22,6 +22,9 @@ class Interval:
     low: float
     high: float
 
+    def as_dict(self) -> dict[str, float | None]:
+        return {"estimate": self.estimate, "low": self.low, "high": self.high}
+
 
 def wilson(successes: float, trials: float, z: float = Z_95) -> Interval:
     """Wilson score interval; with no trials there is no estimate and the interval is [0, 1]."""
@@ -62,6 +65,19 @@ class Metrics:
     precision: Interval
     recall: Interval
     f1: float | None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "threshold": self.threshold,
+            "tp": self.true_positives,
+            "fp": self.false_positives,
+            "fn": self.false_negatives,
+            "tn": self.true_negatives,
+            "unsure": self.unsure,
+            "precision": self.precision.as_dict(),
+            "recall": self.recall.as_dict(),
+            "f1": self.f1,
+        }
 
 
 def evaluate(pairs: Sequence[LabelledScore], threshold: float) -> Metrics:

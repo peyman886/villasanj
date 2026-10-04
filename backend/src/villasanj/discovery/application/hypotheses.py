@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from villasanj.catalog.application.reading import ListingReader
 from villasanj.catalog.domain.listing import ListingId
@@ -19,10 +19,17 @@ from villasanj.discovery.domain.hypotheses import (
     summarize_gaps,
 )
 from villasanj.entity_resolution.application.ports import CandidateStore, MatchRun
+from villasanj.entity_resolution.application.villas import (
+    DecisionPolicy,
+    JudgementStore,
+    decide,
+    describe_policy,
+)
 from villasanj.entity_resolution.domain.evaluation import Interval
 from villasanj.entity_resolution.domain.pairs import PairKey
 from villasanj.pricing.application.quotes import QuoteStays
 from villasanj.pricing.domain.quote import StayRequest
+from villasanj.shared.application.artifacts import envelope
 from villasanj.shared.domain.stay import DateRange, StayScenario
 
 DEFAULT_MAX_GAP = timedelta(hours=6)
@@ -37,7 +44,7 @@ class ScenarioGaps:
 
 @dataclass(frozen=True, slots=True)
 class HypothesisReport:
-    threshold: float
+    policy: DecisionPolicy  # the production decision policy that chose the matched pairs
     run: MatchRun | None
     listings: dict[str, int]  # per platform, in the catalog
     matched: dict[str, int]  # per platform, listings with a predicted cross-platform match
@@ -57,23 +64,28 @@ class HypothesisReport:
 
 class BuildHypothesisReport:
     def __init__(
-        self, candidates: CandidateStore, listings: ListingReader, quotes: QuoteStays
+        self,
+        candidates: CandidateStore,
+        listings: ListingReader,
+        quotes: QuoteStays,
+        judgements: JudgementStore | None = None,
     ) -> None:
         self._candidates = candidates
         self._listings = listings
         self._quotes = quotes
+        self._judgements = judgements
 
     async def run(
         self,
         platforms: Sequence[str],
-        threshold: float,
+        policy: DecisionPolicy,
         scenarios: Sequence[StayScenario],
         window: DateRange,
         precision: Interval | None = None,
         recall: Interval | None = None,
         max_gap: timedelta = DEFAULT_MAX_GAP,
     ) -> HypothesisReport:
-        pairs = await self._matched_pairs(threshold)
+        pairs = await self._matched_pairs(policy)
         counts = {p: len(await self._listings.listings(p)) for p in platforms}
         matched: Counter[str] = Counter()
         for key in pairs:
@@ -108,7 +120,7 @@ class BuildHypothesisReport:
             with_hidden += bool(comparison.hidden)
 
         return HypothesisReport(
-            threshold=threshold,
+            policy=policy,
             run=await self._candidates.latest_run(),
             listings=counts,
             matched=dict(sorted(matched.items())),
@@ -125,19 +137,21 @@ class BuildHypothesisReport:
             window=window,
         )
 
-    async def _matched_pairs(self, threshold: float) -> list[PairKey]:
-        """Predicted matches, at most one partner per listing (ADR-0009: <= 1 per platform)."""
-        scored = sorted(
-            (
-                (c.score.value, c.key)
-                for c in await self._candidates.current()
-                if c.blocked and c.key.cross_platform and c.score and c.score.value >= threshold
-            ),
-            key=lambda item: (-item[0], item[1]),
-        )
+    async def _matched_pairs(self, policy: DecisionPolicy) -> list[PairKey]:
+        """The policy's machine matches, at most one partner per listing, strongest first
+        (ADR-0009: <= 1 per platform). The owner's labels are not applied: the report measures
+        the matcher, whose precision and recall correct H1."""
+        rows = [
+            (c.key, c.score.value, c.blocked)
+            for c in await self._candidates.current()
+            if c.score is not None
+        ]
+        judged = await self._judgements.all() if self._judgements else []
+        decided = decide(rows, judged, policy).matches
         taken: set[ListingId] = set()
         chosen = []
-        for _, key in scored:
+        for decision in sorted(decided, key=lambda d: (-d.weight, d.key)):
+            key = decision.key
             if key.left in taken or key.right in taken:
                 continue
             taken.update((key.left, key.right))
@@ -167,9 +181,10 @@ def render_markdown(report: HypothesisReport) -> str:
         "# M3 hypothesis report",
         "",
         f"Generated from the database. Match run `{run.id if run else '-'}`, dataset "
-        f"`{run.dataset_hash[:12] if run else '-'}`, score threshold {report.threshold:g}.",
+        f"`{run.dataset_hash[:12] if run else '-'}`. "
+        f"Decision policy: {describe_policy(report.policy)}.",
         f"Matcher precision {_interval(report.precision)}, recall {_interval(report.recall)} "
-        "(from the gold set).",
+        "(the policy end to end on the gold set, labels not applied).",
         "",
         "## H1 — overlap between platforms",
         "",
@@ -252,3 +267,69 @@ def render_markdown(report: HypothesisReport) -> str:
     ]
     lines += [f"- {note}" for note in report.notes]
     return "\n".join(lines).rstrip() + "\n"
+
+
+def to_artifact(
+    report: HypothesisReport, generated_at: datetime, command: str
+) -> dict[str, object]:
+    """The report as data (reports/hypotheses-*.json) for the documentation portal."""
+    run = report.run
+    corrected = _corrected(report)
+    total = sum(report.listings.values())
+    return envelope(
+        "hypotheses",
+        command,
+        generated_at,
+        {
+            "match_run": run.id if run else None,
+            "dataset_hash": run.dataset_hash if run else None,
+            "policy": describe_policy(report.policy),
+            "window": [report.window.check_in.isoformat(), report.window.check_out.isoformat()],
+            "notes": list(report.notes),
+        },
+        {
+            "precision": report.precision.as_dict() if report.precision else None,
+            "recall": report.recall.as_dict() if report.recall else None,
+            "h1": {
+                "listings": report.listings,
+                "matched": report.matched,
+                "pairs": report.pairs,
+                "corrected_pairs": (
+                    {"estimate": corrected.estimate, "low": corrected.low, "high": corrected.high}
+                    if corrected
+                    else None
+                ),
+                "villas_on_both_share": (
+                    {
+                        "estimate": corrected.estimate / (total - corrected.estimate),
+                        "low": corrected.low / (total - corrected.low),
+                        "high": corrected.high / (total - corrected.high),
+                    }
+                    if corrected
+                    else None
+                ),
+            },
+            "h2": [
+                {
+                    "scenario": g.scenario,
+                    "guests": g.guests,
+                    "pairs": g.summary.pairs,
+                    "median_ratio": g.summary.median_ratio,
+                    "p90_ratio": g.summary.p90_ratio,
+                    "cheaper": g.summary.cheaper,
+                }
+                for g in report.gaps
+            ],
+            "h2_flips": {
+                "pairs": report.pairs_compared_across_scenarios,
+                "flips": report.pairs_where_cheaper_platform_flips,
+            },
+            "h3": {
+                "nights_compared": report.nights_compared,
+                "hidden_nights": report.hidden_nights,
+                "pairs_with_hidden_night": report.pairs_with_hidden_night,
+                "pairs": report.pairs,
+                "max_gap_hours": report.max_gap.total_seconds() / 3600,
+            },
+        },
+    )

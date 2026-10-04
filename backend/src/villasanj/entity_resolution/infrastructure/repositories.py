@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import asdict
 from typing import Any
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -17,13 +17,14 @@ from villasanj.entity_resolution.application.ports import MatchRun, ScoredCandid
 from villasanj.entity_resolution.application.villas import StoredJudgement
 from villasanj.entity_resolution.domain.clustering import CanonicalVilla, VillaEvent
 from villasanj.entity_resolution.domain.evidence import PairEvidence, PhotoEvidence
-from villasanj.entity_resolution.domain.labels import Label, PairLabel, QueueItem
+from villasanj.entity_resolution.domain.labels import Label, LabelRevision, PairLabel, QueueItem
 from villasanj.entity_resolution.domain.pairs import BlockingSource, PairKey
 from villasanj.entity_resolution.domain.scoring import Contribution, Score
 from villasanj.entity_resolution.infrastructure.tables import (
     candidate,
     judgement,
     label,
+    label_revision,
     queue_item,
     run,
     villa,
@@ -172,6 +173,55 @@ class PgLabelStore:
         )
         async with self._engine.begin() as conn:
             await conn.execute(upsert)
+
+    async def revise(self, revision: LabelRevision) -> None:
+        columns = _pair_columns(revision.key)
+        where = [
+            *(label.c[k] == v for k, v in columns.items()),
+            label.c.labeler == revision.labeler,
+        ]
+        async with self._engine.begin() as conn:
+            changed = await conn.execute(
+                update(label)
+                .where(*where, label.c.label == revision.before.value)
+                .values(label=revision.after.value)
+            )
+            if changed.rowcount != 1:
+                raise ValueError(
+                    f"{revision.key} is not labelled {revision.before} by {revision.labeler}"
+                )
+            await conn.execute(
+                insert(label_revision).values(
+                    **columns,
+                    labeler=revision.labeler,
+                    before=revision.before.value,
+                    after=revision.after.value,
+                    reason=revision.reason,
+                    revised_by=revision.revised_by,
+                    revised_at=revision.revised_at,
+                )
+            )
+
+    async def revisions(self, labeler: str) -> list[LabelRevision]:
+        query = (
+            select(label_revision)
+            .where(label_revision.c.labeler == labeler)
+            .order_by(label_revision.c.revised_at, label_revision.c.id)
+        )
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(query)).all()
+        return [
+            LabelRevision(
+                _pair_key(r),
+                r.labeler,
+                Label(r.before),
+                Label(r.after),
+                r.reason,
+                r.revised_by,
+                r.revised_at,
+            )
+            for r in rows
+        ]
 
     async def labels(self, labeler: str) -> list[PairLabel]:
         query = select(label).where(label.c.labeler == labeler).order_by(label.c.labeled_at)

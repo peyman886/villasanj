@@ -1,0 +1,128 @@
+{
+  "command": "uv run villasanj er hypotheses",
+  "data": {
+    "h1": {
+      "corrected_pairs": {
+        "estimate": 464.42827339986235,
+        "high": 601,
+        "low": 349.05788895333876
+      },
+      "listings": {
+        "jabama": 2987,
+        "shab": 601
+      },
+      "matched": {
+        "jabama": 302,
+        "shab": 302
+      },
+      "pairs": 302,
+      "villas_on_both_share": {
+        "estimate": 0.14868500359534592,
+        "high": 0.20120522263140275,
+        "low": 0.10776910391910062
+      }
+    },
+    "h2": [
+      {
+        "cheaper": {
+          "jabama": 95,
+          "shab": 89
+        },
+        "guests": 4,
+        "median_ratio": 1.0965,
+        "p90_ratio": 1.5,
+        "pairs": 208,
+        "scenario": "weekend"
+      },
+      {
+        "cheaper": {
+          "jabama": 32,
+          "shab": 31
+        },
+        "guests": 8,
+        "median_ratio": 1.1044,
+        "p90_ratio": 1.5283,
+        "pairs": 70,
+        "scenario": "weekend"
+      },
+      {
+        "cheaper": {
+          "jabama": 92,
+          "shab": 83
+        },
+        "guests": 4,
+        "median_ratio": 1.0889,
+        "p90_ratio": 1.5121,
+        "pairs": 225,
+        "scenario": "midweek"
+      },
+      {
+        "cheaper": {
+          "jabama": 37,
+          "shab": 28
+        },
+        "guests": 8,
+        "median_ratio": 1.1042,
+        "p90_ratio": 1.4698,
+        "pairs": 79,
+        "scenario": "midweek"
+      },
+      {
+        "cheaper": {
+          "jabama": 52,
+          "shab": 117
+        },
+        "guests": 4,
+        "median_ratio": 1.2468,
+        "p90_ratio": 2.0444,
+        "pairs": 183,
+        "scenario": "holiday"
+      },
+      {
+        "cheaper": {
+          "jabama": 22,
+          "shab": 34
+        },
+        "guests": 8,
+        "median_ratio": 1.2045,
+        "p90_ratio": 1.6964,
+        "pairs": 58,
+        "scenario": "holiday"
+      }
+    ],
+    "h2_flips": {
+      "flips": 63,
+      "pairs": 248
+    },
+    "h3": {
+      "hidden_nights": 4617,
+      "max_gap_hours": 6.0,
+      "nights_compared": 22348,
+      "pairs": 302,
+      "pairs_with_hidden_night": 166
+    },
+    "precision": {
+      "estimate": 1.0,
+      "high": 0.9999999999999998,
+      "low": 0.9591260983079408
+    },
+    "recall": {
+      "estimate": 0.6502618752928179,
+      "high": 0.8298224760298103,
+      "low": 0.41484091822692526
+    }
+  },
+  "generated_at": "2026-10-04T05:27:21.420678+00:00",
+  "kind": "hypotheses",
+  "provenance": {
+    "dataset_hash": "dd0bcb8164341d398103c0a3df01f3dc40f0934951d687f03906a61d849d30d3",
+    "match_run": "3425556d-c5eb-4120-b957-6b5c7843f8b5",
+    "notes": [],
+    "policy": "score ≥ -0.25; judge in [-2, 3) at confidence ≥ 0.8 suggests and vetoes",
+    "window": [
+      "2026-10-02",
+      "2026-12-16"
+    ]
+  },
+  "version": 1
+}

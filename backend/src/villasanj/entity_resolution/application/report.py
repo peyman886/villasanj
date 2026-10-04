@@ -1,9 +1,11 @@
 """The entity resolution evaluation report (ROADMAP M5 criterion 3), generated from the database.
 
 Pairwise precision, recall and F1 (weighted by stratum, Wilson 95% intervals), a precision-recall
-curve of the rule score with the chosen threshold, every decision policy end to end with B-cubed,
-the H5 ablations, and what the judge said about the production candidates. Nothing is typed by
-hand: the same match run, labels and judgements always give the same report.
+curve of the rule score with the threshold the gold set chooses, every decision policy end to end
+with B-cubed, the H5 ablations, what the judge said about the production candidates, and what
+changed after human review: the same policies on the labels as first given, every label revision
+with its reason, and the canonical villas before and after. Nothing is typed by hand: the same
+match run, labels, revisions and judgements always give the same report.
 """
 
 from __future__ import annotations
@@ -19,7 +21,9 @@ from villasanj.entity_resolution.application.evaluation import (
     EvaluationReport,
 )
 from villasanj.entity_resolution.application.ports import CandidateStore, LabelStore
+from villasanj.entity_resolution.application.revisions import OriginalLabels
 from villasanj.entity_resolution.application.villas import (
+    BuildVillas,
     ClusterEvaluation,
     DecisionEvaluation,
     DecisionPolicy,
@@ -27,11 +31,18 @@ from villasanj.entity_resolution.application.villas import (
     EvaluateDecisions,
     EvaluateVillas,
     JudgementStore,
+    describe_policy,
 )
 from villasanj.entity_resolution.domain.evaluation import Interval, Metrics
+from villasanj.entity_resolution.domain.labels import LabelRevision
+from villasanj.shared.application.artifacts import envelope
 
 CURVE = tuple(t / 4 for t in range(-12, 33))  # -3 .. 8 in steps of 0.25
 MIN_PRECISION, MIN_PRECISION_LOW = 0.95, 0.92  # the M5 criterion 2 bar (ADR-0009)
+COMMAND = "uv run villasanj er report"
+# The policy in force before the owner's label revision of 2026-10-04 (config/er.toml at 6321b08):
+# kept here so the report can show what the revision changed.
+PREVIOUS_POLICY = DecisionPolicy(-0.25, -2.0, 3.0, 0.8, judge_merges=False, judge_vetoes=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +51,7 @@ class PolicyResult:
     policy: DecisionPolicy
     pairwise: DecisionEvaluation
     clusters: ClusterEvaluation
+    configured: bool = False  # the policy config/er.toml runs in production
 
     @property
     def meets_bar(self) -> bool:
@@ -47,13 +59,36 @@ class PolicyResult:
         return p.estimate is not None and p.estimate >= MIN_PRECISION and p.low >= MIN_PRECISION_LOW
 
 
+@dataclass(frozen=True, slots=True)
+class VillaCounts:
+    policy: DecisionPolicy
+    labels: str  # "revised" or "as first given"
+    listings: int
+    villas: int
+    multi_platform: int
+    applied: dict[str, int]  # decider -> merges
+    refused: dict[str, int]  # reason -> merges refused
+
+
+@dataclass(frozen=True, slots=True)
+class LabelledEvaluation:
+    """The matcher and every policy against one version of the labels."""
+
+    matcher: EvaluationReport
+    policies: list[PolicyResult]
+
+
 @dataclass(slots=True)
 class ErReport:
     generated_at: datetime
     config: ErConfig
-    matcher: EvaluationReport
-    policies: list[PolicyResult]
+    revised: LabelledEvaluation
+    original: LabelledEvaluation
+    revisions: list[LabelRevision]
+    villas_now: VillaCounts
+    villas_before: VillaCounts
     ablations: list[Ablation]
+    stratum_of: dict[str, str] = field(default_factory=dict)  # pair -> its gold stratum
     verdicts: Counter[str] = field(default_factory=Counter)  # "below:match:confident", ...
     queue: Counter[str] = field(default_factory=Counter)  # human queue stratum -> pairs
 
@@ -64,7 +99,7 @@ class BuildErReport:
         candidates: CandidateStore,
         labels: LabelStore,
         judgements: JudgementStore,
-        villas: EvaluateVillas,
+        villas: BuildVillas,
         config: ErConfig,
     ) -> None:
         self._candidates = candidates
@@ -73,32 +108,71 @@ class BuildErReport:
         self._villas = villas
         self._config = config
 
-    def policies(self) -> list[tuple[str, DecisionPolicy]]:
+    def policies(self, gold_threshold: float | None) -> list[tuple[str, DecisionPolicy]]:
         chosen = self._config.policy
         full = replace(chosen, judge_merges=True, judge_vetoes=True)
-        return [
-            ("rules alone", DecisionPolicy(chosen.threshold)),
-            ("advisory judge (config/er.toml)", chosen),
+        named = [("rules alone", DecisionPolicy(chosen.threshold))]
+        if gold_threshold is not None and gold_threshold != chosen.threshold:
+            named.append(("rules alone at the gold-set threshold", DecisionPolicy(gold_threshold)))
+        named += [
+            ("advisory judge", replace(full, judge_merges=False, judge_vetoes=False)),
+            ("judge vetoes, a human merges", replace(full, judge_merges=False)),
             ("judge merges and vetoes", full),
             ("judge merges, no vetoes", replace(full, judge_vetoes=False)),
-            ("judge vetoes only above the threshold", replace(full, judge_low=chosen.threshold)),
         ]
+        return named
 
-    async def run(self, queue: str, labeler: str, now: datetime) -> ErReport:
-        matcher = await EvaluateMatcher(self._candidates, self._labels).run(queue, labeler, CURVE)
-        decisions = EvaluateDecisions(self._candidates, self._labels, self._judgements)
+    async def _evaluate(self, labels: LabelStore, queue: str, labeler: str) -> LabelledEvaluation:
+        matcher = await EvaluateMatcher(self._candidates, labels).run(queue, labeler, CURVE)
+        point = matcher.operating_point
+        decisions = EvaluateDecisions(self._candidates, labels, self._judgements)
+        clusters = EvaluateVillas(self._villas.with_labels(labels), labels)
         results = []
-        for name, policy in self.policies():
+        for name, policy in self.policies(point.threshold if point else None):
             results.append(
                 PolicyResult(
                     name,
                     policy,
                     await decisions.run(policy, queue, labeler),
-                    await self._villas.run(policy, queue, labeler),
+                    await clusters.run(policy, queue, labeler),
+                    configured=policy == self._config.policy,
                 )
             )
-        ablations = await EvaluateAblations(self._candidates, self._labels).run(queue, labeler)
-        report = ErReport(now, self._config, matcher, results, ablations)
+        return LabelledEvaluation(matcher, results)
+
+    async def _villa_counts(
+        self, policy: DecisionPolicy, labels: LabelStore, name: str, labeler: str
+    ) -> VillaCounts:
+        listing_ids, clustering, _ = await self._villas.with_labels(labels).clustering(
+            policy, labeler
+        )
+        return VillaCounts(
+            policy,
+            name,
+            len(listing_ids),
+            len(clustering.clusters),
+            sum(len(c) > 1 for c in clustering.clusters),
+            dict(Counter(d.decided_by.value for d in clustering.applied)),
+            dict(Counter(b.reason.value for b in clustering.blocked)),
+        )
+
+    async def run(self, queue: str, labeler: str, now: datetime) -> ErReport:
+        original_labels = OriginalLabels(self._labels)
+        report = ErReport(
+            now,
+            self._config,
+            revised=await self._evaluate(self._labels, queue, labeler),
+            original=await self._evaluate(original_labels, queue, labeler),
+            revisions=await self._labels.revisions(labeler),
+            villas_now=await self._villa_counts(
+                self._config.policy, self._labels, "revised", labeler
+            ),
+            villas_before=await self._villa_counts(
+                PREVIOUS_POLICY, original_labels, "as first given", labeler
+            ),
+            ablations=await EvaluateAblations(self._candidates, self._labels).run(queue, labeler),
+            stratum_of={str(i.key): i.stratum for i in await self._labels.queue(queue)},
+        )
         scores = {c.key: c.score.value for c in await self._candidates.current() if c.score}
         chosen = self._config.policy
         for j in await self._judgements.all():
@@ -123,34 +197,76 @@ def _f1(metrics: Metrics) -> str:
     return f"{metrics.f1:.3f}" if metrics.f1 is not None else "n/a"
 
 
-def _policy_text(policy: DecisionPolicy) -> str:
-    if policy.judge_low == policy.judge_high:
-        return f"score ≥ {policy.threshold:g}"
-    roles = []
-    roles.append("merges" if policy.judge_merges else "suggests")
-    roles.append("vetoes" if policy.judge_vetoes else "disputes")
-    return (
-        f"score ≥ {policy.threshold:g}; judge in [{policy.judge_low:g}, {policy.judge_high:g}) "
-        f"at confidence ≥ {policy.judge_min_confidence:g} {' and '.join(roles)}"
-    )
+def _revision_kind(report: ErReport, revision: LabelRevision) -> str:
+    stratum = report.stratum_of.get(str(revision.key), "-")
+    side = "same platform" if not revision.key.cross_platform else "cross-platform"
+    return f"{side} ({stratum})"
+
+
+def _policy_table(evaluation: LabelledEvaluation) -> list[str]:
+    lines = [
+        "| Policy | Rule | Precision | Recall | F1 | TP/FP/FN | Waiting | B-cubed P/R/F1 | Bar |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    for r in evaluation.policies:
+        p = r.pairwise.metrics
+        b = r.clusters.bcubed
+        cubed = f"{b.precision:.3f} / {b.recall:.3f} / {b.f1:.3f}" if b else "n/a"
+        name = f"**{r.name}** (config/er.toml)" if r.configured else r.name
+        lines.append(
+            f"| {name} | {describe_policy(r.policy)} | {_pct(p.precision)} | {_pct(p.recall)} | "
+            f"{_f1(p)} | {p.true_positives}/{p.false_positives}/{p.false_negatives} | "
+            f"{r.pairwise.waiting} | {cubed} | {'yes' if r.meets_bar else 'no'} |"
+        )
+    return lines
+
+
+def _configured(evaluation: LabelledEvaluation, policy: DecisionPolicy) -> PolicyResult | None:
+    return next((r for r in evaluation.policies if r.policy == policy), None)
 
 
 def render_markdown(report: ErReport) -> str:
-    m = report.matcher
+    m = report.revised.matcher
     run = m.run
+    now_policy = report.config.policy
+    after = _configured(report.revised, now_policy)
+    before = _configured(report.original, PREVIOUS_POLICY)
     lines = [
         "# M5 entity resolution evaluation",
         "",
-        f"Generated {report.generated_at:%Y-%m-%d %H:%M} UTC from the database. "
-        f"Match run `{run.id if run else 'none'}`, dataset `{run.dataset_hash if run else '-'}`; "
-        f"gold set `{m.queue}`, {m.labelled}/{m.queued} pairs labelled by `{m.labeler}` "
-        f"(unsure {_pct(m.unsure)}). Reproduce: `uv run villasanj er report`.",
+        f"Generated {report.generated_at:%Y-%m-%d %H:%M} UTC from the database. Match run "
+        f"`{run.id if run else 'none'}`, dataset `{run.dataset_hash if run else '-'}`; gold set "
+        f"`{m.queue}`, {m.labelled}/{m.queued} pairs labelled by `{m.labeler}` "
+        f"(unsure {_pct(m.unsure)}), {len(report.revisions)} labels revised. Reproduce: "
+        f"`{COMMAND}`.",
         "",
         "Precision and recall are over cross-platform pairs, weighted by stratum (each labelled "
         "pair stands for its stratum's candidates), with Wilson 95% intervals on the effective "
         "sample size. The bar (M5 criterion 2, ADR-0009): precision ≥ 95% and its lower bound "
-        "≥ 92%.",
+        "≥ 92%; the chosen policy is the one with the highest recall that clears it.",
         "",
+        "## What changed after human review",
+        "",
+        "| | Before (labels as first given) | After (revised labels) |",
+        "|---|---|---|",
+        f"| Policy | {describe_policy(PREVIOUS_POLICY)} | {describe_policy(now_policy)} |",
+    ]
+    if before and after:
+        bp, ap = before.pairwise.metrics, after.pairwise.metrics
+        lines += [
+            f"| Precision | {_pct(bp.precision)} | {_pct(ap.precision)} |",
+            f"| Recall | {_pct(bp.recall)} | {_pct(ap.recall)} |",
+        ]
+    ob, oa = report.original.matcher.operating_point, m.operating_point
+    lines += [
+        "| Threshold the gold set picks for the rules alone | "
+        f"{ob.threshold if ob else 'none':} | {oa.threshold if oa else 'none'} |",
+        f"| Canonical villas (two-platform) | {report.villas_before.villas} "
+        f"({report.villas_before.multi_platform}) | {report.villas_now.villas} "
+        f"({report.villas_now.multi_platform}) |",
+        "",
+    ]
+    lines += [
         "## Rule score: precision-recall curve",
         "",
         f"Blocking recall on gold matches: {_pct(m.blocking_recall)}. TP, FP and FN count "
@@ -159,20 +275,13 @@ def render_markdown(report: ErReport) -> str:
         "| Threshold | Precision | Recall | F1 | TP | FP | FN |",
         "|---|---|---|---|---|---|---|",
     ]
-    op = m.operating_point
     for point in m.curve:
-        mark = " **(chosen)**" if op is not None and point.threshold == op.threshold else ""
+        mark = " **(gold-set pick)**" if oa is not None and point.threshold == oa.threshold else ""
         lines.append(
             f"| {point.threshold:g}{mark} | {_pct(point.precision)} | {_pct(point.recall)} | "
             f"{_f1(point)} | {point.true_positives} | {point.false_positives} | "
             f"{point.false_negatives} |"
         )
-    if op is not None:
-        lines += [
-            "",
-            f"Chosen threshold (the lowest that clears the bar): **{op.threshold:g}**, precision "
-            f"{_pct(op.precision)}, recall {_pct(op.recall)}, F1 {_f1(op)}.",
-        ]
     lines += [
         "",
         "## Decision policies end to end",
@@ -181,17 +290,36 @@ def render_markdown(report: ErReport) -> str:
         "perfect). B-cubed compares the villas the policy builds with the clusters the labels "
         "imply, over the labelled listings (unweighted, so singletons dominate it).",
         "",
-        "| Policy | Rule | Precision | Recall | F1 | TP/FP/FN | Waiting | B-cubed P/R/F1 | Bar |",
-        "|---|---|---|---|---|---|---|---|---|",
+        *_policy_table(report.revised),
+        "",
+        "### The same policies on the labels as first given (history)",
+        "",
+        *_policy_table(report.original),
+        "",
+        "## Label revisions",
+        "",
     ]
-    for r in report.policies:
-        p = r.pairwise.metrics
-        b = r.clusters.bcubed
-        cubed = f"{b.precision:.3f} / {b.recall:.3f} / {b.f1:.3f}" if b else "n/a"
+    by_change = Counter(
+        (_revision_kind(report, r).split(" (")[0], r.before.value, r.after.value)
+        for r in report.revisions
+    )
+    lines += ["| Pairs | From | To | Count |", "|---|---|---|---|"]
+    for (side, before_label, after_label), count in sorted(by_change.items()):
+        lines.append(f"| {side} | {before_label} | {after_label} | {count} |")
+    lines += ["", "| Pair | Kind | From → to | Reason |", "|---|---|---|---|"]
+    for r in report.revisions:
         lines.append(
-            f"| {r.name} | {_policy_text(r.policy)} | {_pct(p.precision)} | {_pct(p.recall)} | "
-            f"{_f1(p)} | {p.true_positives}/{p.false_positives}/{p.false_negatives} | "
-            f"{r.pairwise.waiting} | {cubed} | {'yes' if r.meets_bar else 'no'} |"
+            f"| `{r.key}` | {_revision_kind(report, r)} | {r.before.value} → {r.after.value} | "
+            f"{r.reason} |"
+        )
+    lines += ["", "## Canonical villas", ""]
+    lines += ["| | Policy | Villas | Two-platform | Merges by decider | Refused |"]
+    lines += ["|---|---|---|---|---|---|"]
+    for counts in (report.villas_before, report.villas_now):
+        lines.append(
+            f"| labels {counts.labels} | {describe_policy(counts.policy)} | {counts.villas} | "
+            f"{counts.multi_platform} | {dict(sorted(counts.applied.items()))} | "
+            f"{dict(sorted(counts.refused.items()))} |"
         )
     lines += ["", "## H5 ablations (M5 criterion 6)", ""]
     lines += ["| Evidence | At the bar | Best F1 |", "|---|---|---|"]
@@ -209,15 +337,13 @@ def render_markdown(report: ErReport) -> str:
             else "n/a"
         )
         lines.append(f"| {a.name} | {at_bar} | {best} |")
-    chosen = report.config.policy
     lines += [
         "",
         "## The judge on the production candidates",
         "",
-        f"Verdicts on candidates scored in [{chosen.judge_low:g}, {chosen.judge_high:g}), "
-        f"below or at/above the threshold {chosen.threshold:g} (confident: ≥ "
-        f"{chosen.judge_min_confidence:g}). The model bake-off is in the ADR-0005 amendment of "
-        "2026-10-03.",
+        f"Verdicts on candidates scored in [{now_policy.judge_low:g}, {now_policy.judge_high:g}), "
+        f"below or at/above the threshold {now_policy.threshold:g} (confident: ≥ "
+        f"{now_policy.judge_min_confidence:g}). The model bake-off is in ADR-0005.",
         "",
         "| Band | Verdict | Confident | Pairs |",
         "|---|---|---|---|",
@@ -227,9 +353,95 @@ def render_markdown(report: ErReport) -> str:
         lines.append(f"| {band} | {verdict} | {'yes' if sure == 'confident' else 'no'} | {count} |")
     queued = sum(report.queue.values())
     parts = ", ".join(f"{k.removeprefix('judge:')} {v}" for k, v in sorted(report.queue.items()))
-    lines += [
-        "",
-        f"Human queue `{report.config.human_queue}`: {queued} pairs ({parts}).",
-        "",
-    ]
+    lines += ["", f"Human queue `{report.config.human_queue}`: {queued} pairs ({parts}).", ""]
     return "\n".join(lines)
+
+
+def _policy_json(r: PolicyResult) -> dict[str, object]:
+    b = r.clusters.bcubed
+    return {
+        "name": r.name,
+        "rule": describe_policy(r.policy),
+        "configured": r.configured,
+        "meets_bar": r.meets_bar,
+        "metrics": r.pairwise.metrics.as_dict(),
+        "waiting": r.pairwise.waiting,
+        "bcubed": (
+            {"precision": b.precision, "recall": b.recall, "f1": b.f1, "elements": b.elements}
+            if b
+            else None
+        ),
+    }
+
+
+def _evaluation_json(evaluation: LabelledEvaluation) -> dict[str, object]:
+    m = evaluation.matcher
+    point = m.operating_point
+    return {
+        "labelled": m.labelled,
+        "queued": m.queued,
+        "unsure": m.unsure.as_dict(),
+        "blocking_recall": m.blocking_recall.as_dict(),
+        "gold_threshold": point.as_dict() if point else None,
+        "curve": [c.as_dict() for c in m.curve],
+        "labels_by_stratum": m.labels_by_stratum,
+        "policies": [_policy_json(r) for r in evaluation.policies],
+    }
+
+
+def _villas_json(counts: VillaCounts) -> dict[str, object]:
+    return {
+        "labels": counts.labels,
+        "rule": describe_policy(counts.policy),
+        "listings": counts.listings,
+        "villas": counts.villas,
+        "multi_platform": counts.multi_platform,
+        "applied": counts.applied,
+        "refused": counts.refused,
+    }
+
+
+def to_artifact(report: ErReport) -> dict[str, object]:
+    run = report.revised.matcher.run
+    return envelope(
+        "er-eval",
+        COMMAND,
+        report.generated_at,
+        {
+            "match_run": run.id if run else None,
+            "dataset_hash": run.dataset_hash if run else None,
+            "queue": report.revised.matcher.queue,
+            "labeler": report.revised.matcher.labeler,
+            "revisions": len(report.revisions),
+            "policy": describe_policy(report.config.policy),
+            "previous_policy": describe_policy(PREVIOUS_POLICY),
+        },
+        {
+            "revised": _evaluation_json(report.revised),
+            "original": _evaluation_json(report.original),
+            "revisions": [
+                {
+                    "pair": str(r.key),
+                    "kind": _revision_kind(report, r),
+                    "before": r.before.value,
+                    "after": r.after.value,
+                    "reason": r.reason,
+                    "revised_by": r.revised_by,
+                    "revised_at": r.revised_at.isoformat(),
+                }
+                for r in report.revisions
+            ],
+            "villas_now": _villas_json(report.villas_now),
+            "villas_before": _villas_json(report.villas_before),
+            "ablations": [
+                {
+                    "name": a.name,
+                    "at_bar": a.operating_point.as_dict() if a.operating_point else None,
+                    "best_f1": a.best_f1.as_dict() if a.best_f1 else None,
+                }
+                for a in report.ablations
+            ],
+            "judge_verdicts": dict(sorted(report.verdicts.items())),
+            "human_queue": dict(sorted(report.queue.items())),
+        },
+    )

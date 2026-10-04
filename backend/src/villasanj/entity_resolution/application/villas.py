@@ -81,6 +81,20 @@ class DecisionPolicy:
     judge_vetoes: bool = True
 
 
+def describe_policy(policy: DecisionPolicy) -> str:
+    """The policy in one line, for reports."""
+    if policy.judge_low == policy.judge_high:
+        return f"score ≥ {policy.threshold:g}"
+    roles = [
+        "merges" if policy.judge_merges else "suggests",
+        "vetoes" if policy.judge_vetoes else "disputes",
+    ]
+    return (
+        f"score ≥ {policy.threshold:g}; judge in [{policy.judge_low:g}, {policy.judge_high:g}) "
+        f"at confidence ≥ {policy.judge_min_confidence:g} {' and '.join(roles)}"
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ErConfig:
     policy: DecisionPolicy
@@ -194,6 +208,18 @@ class BuildVillas:
         self._platforms = tuple(platforms)
         self._judgements = judgements
         self._human_queue = human_queue
+
+    def with_labels(self, labels: LabelStore) -> BuildVillas:
+        """The same builder reading another version of the labels (e.g. as first given)."""
+        return BuildVillas(
+            self._candidates,
+            labels,
+            self._villas,
+            self._listings,
+            self._platforms,
+            self._judgements,
+            self._human_queue,
+        )
 
     async def clustering(
         self, policy: DecisionPolicy, labeler: str | None

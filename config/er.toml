@@ -1,16 +1,18 @@
-# Entity resolution decision policy (ADR-0014). The threshold comes from the gold set by
-# ADR-0009's rule; the judge zone from where the rules' errors lie on gold-v1.
+# Entity resolution decision policy (ADR-0014). The whole policy is chosen end to end on the gold
+# set by ADR-0009's rule (the highest recall whose precision >= 95% with Wilson low >= 92%):
+# `uv run villasanj er report` scores every candidate policy; the judge zone covers the rules' errors.
 [policy]
 threshold = -0.25             # rule score of a match
 judge_low = -2.0              # the judge decides scores in [judge_low, judge_high)
 judge_high = 3.0
 judge_min_confidence = 0.8    # a verdict below this waits for a human, whichever way it leans
-# Advisory judge (ADR-0014 amendment, 2026-10-03): with the gold-v1 labels, judge merges below the
-# threshold cannot be shown to meet the precision bar (2-3 labelled pairs there, each standing for
-# ~84) and its vetoes cost recall (5 of 7 labelled vetoes contradict a "same villa" label: units of
-# one complex). So the rules merge; judge suggestions and disputes wait in the human queue.
+# The judge vetoes, a human merges (ADR-0014 amendment of 2026-10-04). After the owner corrected the
+# gold-v1 labels on units of one complex, the rules alone at -0.25 fall to 91.9% precision; with the
+# judge's vetoes they reach 100% (Wilson 95.9-100%) at the same recall (65.0%), the highest recall
+# that clears the bar. The judge's merges below the threshold still cannot be verified (too few
+# labels in the geo band), so they wait in the human queue as suggestions.
 judge_merges = false
-judge_vetoes = false
+judge_vetoes = true
 
 [human]
 queue = "er-human"            # label at /label?queue=er-human; each label rebuilds the villas

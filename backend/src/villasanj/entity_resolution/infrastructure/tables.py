@@ -85,6 +85,20 @@ label = Table(
     schema=SCHEMA,
 )
 
+label_revision = Table(
+    "label_revision",
+    metadata,
+    Column("id", BigInteger, Identity(), primary_key=True),
+    *_pair(),
+    Column("labeler", Text, nullable=False),
+    Column("before", Text, nullable=False),
+    Column("after", Text, nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("revised_by", Text, nullable=False),
+    Column("revised_at", DateTime(timezone=True), nullable=False),
+    schema=SCHEMA,
+)
+
 villa = Table(
     "villa",
     metadata,

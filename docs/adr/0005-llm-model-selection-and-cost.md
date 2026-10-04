@@ -255,3 +255,19 @@ gpt-5.4-mini calls 21 of 76 labelled matches non-matches: it is safe but misses 
 is there to find. gemini-3.5-flash finds slightly more and costs 2.5× with one false match.
 Latency does not matter in a batch job. `expected_output_tokens = 180` from these calls (mean
 173, 95 of them reasoning). How the verdicts are used: ADR-0014.
+
+
+## Amendment (ER judge bake-off re-scored, 2026-10-04)
+
+After the owner's label revision (ADR-0014 amendment of 2026-10-04) the bake-off was scored again on
+the same 141 labelled gold pairs in [−3, 3], from the LLM cache (`LLM__PROVIDER=offline`, no call,
+$0; `reports/judge-eval-<model>-2026-10-04.md`):
+
+| Model | False matches | Match precision (weighted) | Match recall (weighted) | Unsure |
+|---|---|---|---|---|
+| **gemini-3.8-flash** | 0 | 100% (75.4–100%) | 100% (75.4–100%) | 1.4% |
+| gpt-5.4-mini | 3 | 94.9% (62.7–99.5%) | 80.7% (52.2–94.1%) | 1.4% |
+| gemini-3.5-flash | 2 | 97.8% (72.7–99.9%) | 99.2% (74.2–100%) | 0.7% |
+
+The extra false matches of the other two models are pairs now labelled "not the same villa" (units
+of one complex). The choice stands; cost and latency are those of the first run above.

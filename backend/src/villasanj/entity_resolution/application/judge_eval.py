@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from decimal import Decimal
 
 from villasanj.entity_resolution.application.judge import JudgeInput, Judgement, JudgePairs
@@ -20,6 +21,7 @@ from villasanj.entity_resolution.application.ports import CandidateStore, LabelS
 from villasanj.entity_resolution.domain.evaluation import Interval, weighted_proportion
 from villasanj.entity_resolution.domain.labels import Label
 from villasanj.entity_resolution.domain.pairs import PairKey
+from villasanj.shared.application.artifacts import envelope
 from villasanj.shared.application.errors import LLMError
 from villasanj.shared.application.llm.types import JobContext
 
@@ -147,3 +149,39 @@ class EvaluateJudge:
                 verdict = pair.judgement.verdict.verdict
             confusion[pair.label.value][verdict] += 1
         return JudgeReport(pairs, {k: dict(v) for k, v in confusion.items()})
+
+
+def to_artifact(
+    report: JudgeReport,
+    model: str,
+    band: tuple[float, float],
+    generated_at: datetime,
+    command: str,
+) -> dict[str, object]:
+    """One model's verdicts on the gold pairs of a band (reports/judge-eval-*.json)."""
+    false_matches = report.confusion.get(Label.NON_MATCH.value, {}).get("match", 0)
+    return envelope(
+        "judge-eval",
+        command,
+        generated_at,
+        {
+            "model": model,
+            "band": list(band),
+            "uncached_calls": sum(len(v) for v in report.latency_ms().values()),
+        },
+        {
+            "pairs": len(report.pairs),
+            "judged": len(report.judged),
+            "unsure_rate": report.unsure_rate,
+            "false_matches": false_matches,
+            "confusion": report.confusion,
+            "by_confidence": {
+                f"{c:.1f}": {
+                    "precision": report.match_precision(c).as_dict(),
+                    "recall": report.match_recall(c).as_dict(),
+                }
+                for c in (0.0, 0.7, 0.8, 0.9)
+            },
+            "cost_usd": str(report.cost_usd),
+        },
+    )

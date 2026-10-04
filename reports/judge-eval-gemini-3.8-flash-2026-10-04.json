@@ -1,0 +1,80 @@
+{
+  "command": "uv run villasanj er judge-eval --low -3 --high 3",
+  "data": {
+    "by_confidence": {
+      "0.0": {
+        "precision": {
+          "estimate": 1.0,
+          "high": 1.0,
+          "low": 0.7544693171104444
+        },
+        "recall": {
+          "estimate": 1.0,
+          "high": 1.0,
+          "low": 0.7544693171104444
+        }
+      },
+      "0.7": {
+        "precision": {
+          "estimate": 1.0,
+          "high": 1.0,
+          "low": 0.7544693171104444
+        },
+        "recall": {
+          "estimate": 1.0,
+          "high": 1.0,
+          "low": 0.7544693171104444
+        }
+      },
+      "0.8": {
+        "precision": {
+          "estimate": 1.0,
+          "high": 1.0,
+          "low": 0.7544693171104444
+        },
+        "recall": {
+          "estimate": 1.0,
+          "high": 1.0,
+          "low": 0.7544693171104444
+        }
+      },
+      "0.9": {
+        "precision": {
+          "estimate": 1.0,
+          "high": 1.0,
+          "low": 0.7544693171104444
+        },
+        "recall": {
+          "estimate": 1.0,
+          "high": 1.0,
+          "low": 0.7544693171104444
+        }
+      }
+    },
+    "confusion": {
+      "match": {
+        "match": 71
+      },
+      "non_match": {
+        "non_match": 68,
+        "unsure": 2
+      }
+    },
+    "cost_usd": "0",
+    "false_matches": 0,
+    "judged": 141,
+    "pairs": 141,
+    "unsure_rate": 0.014184397163120567
+  },
+  "generated_at": "2026-10-04T05:30:00.434658+00:00",
+  "kind": "judge-eval",
+  "provenance": {
+    "band": [
+      -3.0,
+      3.0
+    ],
+    "model": "gemini-3.8-flash",
+    "uncached_calls": 0
+  },
+  "version": 1
+}

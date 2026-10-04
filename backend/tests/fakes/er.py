@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
 from villasanj.entity_resolution.application.ports import MatchRun, ScoredCandidate
 from villasanj.entity_resolution.domain.evidence import PhotoSimilarity
-from villasanj.entity_resolution.domain.labels import PairLabel, QueueItem
+from villasanj.entity_resolution.domain.labels import LabelRevision, PairLabel, QueueItem
 from villasanj.entity_resolution.domain.pairs import PairKey
 from villasanj.shared.domain.stay import DateRange
 
@@ -92,6 +93,7 @@ class LabelStoreFake:
     def __init__(self) -> None:
         self.queues: dict[str, list[QueueItem]] = {}
         self.decisions: dict[tuple[PairKey, str], PairLabel] = {}
+        self.history: list[LabelRevision] = []
 
     async def save_queue(self, queue: str, items: Sequence[QueueItem]) -> None:
         self.queues.setdefault(queue, []).extend(items)  # appends, like the INSERT it fakes
@@ -104,3 +106,13 @@ class LabelStoreFake:
 
     async def labels(self, labeler: str) -> list[PairLabel]:
         return [d for (_, who), d in self.decisions.items() if who == labeler]
+
+    async def revise(self, revision: LabelRevision) -> None:
+        current = self.decisions.get((revision.key, revision.labeler))
+        if current is None or current.label is not revision.before:
+            raise ValueError(f"{revision.key} is not labelled {revision.before}")
+        self.decisions[(revision.key, revision.labeler)] = replace(current, label=revision.after)
+        self.history.append(revision)
+
+    async def revisions(self, labeler: str) -> list[LabelRevision]:
+        return [r for r in self.history if r.labeler == labeler]

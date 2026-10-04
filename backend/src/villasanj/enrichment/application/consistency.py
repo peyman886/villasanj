@@ -31,6 +31,7 @@ from villasanj.enrichment.domain.consistency import (
 from villasanj.enrichment.domain.distance_claims import Verdict, parse_claim
 from villasanj.enrichment.domain.features import extract_claims, with_read_claims
 from villasanj.entity_resolution.domain.evaluation import Interval, wilson
+from villasanj.shared.application.artifacts import envelope
 
 
 class Villas(Protocol):
@@ -189,3 +190,31 @@ def render_h4_markdown(rows: Sequence[H4Row], generated_at: datetime) -> str:
             f"{_share(r.inconsistent_share)} | {kinds} |"
         )
     return "\n".join(lines) + "\n"
+
+
+def h4_artifact(rows: Sequence[H4Row], generated_at: datetime, command: str) -> dict[str, object]:
+    """H4 as data (reports/h4-*.json) for the documentation portal."""
+    return envelope(
+        "h4",
+        command,
+        generated_at,
+        {"villas": "er.villa (the production clustering)", "evidence": "OSM map, listing text"},
+        {
+            "platforms": [
+                {
+                    "platform": r.platform,
+                    "listings": r.listings,
+                    "in_multi_platform_villas": r.in_multi_platform_villas,
+                    "judged": r.judged,
+                    "contradicted": r.contradicted,
+                    "compared": r.compared,
+                    "inconsistent": r.inconsistent,
+                    "either": r.either,
+                    "share": r.share.as_dict(),
+                    "inconsistent_share": r.inconsistent_share.as_dict(),
+                    "kinds": dict(r.kinds.most_common()),
+                }
+                for r in rows
+            ]
+        },
+    )

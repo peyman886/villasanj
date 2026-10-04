@@ -1,0 +1,296 @@
+# Corrections of gold-v1 labels, applied with `uv run villasanj er revise-labels <this file>`.
+# On 2026-10-04 the owner confirmed that pairs of different units of one complex had been labelled
+# "same villa" by mistake; under the labelling protocol (rule 2) they are N, or U when the listings
+# cannot tell which unit is which. Only "match" labels are revised; the owner's own U labels stay.
+# The original decision is kept in er.label_revision; `er report` shows both evaluations.
+
+labeler = "owner"
+revised_by = "agent, at the owner's request (2026-10-04)"
+
+[[revision]]
+pair = "shab:23937|shab:23948"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلا ساحلی شهرک اختصاصی» / «شهرکی تمیز نزدیک ساحل دو طبقه مجزا»; bedrooms 2/4, area m2 130/300, capacity 5/12"
+
+[[revision]]
+pair = "jabama:817504|jabama:817506"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «آپارتمان دوخوابه رفیعی 10» / «آپارتمان فلت رفیعی 12»; bedrooms 2/0, capacity 4/2"
+
+[[revision]]
+pair = "jabama:591050|jabama:784327"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «آپارتمان سه خوابه نحویان» / «آپارتمان دوخوابه نحویان 5»; bedrooms 3/2, area m2 560/160, capacity 5/4"
+
+[[revision]]
+pair = "jabama:443471|jabama:443479"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلا سه خوابه باغ کندسر 2» / «آپارتمان دوخوابه کندسر 1»; bedrooms 3/2, capacity 6/4"
+
+[[revision]]
+pair = "jabama:375162|jabama:375164"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «آپارتمان فلت ساحلی گلبن» / «آپارتمان واحد گلدیس»; bedrooms 0/1"
+
+[[revision]]
+pair = "jabama:826437|jabama:830634"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلا دو خوابه استخردار آب گرم الماس 3 دوهزار» / «ویلا سه خوابه دوبلکس الماس 7»; bedrooms 2/3, area m2 250/300, capacity 6/8"
+
+[[revision]]
+pair = "jabama:565965|jabama:566137"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلا یک خوابه بهاران 1» / «ویلا یک خوابه بهار نارنج 2»; capacity 2/4"
+
+[[revision]]
+pair = "jabama:456737|jabama:572023"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «کلبه دوخوابه جنگلی استخردار سنگ پشته» / «ویلا دوخوابه جنگلی استخردار امید 66»; area m2 90/200"
+
+[[revision]]
+pair = "jabama:565965|jabama:626467"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلا یک خوابه بهاران 1» / «ویلا یک خوابه ساحل 10»"
+
+[[revision]]
+pair = "jabama:464072|jabama:594951"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «آپارتمان یک خوابه جنگلی چشم‌انداز» / «آپارتمان یک خوابه جنگلی چشم انداز 5»; area m2 100/300"
+
+[[revision]]
+pair = "jabama:733980|jabama:734108"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «کلبه یک خوابه کارکوه واحد 1» / «کلبه یک خوابه کارکوه واحد 9»"
+
+[[revision]]
+pair = "jabama:733980|jabama:734106"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «کلبه یک خوابه کارکوه واحد 1» / «کلبه یک خوابه کارکوه واحد 8»"
+
+[[revision]]
+pair = "jabama:478054|jabama:478746"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «آپارتمان یک خوابه روماک 6» / «آپارتمان یک خوابه روماک 15»"
+
+[[revision]]
+pair = "jabama:565965|jabama:626473"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلا یک خوابه بهاران 1» / «ویلا یک خوابه صدف 20»"
+
+[[revision]]
+pair = "jabama:734090|jabama:734106"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «کلبه یک خوابه کارکوه واحد 3» / «کلبه یک خوابه کارکوه واحد 8»"
+
+[[revision]]
+pair = "jabama:526467|jabama:630019"
+from = "match"
+to = "unsure"
+reason = "a title names no unit, or the names differ by a letter, so whether they are the same unit cannot be told: «بوم گردی چالدره - واحد چهارنفره افرا» / «بوم گردی چالدره - واحد چهارنفره افرا 1»; bedrooms 1/0"
+
+[[revision]]
+pair = "jabama:565965|jabama:626461"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلا یک خوابه بهاران 1» / «ویلا یک خوابه شالیزار 10»"
+
+[[revision]]
+pair = "jabama:733980|jabama:734098"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «کلبه یک خوابه کارکوه واحد 1» / «کلبه یک خوابه کارکوه واحد 5»"
+
+[[revision]]
+pair = "shab:87621|shab:87778"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «سوئیت (1) ' مجموعه اقامتی و ساحلی صدف '» / «سوئیت (3) ' مجموعه اقامتی و ساحلی صدف '»"
+
+[[revision]]
+pair = "shab:110623|shab:110630"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلای نوساز تک خوابه لوکس - (گل سرخ / شکوفه / نسیم/ بهارنارنج)» / «ویلای نوساز یک خوابه - لوکس - (باران، یاس، نسترن، ساحل)»"
+
+[[revision]]
+pair = "jabama:826937|jabama:826943"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «مجتمع اقامتگاهی وازیک - واحد 10» / «مجتمع اقامتگاهی وازیک - واحد 11»"
+
+[[revision]]
+pair = "jabama:630019|jabama:630023"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «بوم گردی چالدره - واحد چهارنفره افرا 1» / «بوم گردی چالدره - واحد چهارنفره افرا 4»"
+
+[[revision]]
+pair = "shab:87774|shab:87777"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «سوئیت (6) ' مجموعه اقامتی و ساحلی صدف '» / «سوئیت (2) ' مجموعه اقامتی و ساحلی صدف '»; capacity 2/3"
+
+[[revision]]
+pair = "jabama:734092|jabama:734102"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «کلبه یک خوابه کارکوه واحد 4» / «کلبه یک خوابه کارکوه واحد 6»"
+
+[[revision]]
+pair = "jabama:831452|jabama:831453"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلا دوخوابه جکوزی دار گل مریم 1» / «ویلا دوخوابه جکوزی دار گل مریم 2»"
+
+[[revision]]
+pair = "jabama:822731|jabama:822733"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «آپارتمان دوخوابه ملیکا 1» / «آپارتمان دوخوابه ملیکا 2»"
+
+[[revision]]
+pair = "jabama:390039|jabama:408416"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «آپارتمان سه خوابه بهار 12» / «آپارتمان سه خوابه گل محمدی»"
+
+[[revision]]
+pair = "jabama:103516|jabama:103574"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلا دوخوابه کهربا 2» / «ویلا دوخوابه کهربا 1»"
+
+[[revision]]
+pair = "jabama:656708|jabama:656710"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «کلبه دوخوابه کله غازی مهروماه» / «کلبه دوخوابه سبز مهروماه»"
+
+[[revision]]
+pair = "jabama:826953|jabama:826955"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «مجتمع اقامتگاهی وازیک - واحد 4» / «مجتمع اقامتگاهی وازیک - واحد 2»"
+
+[[revision]]
+pair = "jabama:478064|jabama:478746"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «آپارتمان یک خوابه روماک 5» / «آپارتمان یک خوابه روماک 15»"
+
+[[revision]]
+pair = "jabama:826948|jabama:826949"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «مجتمع اقامتگاهی وازیک - واحد 13» / «مجتمع اقامتگاهی وازیک - واحد 14»"
+
+[[revision]]
+pair = "jabama:565965|jabama:566231"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «ویلا یک خوابه بهاران 1» / «ویلا یک خوابه یاس 20»"
+
+[[revision]]
+pair = "jabama:826937|jabama:826944"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «مجتمع اقامتگاهی وازیک - واحد 10» / «مجتمع اقامتگاهی وازیک - واحد 12»"
+
+[[revision]]
+pair = "jabama:734106|jabama:734108"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «کلبه یک خوابه کارکوه واحد 8» / «کلبه یک خوابه کارکوه واحد 9»"
+
+[[revision]]
+pair = "jabama:815881|jabama:815974"
+from = "match"
+to = "unsure"
+reason = "a title names no unit, or the names differ by a letter, so whether they are the same unit cannot be told: «ویلا 1 خوابه آقای خلج» / «ویلا یک خوابه خلج1»; capacity 2/4"
+
+[[revision]]
+pair = "jabama:629990|jabama:629992"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «بوم گردی چالدر دو هزار - توسکا 2 نفره - واحد توسکا دونفره 1» / «بوم گردی چالدر دو هزار - توسکا 2 نفره - واحد توسکا دونفره 3»"
+
+[[revision]]
+pair = "jabama:826950|jabama:826953"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «مجتمع اقامتگاهی وازیک - واحد 7» / «مجتمع اقامتگاهی وازیک - واحد 4»"
+
+[[revision]]
+pair = "jabama:398440|jabama:401004"
+from = "match"
+to = "unsure"
+reason = "a title names no unit, or the names differ by a letter, so whether they are the same unit cannot be told: «ویلا یک خوابه ستیا» / «سوئیت یک خوابه ستیلا»"
+
+[[revision]]
+pair = "jabama:826937|jabama:826945"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «مجتمع اقامتگاهی وازیک - واحد 10» / «مجتمع اقامتگاهی وازیک - واحد 15»"
+
+[[revision]]
+pair = "jabama:617238|jabama:617250"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: «کلبه فلت شیشه ای نیکان 1» / «کلبه فلت شیشه ای نیکان 2»"
+
+[[revision]]
+pair = "jabama:715836|shab:154765"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: unit 2 against unit number 1: «کلبه سه خوابه استخردار آقایی 2» / «کلبه سوئیسی آقایی 'شماره 1' در رامسر»"
+
+[[revision]]
+pair = "jabama:565977|shab:110653"
+from = "match"
+to = "non_match"
+reason = "unit «باران 6» against a listing for the units «موج، بهاران، ترنج» (باران is not among them): «ویلا یک خوابه باران 6» / «ویلای نوساز لوکس یکخوابه - (موج، بهاران، ترنج)»"
+
+[[revision]]
+pair = "jabama:565977|shab:110630"
+from = "match"
+to = "unsure"
+reason = "unit «باران 6» against one listing for four units, «باران» among them: which unit it is cannot be told: «ویلا یک خوابه باران 6» / «ویلای نوساز یک خوابه - لوکس - (باران، یاس، نسترن، ساحل)»"
+
+[[revision]]
+pair = "jabama:813140|shab:177904"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: unit 3 against «نوراک 2»: «مجتمع اقامتگاهی دوبلکس جکوزی دار نوراک - واحد 3» / «ویلای دوبلکس جکوزی دار 'نوراک 2'»"
+
+[[revision]]
+pair = "jabama:823726|shab:177720"
+from = "match"
+to = "non_match"
+reason = "different units of one complex: unit 2 against unit 4: «مجتمع اقامتگاهی آپارتمانی توسکا - واحد 2» / «اقامتگاه توسکا 'واحد 4'»"
+
+[[revision]]
+pair = "jabama:810345|shab:178329"
+from = "match"
+to = "unsure"
+reason = "«موژان 1» against a listing for the whole complex «موژان» that also matched «موژان 2»: at most one can be the same villa: «ویلا دوخوابه موژان 1» / «اقامتگاه دوخوابه موژان»"
+
+[[revision]]
+pair = "jabama:809976|shab:178329"
+from = "match"
+to = "unsure"
+reason = "«موژان 2» against a listing for the whole complex «موژان» that also matched «موژان 1»: at most one can be the same villa: «ویلا دوخوابه موژان 2» / «اقامتگاه دوخوابه موژان»"

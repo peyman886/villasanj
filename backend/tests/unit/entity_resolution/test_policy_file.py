@@ -14,8 +14,8 @@ CONFIG = Path(__file__).parents[4] / "config" / "er.toml"
 def test_the_repository_policy_is_the_adr_0014_operating_point() -> None:
     config = load_er_config(CONFIG)
     assert config.policy == DecisionPolicy(
-        -0.25, -2.0, 3.0, 0.8, judge_merges=False, judge_vetoes=False
-    )  # advisory: the rules merge, the judge orders the human queue
+        -0.25, -2.0, 3.0, 0.8, judge_merges=False, judge_vetoes=True
+    )  # the judge vetoes; its merges wait for a human (ADR-0014 amendment of 2026-10-04)
     assert config.human_queue == "er-human"
 
 

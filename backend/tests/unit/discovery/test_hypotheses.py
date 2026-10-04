@@ -6,9 +6,14 @@ from tests.fakes.er import CandidateStoreFake
 from tests.fakes.llm import NOW
 from tests.unit.catalog.test_listing import parsed
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
-from villasanj.discovery.application.hypotheses import BuildHypothesisReport, render_markdown
+from villasanj.discovery.application.hypotheses import (
+    BuildHypothesisReport,
+    render_markdown,
+    to_artifact,
+)
 from villasanj.discovery.domain.hypotheses import compare_calendars, price_gap, summarize_gaps
 from villasanj.entity_resolution.application.ports import MatchRun, ScoredCandidate
+from villasanj.entity_resolution.application.villas import DecisionPolicy, StoredJudgement
 from villasanj.entity_resolution.domain.evaluation import Interval
 from villasanj.entity_resolution.domain.pairs import BlockingSource, PairKey
 from villasanj.entity_resolution.domain.scoring import Score
@@ -151,7 +156,7 @@ async def test_report_pairs_each_listing_once_and_measures_everything() -> None:
     scenario = StayScenario("weekend", "آخر هفته", STAY, (GuestCount(4),))
     report = await BuildHypothesisReport(store, reader, QuoteStays(reader, {})).run(
         ["jabama", "shab"],
-        threshold=5,
+        DecisionPolicy(5),
         scenarios=[scenario],
         window=DateRange(date(2026, 10, 1), date(2026, 12, 1)),
         precision=Interval(0.96, 0.93, 0.98),
@@ -169,6 +174,22 @@ async def test_report_pairs_each_listing_once_and_measures_everything() -> None:
     assert "# M3 hypothesis report" in text
     assert "96.0%" in text
     assert "| jabama | 2 | 2 | 100.0% |" in text
+    artifact = to_artifact(report, NOW, "uv run villasanj er hypotheses")
+    assert artifact["kind"] == "hypotheses"
+    assert artifact["provenance"]["match_run"] == "r1"  # type: ignore[index]
+    assert artifact["data"]["h1"]["pairs"] == 2  # type: ignore[index]
+
+    class Vetoes:
+        async def all(self) -> list[StoredJudgement]:
+            return [StoredJudgement(PairKey.of(J, S), "non_match", 0.95, "m")]
+
+    vetoed = await BuildHypothesisReport(store, reader, QuoteStays(reader, {}), Vetoes()).run(
+        ["jabama", "shab"],
+        DecisionPolicy(5, judge_low=0, judge_high=20, judge_merges=False),
+        scenarios=[scenario],
+        window=DateRange(date(2026, 10, 1), date(2026, 12, 1)),
+    )
+    assert vetoed.pairs == 1  # J-S vetoed: J takes s3 (11), so j2 has no partner left
 
 
 def test_the_overlap_is_corrected_for_precision_and_recall_and_capped() -> None:

@@ -109,3 +109,31 @@ the rules lose precision, so the same report decides again.
 
 `expected_output_tokens` for `er_judge` is now 340 (mean of the production run; the bake-off's
 173 underestimated the zone run by about a third).
+
+
+## Amendment (label revision, 2026-10-04): the judge vetoes, a human merges
+
+The owner confirmed the finding above: pairs of different units of one complex had been labelled
+"same villa" by mistake. Under the protocol's rule 2 they are N, or U when the listings cannot tell
+which unit is which. `eval/labels/gold-v1-revisions-2026-10-04.toml` lists the 48 revised labels
+with a reason each (41 same-platform: 38 → N, 3 → U; 7 cross-platform: 4 → N, 3 → U); `er
+revise-labels` applied them, and `er.label_revision` keeps every original decision. The owner's own
+U labels were not touched. `reports/er-eval-2026-10-04.md` scores every policy on both versions of
+the labels:
+
+| Policy (revised labels) | Precision (95% CI) | Recall | Bar |
+|---|---|---|---|
+| rules alone at −0.25 | 91.9% (84.7–95.9%) | 65.0% | no |
+| rules alone at 2 (what the gold set now picks for the rules) | 100% (95.1–100%) | 33.2% | yes |
+| advisory judge (the 2026-10-03 policy) | 91.9% (84.7–95.9%) | 65.0% | no |
+| **judge vetoes, a human merges** | **100% (95.9–100%)** | **65.0%** | **yes** |
+| judge merges and vetoes | 100% (81.4–100%) | 100% | no |
+
+The rules' new false merges are exactly the complex units, and the judge vetoes all of them
+without losing a true match on gold. By ADR-0009's rule (the highest recall that clears the bar)
+`config/er.toml` now sets `judge_vetoes = true` (merges stay off: below the threshold the gold set
+still has too few labels to show the judge's precision). The canonical villas went from 3,267 (321
+on both platforms) to 3,283 (305); H1–H3 follow the policy (`reports/hypotheses-2026-10-04.md`).
+The bake-off, re-scored from the cache on the revised labels, separates the models further
+(ADR-0005). Decision 2's "merges neither rule false match" is superseded: the judge is now the
+precision guard of the rules.

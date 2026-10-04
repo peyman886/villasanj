@@ -1,0 +1,82 @@
+{
+  "command": "uv run villasanj er judge-eval --low -3 --high 3",
+  "data": {
+    "by_confidence": {
+      "0.0": {
+        "precision": {
+          "estimate": 0.9486425986371749,
+          "high": 0.9950913970129829,
+          "low": 0.6272882669007287
+        },
+        "recall": {
+          "estimate": 0.8070453611188014,
+          "high": 0.9412232869557624,
+          "low": 0.5220893208947013
+        }
+      },
+      "0.7": {
+        "precision": {
+          "estimate": 0.9486425986371749,
+          "high": 0.9950913970129829,
+          "low": 0.6272882669007287
+        },
+        "recall": {
+          "estimate": 0.8070453611188014,
+          "high": 0.9412232869557624,
+          "low": 0.5220893208947013
+        }
+      },
+      "0.8": {
+        "precision": {
+          "estimate": 0.9486425986371749,
+          "high": 0.9950913970129829,
+          "low": 0.6272882669007287
+        },
+        "recall": {
+          "estimate": 0.8070453611188014,
+          "high": 0.9412232869557624,
+          "low": 0.5220893208947013
+        }
+      },
+      "0.9": {
+        "precision": {
+          "estimate": 0.9651653941467426,
+          "high": 0.9976769077132115,
+          "low": 0.6412620541021483
+        },
+        "recall": {
+          "estimate": 0.8070453611188014,
+          "high": 0.9412232869557624,
+          "low": 0.5220893208947013
+        }
+      }
+    },
+    "confusion": {
+      "match": {
+        "match": 50,
+        "non_match": 19,
+        "unsure": 2
+      },
+      "non_match": {
+        "match": 3,
+        "non_match": 67
+      }
+    },
+    "cost_usd": "0",
+    "false_matches": 3,
+    "judged": 141,
+    "pairs": 141,
+    "unsure_rate": 0.014184397163120567
+  },
+  "generated_at": "2026-10-04T05:30:21.198757+00:00",
+  "kind": "judge-eval",
+  "provenance": {
+    "band": [
+      -3.0,
+      3.0
+    ],
+    "model": "gpt-5.4-mini",
+    "uncached_calls": 0
+  },
+  "version": 1
+}

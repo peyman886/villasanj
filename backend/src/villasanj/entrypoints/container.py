@@ -266,7 +266,7 @@ class Container:
             self.candidates(),
             self.labels(),
             self.judgements(),
-            self.villas_eval(),
+            self.build_villas(),
             self.er_config(),
         )
 
@@ -293,7 +293,9 @@ class Container:
         )
 
     def hypothesis_report(self) -> BuildHypothesisReport:
-        return BuildHypothesisReport(self.candidates(), self.listings, self.quotes())
+        return BuildHypothesisReport(
+            self.candidates(), self.listings, self.quotes(), self.judgements()
+        )
 
     def search(self) -> SearchListings:
         return SearchListings(
