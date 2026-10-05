@@ -39,21 +39,32 @@ artifacts in `reports/*.json` (the same source as the portal's `/docs/milestones
 they drift, and `make roadmap` rewrites them. Each milestone's own section keeps its dated results.
 
 <!-- generated:summary:begin -->
-| M | Name | Status | Criteria done |
+| M | Name | Status | Criteria |
 |---|---|---|---|
 | M0 | Understanding & design | ✅ done (2026-10-01) | 5/5 |
-| M1 | Skeleton & LLM platform | ◐ partly done (2026-10-01) | 7/8 |
+| M1 | Skeleton & LLM platform | ✅ done (2026-10-01) | 8/8 |
 | M2 | First vertical slice: jabama → shab | ✅ done (2026-10-01) | 8/8 |
 | M3 | Hypothesis test | ✅ done (2026-10-03) | 5/5 |
-| M4 | Coverage: platforms, region, same-window capture | ◐ partly done | 3/4 |
+| M4 | Coverage: platforms, region, same-window capture | ✅ done (2026-10-05) | 3/4 (+1 closed by the owner) |
 | M5 | Full entity resolution | ✅ done (2026-10-04) | 7/7 |
-| M6 | Pricing complete & offers | ◐ partly done | 3/4 |
+| M6 | Pricing complete & offers | ✅ done (2026-10-05) | 3/4 (+1 closed by the owner) |
 | M7 | API & canonical villa page | ✅ done (2026-10-03) | 5/5 |
 | M8 | Search: intent, retrieval, ranking, drive time | ◐ partly done | 2/4 |
 | M9 | Enrichment & truth check | ✅ done | 5/5 |
-| M10 | Reviews & “why this villa?” | ◐ partly done | 3/4 |
-| M11 | Demo polish | ◐ partly done | 3/4 |
+| M10 | Reviews & “why this villa?” | ✅ done (2026-10-05) | 3/4 (+1 closed by the owner) |
+| M11 | Demo polish | ✅ done (2026-10-05) | 4/4 |
 <!-- generated:summary:end -->
+
+### The owner's decisions of 2026-10-05
+
+- M4 crit. 1: no new platforms are wanted (jajiga, otaghak and mihmansho forbid crawling anyway).
+- M6 crit. 3: there is no public direct-quote source; the criterion is closed.
+- M10 crit. 4: the explanation latency is accepted with the cache (uncached p95 stays 6.1–10.6 s).
+- M1 crit. 8 and M11 crit. 3: the ledger was reconciled with the AvalAI dashboard by the owner.
+
+"Closed by the owner" is not "done": those criteria did not reach their target, and the table says
+so. The remaining human reviews (the M8 query set, M8 relevance, `er-human`) have UI tools linked
+from `/review`.
 
 ### Every criterion with its evidence
 
@@ -72,7 +83,7 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M1 | 5 | LLM stack unit tests (zero network) | ✅ done | Cache, validation retry, fallback, budget before calling, dry-run with 0 calls, stop on a spent key quota. |
 | M1 | 6 | Opt-in live test, spend < $0.05 | ✅ done | $0.0025 per run (2026-10-01). |
 | M1 | 7 | Secret hygiene | ✅ done | repr/log/error tests; gitleaks; .env never committed. |
-| M1 | 8 | Ledger vs AvalAI dashboard | 👤 needs the owner | Needs the owner's dashboard access. |
+| M1 | 8 | Ledger vs AvalAI dashboard | ✅ done | The owner confirmed the ledger against the AvalAI dashboard (2026-10-05). |
 | M2 | 1 | robots.txt, pacing and stop-on-block tested | ✅ done | Unit and integration tested; no disallowed request was sent. |
 | M2 | 2 | jabama: every regional listing, parse ≥ 98% | ✅ done | 100% parsed; the 31-listing gap was closed by a second pass. |
 | M2 | 3 | ≥ 6 trimmed fixtures per adapter | ✅ done | 6 for jabama, 6 for shab; review fixtures added later. |
@@ -86,7 +97,7 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M3 | 3 | Pricing engine v1, 100% branch coverage on pricing/domain | ✅ done | Coverage 100%, enforced by make test. |
 | M3 | 4 | Hypothesis report H1–H3 | ✅ done | H1: 302 pairs, about 464 corrected; H2: holiday median 1.25×; H3: 20.7% hidden nights. |
 | M3 | 5 | Owner review: M4–M11 priorities | ✅ done | Owner's instruction (2026-10-03): every milestone as far as dependencies allow. |
-| M4 | 1 | Adapters for platforms with written permission | ⛔ blocked | jajiga, otaghak and mihmansho forbid crawling in their terms; no written permission (ADR-0011). |
+| M4 | 1 | Adapters for platforms with written permission | ☑️ closed by the owner | The owner wants no new platform (2026-10-05); jajiga, otaghak and mihmansho forbid crawling in their terms (ADR-0011). |
 | M4 | 2 | Regional coverage reported per platform | ✅ done | jabama 2,987, shab 601 listings. |
 | M4 | 3 | Same-window capture with spread ≤ 6 h | ✅ done | 2026-10-03: jabama 2,987/2,987 in 3.2 h, shab 597/601 in 0.6 h. |
 | M4 | 4 | Photo pipeline ≥ 99%, pHash, storage reported | ✅ done | 100% of selected photos on both platforms; 8.48 and 1.09 GB. |
@@ -99,15 +110,15 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M5 | 7 | Human queue; idempotent resolution | ✅ done | Queue er-human: disputed 81, suggested 83, unsure 212; each label rebuilds the villas. |
 | M6 | 1 | Every quote component has provenance (property test) | ✅ done | test_every_quote_carries_provenance_for_every_component. |
 | M6 | 2 | Each offer EXACT, RANGE or OPEN, reported | ✅ done | All OPEN: no platform publishes its fees (pricing offers). |
-| M6 | 3 | Direct-quote comparison on ≥ 100 listings | ⛔ blocked | No public direct-quote source was found. |
+| M6 | 3 | Direct-quote comparison on ≥ 100 listings | ☑️ closed by the owner | No public direct-quote source exists; the owner closed the criterion (2026-10-05). Offers stay open-ended (≥ X). |
 | M6 | 4 | Stale offers flagged in the API | ✅ done | A stale flag on every offer (24 h). |
 | M7 | 1 | OpenAPI generated; TS client strict; contract tests | ✅ done | make openapi-check. |
 | M7 | 2 | Smoke over 50 multi-platform villas | ✅ done | Two smoke tests (50 sampled listings, 50 sampled two-platform villas): 2 passed, 0 failed. |
 | M7 | 3 | Every number links to its provenance (E2E) | ✅ done | 10 random numbers on listing, villa and search pages. |
 | M7 | 4 | No critical axe violations; keyboard | ✅ done | E2E (with axe): 48 passed, 0 failed. |
 | M7 | 5 | p95 villa + offers < 300 ms | ✅ done | p95 10.4 ms on 50 villas. |
-| M8 | 1 | Query understanding eval on 50 queries | ⚠️ provisional | On the agent-written 50-query draft: 100% slots, 0 invented numbers, p95 1.4 s; provisional until the owner reviews the set. |
-| M8 | 2 | Retrieval eval: 30 queries with judged relevant villas | 👤 needs the owner | Needs the owner's relevance judgements; dense retrieval is not shipped until it proves itself. |
+| M8 | 1 | Query understanding eval on 50 queries | ⚠️ provisional | On the agent-written 50-query draft: 100% slots, 0 invented numbers, p95 1.4 s; provisional until the owner's review at /label/queries. |
+| M8 | 2 | Retrieval eval: 30 queries with judged relevant villas | 👤 needs the owner | 30 queries with 946 pooled villas from the shipped ranking and two baselines (cheapest, best rated), blind, await the owner's grades at /label/relevance. FTS and dense retrieval are not built; dense ships only if it lifts nDCG@10 by ≥ 0.03. |
 | M8 | 3 | Drive time for 100% of villas, coverage note | ✅ done | Free-flow OSRM from Azadi Square for all 3,588 listings. |
 | M8 | 4 | Score breakdown in API and UI | ✅ done | 'Why this rank?' on every result card. |
 | M9 | 1 | Claim extraction on 60 descriptions: P ≥ 90%, R ≥ 80% | ✅ done | Rules + LLM residue: precision 93.7% (84.8–97.5%), recall 80.8% (70.3–88.2%); every quote verbatim (2026-10-03). |
@@ -118,30 +129,23 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M10 | 1 | Verifier unit tests | ✅ done | Digits outside slots, unknown slots, contradicting comparisons, uncited points. |
 | M10 | 2 | 100% of displayed text verified; fallback rate | ✅ done | 0% template in the explanation eval; 48/48 summaries first try; without a model, the template. |
 | M10 | 3 | Owner's blind review ≥ 18/20 faithful | ✅ done | 20/20. |
-| M10 | 4 | Explanation p95 ≤ 4 s uncached | ❌ not met | 6.1–10.6 s uncached; results do not wait for it and cached paths are instant. Re-measuring needs AvalAI credit. |
+| M10 | 4 | Explanation p95 ≤ 4 s uncached | ☑️ closed by the owner | The owner accepted the latency with the cache (2026-10-05): uncached p95 is 6.1–10.6 s, but results do not wait for the explanation and cached paths are instant. |
 | M11 | 1 | make demo from a local bundle, no network but cached LLM answers | ✅ done | Separate project on :3400, cached model answers only, no outbound request; photos stay hotlinked. |
 | M11 | 2 | Every number in the demo script in a generated report | ✅ done | docs/demo-script.md and the demo guide page. |
-| M11 | 3 | LLM spend ≤ $30 and reconciled with the dashboard | 👤 needs the owner | The ledger is under the cap; reconciling with the AvalAI dashboard is the owner's. |
+| M11 | 3 | LLM spend ≤ $30 and reconciled with the dashboard | ✅ done | The ledger is under the $30 cap and the owner confirmed it against the AvalAI dashboard (2026-10-05). |
 | M11 | 4 | E2E green for the storyboard paths | ✅ done | 48 E2E tests, 0 failed. |
 <!-- generated:criteria:end -->
 
 ### Still open
 
 <!-- generated:open:begin -->
-- **Not met:**
-  - Uncached explanation latency is above 4 s (M10 crit. 4).
-- **Blocked by others:**
-  - New platforms until written permission arrives (M4 crit. 1, ADR-0011).
-  - Direct-quote comparison: no public source (M6 crit. 3).
-- **Needs AvalAI credit:**
-  - Warm the cache for the demo paths and rebuild the demo bundle.
-  - Judge the failed pair and new candidates; VLM checks for sea view and fireplace.
-  - Re-measure explanation latency and bake off faster models (M10 crit. 4).
+- **Needs AvalAI calls:**
+  - After the query-set review: re-run the understanding eval on it (about $0.07).
+  - Optional: VLM checks for sea view and fireplace (not built; about $1 estimated).
 - **Needs the owner:**
-  - Reconcile the ledger with the AvalAI dashboard (M1 crit. 8, M11 crit. 3).
-  - Review the 50-query understanding set (M8 crit. 1).
-  - Judge relevance for 30 queries so the retrieval eval can run (M8 crit. 2).
-  - Label the er-human queue as far as useful; the judge's suggestions first.
+  - Review the 50-query set at /label/queries (M8 crit. 1).
+  - Grade the 946 pooled villas of 30 queries at /label/relevance (M8 crit. 2).
+  - Label the er-human queue at /label?queue=er-human as far as useful; the judge's 83 suggestions first.
   - Review the villa page UX (M7).
   - Whether the offline demo may serve local copies of photos.
 <!-- generated:open:end -->

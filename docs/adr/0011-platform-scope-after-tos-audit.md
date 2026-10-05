@@ -43,3 +43,11 @@ at least two permitted platforms.
   Torob with shops, and the architecture adds a partner with one adapter.
 - ROADMAP M2/M4 are updated: M4 "coverage" now means *permission-gated* adapters (if any permission
   arrives) plus widening the region on the two permitted platforms.
+
+
+## Amendment (owner's decision, 2026-10-05): no new platforms
+
+The owner decided that no further platform is wanted for this project. ROADMAP M4 criterion 1
+(adapters for permission-gated platforms) is closed by that decision, not met: the catalog stays
+jabama and shab. The extension recipe (one adapter, fixtures, an entry point and a fee policy)
+remains the path if a partner feed ever arrives.

@@ -39,6 +39,7 @@ function loadEvidence(): Evidence {
     judge,
     quality: newest("quality"),
     perf: newest("performance"),
+    relevance: newest("relevance"),
   };
 }
 
@@ -54,13 +55,19 @@ function statusBlock(evidence: Evidence): string {
   return ["| M | # | Criterion | Status | Evidence |", "|---|---|---|---|---|", ...rows].join("\n");
 }
 
+function closed(m: (typeof MILESTONES)[number]): string {
+  const done = m.criteria.filter((c) => c.status === "done").length;
+  const waived = m.criteria.filter((c) => c.status === "waived").length;
+  return `${done}/${m.criteria.length}${waived ? ` (+${waived} closed by the owner)` : ""}`;
+}
+
 function summaryBlock(): string {
   return [
-    "| M | Name | Status | Criteria done |",
+    "| M | Name | Status | Criteria |",
     "|---|---|---|---|",
     ...MILESTONES.map(
       (m) =>
-        `| ${m.id} | ${m.name_en} | ${STATUS_EN[m.status]}${m.date ? ` (${m.date})` : ""} | ${m.criteria.filter((c) => c.status === "done").length}/${m.criteria.length} |`,
+        `| ${m.id} | ${m.name_en} | ${STATUS_EN[m.status]}${m.date ? ` (${m.date})` : ""} | ${closed(m)} |`,
     ),
   ].join("\n");
 }
@@ -68,7 +75,7 @@ function summaryBlock(): string {
 const KIND_EN = {
   not_met: "Not met",
   blocked: "Blocked by others",
-  avalai: "Needs AvalAI credit",
+  avalai: "Needs AvalAI calls",
   owner: "Needs the owner",
 } as const;
 
@@ -107,15 +114,17 @@ describe("ROADMAP status tables", () => {
 
   it("every milestone's status follows from its criteria", () => {
     for (const m of MILESTONES) {
-      const statuses = new Set(m.criteria.map((c) => c.status));
-      if (statuses.size === 1 && statuses.has("done")) expect(m.status, m.id).toBe("done");
+      const closed = m.criteria.every((c) => c.status === "done" || c.status === "waived");
+      if (closed) expect(m.status, m.id).toBe("done");
       else expect(m.status, m.id).not.toBe("done");
     }
   });
 
   it("every open criterion has an open item that says what it waits for", () => {
     const open = MILESTONES.flatMap((m) =>
-      m.criteria.filter((c) => c.status !== "done").map((c) => `${m.id} crit. ${c.n}`),
+      m.criteria
+        .filter((c) => c.status !== "done" && c.status !== "waived")
+        .map((c) => `${m.id} crit. ${c.n}`),
     );
     const listed = OPEN_ITEMS.map((i) => i.en).join(" ");
     for (const id of open) expect(listed, id).toContain(id);

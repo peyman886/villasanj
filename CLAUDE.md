@@ -21,32 +21,28 @@ Context files (local):
 
 ## Current status
 
-- M0–M3 done (M3 completed 2026-10-03: gold-v1, 362 owner labels; H1–H3). M4–M11 complete as far
-  as dependencies allow. **The status of every acceptance criterion is generated** from
+- **All milestones done except M8** (2026-10-05). Status per criterion is generated from
   `frontend/src/content/milestones.ts` + `reports/*.json` into `docs/ROADMAP.md` (top) and shown at
   `/docs/milestones`; a Vitest test fails when they drift (`make roadmap` regenerates).
-- **2026-10-04, label revision (owner's instruction):** 48 gold-v1 labels on units of one complex
-  corrected (M → N/U, `eval/labels/gold-v1-revisions-2026-10-04.toml`, history in
-  `er.label_revision`). Policy now **"judge vetoes, a human merges"** (`config/er.toml`:
-  `judge_vetoes = true`, `judge_merges = false`): P 100% (95.9–100%), R 65.0%; rules alone at −0.25
-  fell to 91.9% and fail the bar. Villas 3,283 from 3,588 listings, 305 on both platforms.
-  Reports: `er-eval-2026-10-04`, `hypotheses-2026-10-04`, `h4-2026-10-04`, `judge-eval-*-2026-10-04`,
-  `quality-2026-10-04` (813 unit, 40 integration, 42 Vitest, 48 E2E, 2 smoke; lint clean),
-  `performance-2026-10-04`.
-- Open: M4 crit. 1 and M6 crit. 3 blocked (no permission / no public quote); M8 crit. 1 provisional
-  and crit. 2 waiting (owner's query review, relevance judgements); M10 crit. 4 not met (explanation
-  p95 uncached > 4 s); M1 crit. 8 / M11 crit. 3 dashboard reconciliation (owner).
-- **AvalAI has no credit** (since 2026-10-03; the owner will recharge later). The first quota answer
-  raises `ProviderQuotaError` (no retry, no fallback on the same key); the API answers 503 and pages
-  degrade (search says it cannot understand a new query, explanations use the template, uncached
-  summaries are omitted). Do not build weaker workarounds for the quota. Deferred until credit:
-  demo cache warm-up + `make demo-bundle`, judging new candidates, VLM checks (sea view, fireplace),
-  explanation latency re-measurement. Ledger: $12.31 of the $30 cap.
-- **UI:** design system "Caspian" (tokens in `globals.css`, components in `src/components/ui`);
-  in-app documentation portal at `/docs` (MDX pages, data components reading `reports/*.json` and
-  live `/metrics`, ADRs and reports rendered from the repo, 20 pre-rendered Mermaid diagrams).
-- Owner decisions pending: local photo copies for the offline demo, the `er-human` queue, the M8
-  query set and relevance judgements, the M7 UX review, the dashboard reconciliation.
+- **Owner's decisions 2026-10-05** (status `waived` = "closed by the owner", not "done"): M4 crit. 1
+  (no new platforms), M6 crit. 3 (no public direct quote), M10 crit. 4 (explanation latency
+  accepted with the cache). M1 crit. 8 / M11 crit. 3: the owner reconciled the ledger → done.
+  Amendments in ADR-0011 and ADR-0005.
+- **Open: M8 crit. 1 (provisional) and crit. 2 (owner review).** Review UIs, hub at `/review`:
+  `/label/queries` (queue `queries-v1`, the 50 drafted cases: correct / corrected / rejected),
+  `/label/relevance` (queue `relevance-v1`, 30 queries, 946 pooled villas graded 0–2 blind),
+  `/label?queue=er-human` (376 pairs; the judge's 83 suggestions first). Storage
+  `discovery.review_case` / `review_label` (migration 0018). After the reviews:
+  `discovery query-review-export eval/query-understanding/reviewed-v1.jsonl` then
+  `discovery eval-understanding` on it (~$0.07), and
+  `discovery relevance-eval --out reports/relevance-<date>.md` (no LLM; the portal and ROADMAP
+  read the `relevance` artifact).
+- ER: policy "judge vetoes, a human merges" (`config/er.toml`), P 100% (95.9–100%), R 65.0%;
+  3,283 villas, 305 on both platforms; 48 complex-unit labels revised 2026-10-04 (`er.label_revision`).
+- **AvalAI** recharged 2026-10-05 with a new key and little credit (~$5). Demo paths are warm in
+  the cache (three passes; the last made 0 provider calls). Ledger ~$12.39 of the $30 cap.
+  Without credit the pages degrade (no weaker workarounds: owner's rule).
+- Pending owner decisions: local photo copies for the offline demo, the M7 UX review.
 
 ## Working agreement (from the owner)
 
@@ -193,8 +189,9 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `photo-tags-eval` (SigLIP 2 tags, gated by labels at `/label/photos`), `er report` (M5 evaluation
 into reports/), `er villas` / `er villas-eval` (policy from `config/er.toml`, flags override),
 `er judge-zone`, `enrichment h4 [--out]`. Search page: `/search`; villa page: `/villas/<id>`.
-Labelling UIs (stack on 3300): `/label` (ER pairs, gold-v1), `/label?queue=er-human` (the judge's
-suggestions and disputes; each label rebuilds the villas), `/label/photos` (photos-v1),
+Labelling UIs (stack on 3300), all linked from the hub `/review`: `/label` (ER pairs, gold-v1),
+`/label?queue=er-human` (the judge's suggestions and disputes; each label rebuilds the villas),
+`/label/queries` (queries-v1), `/label/relevance` (relevance-v1), `/label/photos` (photos-v1),
 `/label/summaries` (summaries-v1), `/label/claims` (claims-v1); `/metrics` shows progress. Host dev: `npm run dev` with `API_URL` set.
 
 Backend CLI inside the stack: `docker compose exec api villasanj --help`.
@@ -256,6 +253,9 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
 - **Diagrams:** edit `frontend/diagrams/*.mmd`, then `npm run diagrams`; `diagrams:check` (in lint)
   fails on a stale render. The generated file is prettier-ignored and must stay under the 600 KB
   pre-commit limit (theme CSS is shared per diagram kind).
+- **Review queues are built once** (`ReviewQueueExists`); rebuilding one means deleting its
+  `discovery.review_case` rows, which is only safe while it has no labels. E2E review checks never
+  submit (they would write owner labels).
 - **Search latency** (~2.1 s cached) grows with `catalog.calendar_observation` (holiday-flag query
   scans it per search; profile in `/docs/search-ranking`).
 - **Never commit the probe/recon by-products**: raw responses live in `var/blobs` and `data/audit`

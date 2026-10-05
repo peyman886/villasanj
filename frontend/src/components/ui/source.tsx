@@ -11,6 +11,7 @@ const REPORT_NAMES: [RegExp, string][] = [
   [/^judge-eval-/, "ارزیابی داور"],
   [/^quality-/, "گزارش کیفیت و تست‌ها"],
   [/^performance-/, "گزارش کارایی"],
+  [/^relevance-/, "ارزیابی مرتبط‌بودن جستجو"],
 ];
 
 /** A readable name for a generated report file. */

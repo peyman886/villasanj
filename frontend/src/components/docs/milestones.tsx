@@ -18,6 +18,7 @@ import { faDate, faInt } from "@/lib/format";
 
 const SEGMENT: Record<Status, string> = {
   done: "bg-brand-600",
+  waived: "bg-sand-500",
   partial: "bg-sky-400",
   provisional: "bg-amber-400",
   blocked: "bg-rose-500",
@@ -30,6 +31,7 @@ function counts(): [Status, number][] {
   const all = MILESTONES.flatMap((m) => m.criteria.map((c) => c.status));
   const order: Status[] = [
     "done",
+    "waived",
     "partial",
     "provisional",
     "owner_review",
@@ -45,12 +47,14 @@ export function CriteriaProgress() {
   const rows = counts();
   const total = rows.reduce((sum, [, n]) => sum + n, 0);
   const done = rows.find(([s]) => s === "done")?.[1] ?? 0;
+  const waived = rows.find(([s]) => s === "waived")?.[1] ?? 0;
   return (
     <figure className="rounded-card border border-line bg-surface p-5 shadow-raised">
       <figcaption className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="font-semibold text-fg">معیارهای پذیرش M0 تا M11</span>
         <span className="text-sm text-fg-muted tabular-nums">
           {faInt(done)} از {faInt(total)} انجام شده
+          {waived ? ` · ${faInt(waived)} بسته به تصمیم مالک` : ""}
         </span>
       </figcaption>
       <div
@@ -83,7 +87,9 @@ export function CriteriaProgress() {
 
 function tally(m: Milestone): string {
   const done = m.criteria.filter((c) => c.status === "done").length;
-  return `${faInt(done)} از ${faInt(m.criteria.length)} معیار`;
+  const waived = m.criteria.filter((c) => c.status === "waived").length;
+  const closed = waived ? ` و ${faInt(waived)} بسته به تصمیم مالک` : "";
+  return `${faInt(done)} انجام‌شده${closed} از ${faInt(m.criteria.length)} معیار`;
 }
 
 /** M0–M11 as a compact grid of tiles, each linking to its checklist. */
@@ -208,7 +214,7 @@ const KIND: Record<
   { title: string; Icon: typeof User; tone: "info" | "caution" | "danger" | "muted" }
 > = {
   owner: { title: "به تصمیم یا بازبینی مالک نیاز دارد", Icon: User, tone: "info" },
-  avalai: { title: "منتظر شارژ AvalAI", Icon: Bot, tone: "caution" },
+  avalai: { title: "به فراخوانی AvalAI نیاز دارد", Icon: Bot, tone: "caution" },
   blocked: { title: "مسدود به دلیل بیرونی", Icon: Lock, tone: "muted" },
   not_met: { title: "پاس نشده", Icon: XCircle, tone: "danger" },
 };

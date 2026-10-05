@@ -14,8 +14,9 @@ import type {
   JudgeEval,
   Performance,
   Quality,
+  Relevance,
 } from "@/lib/artifacts";
-import { faInt, faInterval, faPercent, faRatio } from "@/lib/format";
+import { faDecimal, faInt, faInterval, faPercent, faRatio } from "@/lib/format";
 
 export type { Status };
 
@@ -26,6 +27,7 @@ export type Evidence = {
   judge: Record<string, JudgeEval>;
   quality: Quality | null;
   perf: Performance | null;
+  relevance?: Relevance | null;
 };
 
 type Text = string | ((e: Evidence) => string);
@@ -124,7 +126,7 @@ export const MILESTONES: Milestone[] = [
     id: "M1",
     name_fa: "اسکلت و سکوی مدل زبانی",
     name_en: "Skeleton & LLM platform",
-    status: "partial",
+    status: "done",
     date: "2026-10-01",
     summary_fa:
       "monorepo، Docker، Postgres، دروازه‌ی مدل زبانی با کش و دفتر هزینه، قراردادهای معماری.",
@@ -207,9 +209,9 @@ export const MILESTONES: Milestone[] = [
         n: 8,
         title_fa: "تطبیق دفتر هزینه با داشبورد AvalAI",
         title_en: "Ledger vs AvalAI dashboard",
-        status: "owner_review",
-        evidence_fa: "به دسترسی مالک به داشبورد نیاز دارد.",
-        evidence_en: "Needs the owner's dashboard access.",
+        status: "done",
+        evidence_fa: "مالک تطبیق دفتر هزینه با داشبورد AvalAI را تأیید کرد (۱۳ مهر).",
+        evidence_en: "The owner confirmed the ledger against the AvalAI dashboard (2026-10-05).",
       },
     ],
   },
@@ -378,18 +380,20 @@ export const MILESTONES: Milestone[] = [
     id: "M4",
     name_fa: "پوشش: پلتفرم‌ها، منطقه و برداشت هم‌زمان",
     name_en: "Coverage: platforms, region, same-window capture",
-    status: "partial",
-    summary_fa: "برداشت هم‌زمان، خط لوله‌ی عکس و موجودی؛ پلتفرم تازه به مجوز کتبی نیاز دارد.",
+    status: "done",
+    date: "2026-10-05",
+    summary_fa:
+      "برداشت هم‌زمان، خط لوله‌ی عکس و موجودی؛ مالک پلتفرم تازه نمی‌خواهد، پس دامنه جاباما و شب می‌ماند.",
     criteria: [
       {
         n: 1,
         title_fa: "adapter پلتفرم‌های دارای مجوز",
         title_en: "Adapters for platforms with written permission",
-        status: "blocked",
+        status: "waived",
         evidence_fa:
-          "جاجیگا، اتاقک و میهمانشو crawl را در شرایط استفاده منع کرده‌اند؛ مجوز کتبی نرسیده (ADR-0011).",
+          "مالک: پلتفرم تازه لازم نیست (۱۳ مهر). جاجیگا، اتاقک و میهمانشو crawl را در شرایط استفاده منع کرده‌اند (ADR-0011).",
         evidence_en:
-          "jajiga, otaghak and mihmansho forbid crawling in their terms; no written permission (ADR-0011).",
+          "The owner wants no new platform (2026-10-05); jajiga, otaghak and mihmansho forbid crawling in their terms (ADR-0011).",
       },
       {
         n: 2,
@@ -542,7 +546,8 @@ export const MILESTONES: Milestone[] = [
     id: "M6",
     name_fa: "قیمت کامل و پیشنهادها",
     name_en: "Pricing complete & offers",
-    status: "partial",
+    status: "done",
+    date: "2026-10-05",
     summary_fa: "پیشنهاد هر آگهی با منبع، بازه‌ها و تازگی؛ مقایسه با قیمت مستقیم ممکن نشد.",
     criteria: [
       {
@@ -565,9 +570,11 @@ export const MILESTONES: Milestone[] = [
         n: 3,
         title_fa: "مقایسه با قیمت مستقیم پلتفرم",
         title_en: "Direct-quote comparison on ≥ 100 listings",
-        status: "blocked",
-        evidence_fa: "هیچ منبع عمومی قیمت مستقیم پیدا نشد.",
-        evidence_en: "No public direct-quote source was found.",
+        status: "waived",
+        evidence_fa:
+          "هیچ منبع عمومی قیمت مستقیم وجود ندارد؛ مالک معیار را بست (۱۳ مهر). پیشنهادها «حداقل» می‌مانند.",
+        evidence_en:
+          "No public direct-quote source exists; the owner closed the criterion (2026-10-05). Offers stay open-ended (≥ X).",
       },
       {
         n: 4,
@@ -668,19 +675,35 @@ export const MILESTONES: Milestone[] = [
         title_en: "Query understanding eval on 50 queries",
         status: "provisional",
         evidence_fa:
-          "روی پیش‌نویس ۵۰ پرسش (نوشته‌ی عامل): ۱۰۰٪ اسلات، ۰ عدد ساختگی، p95 ۱٫۴ ثانیه؛ تا بازبینی مالک موقت است.",
+          "روی پیش‌نویس ۵۰ پرسش (نوشته‌ی عامل): ۱۰۰٪ اسلات، ۰ عدد ساختگی، p95 ۱٫۴ ثانیه؛ تا بازبینی مالک در /label/queries موقت است.",
         evidence_en:
-          "On the agent-written 50-query draft: 100% slots, 0 invented numbers, p95 1.4 s; provisional until the owner reviews the set.",
+          "On the agent-written 50-query draft: 100% slots, 0 invented numbers, p95 1.4 s; provisional until the owner's review at /label/queries.",
       },
       {
         n: 2,
         title_fa: "ارزیابی بازیابی با ۳۰ پرسش داوری‌شده",
         title_en: "Retrieval eval: 30 queries with judged relevant villas",
         status: "owner_review",
-        evidence_fa:
-          "به داوری مرتبط‌بودن از مالک نیاز دارد؛ بازیابی برداری اضافه نشده چون بهتر بودنش ثابت نشده.",
-        evidence_en:
-          "Needs the owner's relevance judgements; dense retrieval is not shipped until it proves itself.",
+        evidence_fa: (e) =>
+          e.relevance
+            ? `${faInt(e.relevance.judged)} از ${faInt(e.relevance.total)} پرسش داوری‌شده: ` +
+              e.relevance.systems
+                .map(
+                  (x) =>
+                    `${x.system} nDCG@10 ${x.ndcg_at_10 === null ? "—" : faDecimal(x.ndcg_at_10, 3)}، Recall@20 ${x.recall_at_20 === null ? "—" : faDecimal(x.recall_at_20, 3)}`,
+                )
+                .join("؛ ")
+            : "۳۰ پرسش با ۹۴۶ ویلای تجمیع‌شده از رتبه‌بندی فعلی و دو baseline (ارزان‌ترین و بهترین امتیاز)، کور، در /label/relevance منتظر داوری مالک است. FTS و جستجوی برداری ساخته نشده‌اند؛ برداری فقط اگر nDCG@10 را دست‌کم ۰٫۰۳ بهتر کند.",
+        evidence_en: (e) =>
+          e.relevance
+            ? `${e.relevance.judged}/${e.relevance.total} queries judged: ` +
+              e.relevance.systems
+                .map(
+                  (x) =>
+                    `${x.system} nDCG@10 ${x.ndcg_at_10?.toFixed(3) ?? "-"}, Recall@20 ${x.recall_at_20?.toFixed(3) ?? "-"}`,
+                )
+                .join("; ")
+            : "30 queries with 946 pooled villas from the shipped ranking and two baselines (cheapest, best rated), blind, await the owner's grades at /label/relevance. FTS and dense retrieval are not built; dense ships only if it lifts nDCG@10 by ≥ 0.03.",
       },
       {
         n: 3,
@@ -767,7 +790,8 @@ export const MILESTONES: Milestone[] = [
     id: "M10",
     name_fa: "نظرها و «چرا این ویلا؟»",
     name_en: "Reviews & “why this villa?”",
-    status: "partial",
+    status: "done",
+    date: "2026-10-05",
     summary_fa: "خلاصه‌ی با ارجاع، توضیح با اسلات و بررسی‌گر، و الگوی ثابت.",
     criteria: [
       {
@@ -800,11 +824,11 @@ export const MILESTONES: Milestone[] = [
         n: 4,
         title_fa: "p95 توضیح ≤ ۴ ثانیه بدون کش",
         title_en: "Explanation p95 ≤ 4 s uncached",
-        status: "not_met",
+        status: "waived",
         evidence_fa:
-          "۶٫۱ تا ۱۰٫۶ ثانیه بدون کش؛ نتیجه‌ها منتظر توضیح نمی‌مانند و مسیرهای کش‌شده فوری‌اند. اندازه‌گیری دوباره به شارژ AvalAI نیاز دارد.",
+          "مالک تأخیر را با کش پذیرفت (۱۳ مهر): بدون کش p95 ۶٫۱ تا ۱۰٫۶ ثانیه است، ولی نتیجه‌ها منتظر توضیح نمی‌مانند و مسیرهای کش‌شده فوری‌اند.",
         evidence_en:
-          "6.1–10.6 s uncached; results do not wait for it and cached paths are instant. Re-measuring needs AvalAI credit.",
+          "The owner accepted the latency with the cache (2026-10-05): uncached p95 is 6.1–10.6 s, but results do not wait for the explanation and cached paths are instant.",
       },
     ],
   },
@@ -812,7 +836,8 @@ export const MILESTONES: Milestone[] = [
     id: "M11",
     name_fa: "صیقل دمو",
     name_en: "Demo polish",
-    status: "partial",
+    status: "done",
+    date: "2026-10-05",
     summary_fa: "دموی آفلاین، سناریوی ۵ دقیقه‌ای، پورتال مستندات و سنجه‌ها.",
     criteria: [
       {
@@ -837,10 +862,11 @@ export const MILESTONES: Milestone[] = [
         n: 3,
         title_fa: "هزینه ≤ ۳۰ دلار و تطبیق با داشبورد",
         title_en: "LLM spend ≤ $30 and reconciled with the dashboard",
-        status: "owner_review",
-        evidence_fa: "دفتر هزینه زیر سقف است؛ تطبیق با داشبورد AvalAI کار مالک است.",
+        status: "done",
+        evidence_fa:
+          "دفتر هزینه زیر سقف ۳۰ دلار است و مالک تطبیقش با داشبورد AvalAI را تأیید کرد (۱۳ مهر).",
         evidence_en:
-          "The ledger is under the cap; reconciling with the AvalAI dashboard is the owner's.",
+          "The ledger is under the $30 cap and the owner confirmed it against the AvalAI dashboard (2026-10-05).",
       },
       {
         n: 4,
@@ -866,6 +892,7 @@ export function text(value: Text, evidence: Evidence): string {
 
 export const STATUS_EN: Record<Status, string> = {
   done: "✅ done",
+  waived: "☑️ closed by the owner",
   partial: "◐ partly done",
   provisional: "⚠️ provisional",
   blocked: "⛔ blocked",
@@ -880,23 +907,18 @@ export type OpenItem = { kind: "owner" | "avalai" | "blocked" | "not_met"; fa: s
 export const OPEN_ITEMS: OpenItem[] = [
   {
     kind: "owner",
-    fa: "تطبیق دفتر هزینه با داشبورد AvalAI (M1 معیار ۸، M11 معیار ۳).",
-    en: "Reconcile the ledger with the AvalAI dashboard (M1 crit. 8, M11 crit. 3).",
+    fa: "بازبینی مجموعه‌ی ۵۰ پرسش جستجو در /label/queries (M8 معیار ۱).",
+    en: "Review the 50-query set at /label/queries (M8 crit. 1).",
   },
   {
     kind: "owner",
-    fa: "بازبینی مجموعه‌ی ۵۰ پرسش فهم جستجو (M8 معیار ۱).",
-    en: "Review the 50-query understanding set (M8 crit. 1).",
+    fa: "داوری مرتبط‌بودن ۹۴۶ ویلای تجمیع‌شده برای ۳۰ پرسش در /label/relevance (M8 معیار ۲).",
+    en: "Grade the 946 pooled villas of 30 queries at /label/relevance (M8 crit. 2).",
   },
   {
     kind: "owner",
-    fa: "داوری مرتبط‌بودن برای ۳۰ پرسش تا ارزیابی بازیابی ممکن شود (M8 معیار ۲).",
-    en: "Judge relevance for 30 queries so the retrieval eval can run (M8 crit. 2).",
-  },
-  {
-    kind: "owner",
-    fa: "برچسب‌زدن صف er-human تا هر جا مفید است؛ اول پیشنهادهای داور.",
-    en: "Label the er-human queue as far as useful; the judge's suggestions first.",
+    fa: "برچسب‌زدن صف er-human در /label?queue=er-human تا هر جا مفید است؛ اول ۸۳ پیشنهاد داور.",
+    en: "Label the er-human queue at /label?queue=er-human as far as useful; the judge's 83 suggestions first.",
   },
   {
     kind: "owner",
@@ -910,32 +932,12 @@ export const OPEN_ITEMS: OpenItem[] = [
   },
   {
     kind: "avalai",
-    fa: "گرم کردن کش مسیرهای دمو و ساختن دوباره‌ی بسته‌ی دمو.",
-    en: "Warm the cache for the demo paths and rebuild the demo bundle.",
+    fa: "پس از بازبینی مجموعه‌ی پرسش‌ها: اجرای دوباره‌ی ارزیابی فهم پرسش روی آن (حدود ۰٫۰۷ دلار).",
+    en: "After the query-set review: re-run the understanding eval on it (about $0.07).",
   },
   {
     kind: "avalai",
-    fa: "داوری جفت شکست‌خورده و نامزدهای تازه؛ بررسی تصویری برای منظره‌ی دریا و شومینه.",
-    en: "Judge the failed pair and new candidates; VLM checks for sea view and fireplace.",
-  },
-  {
-    kind: "avalai",
-    fa: "اندازه‌گیری دوباره‌ی تأخیر توضیح و bake-off مدل‌های سریع‌تر (M10 معیار ۴).",
-    en: "Re-measure explanation latency and bake off faster models (M10 crit. 4).",
-  },
-  {
-    kind: "blocked",
-    fa: "پلتفرم‌های تازه تا رسیدن مجوز کتبی (M4 معیار ۱، ADR-0011).",
-    en: "New platforms until written permission arrives (M4 crit. 1, ADR-0011).",
-  },
-  {
-    kind: "blocked",
-    fa: "مقایسه با قیمت مستقیم: منبع عمومی ندارد (M6 معیار ۳).",
-    en: "Direct-quote comparison: no public source (M6 crit. 3).",
-  },
-  {
-    kind: "not_met",
-    fa: "تأخیر توضیح بدون کش بالای ۴ ثانیه است (M10 معیار ۴).",
-    en: "Uncached explanation latency is above 4 s (M10 crit. 4).",
+    fa: "اختیاری: بررسی تصویری منظره‌ی دریا و شومینه با مدل بینایی (ساخته نشده؛ برآورد حدود ۱ دلار).",
+    en: "Optional: VLM checks for sea view and fireplace (not built; about $1 estimated).",
   },
 ];

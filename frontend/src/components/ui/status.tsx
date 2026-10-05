@@ -1,5 +1,6 @@
 import {
   CircleCheck,
+  CircleCheckBig,
   CircleDashed,
   CircleHelp,
   CircleSlash,
@@ -13,10 +14,19 @@ import { Badge, type Tone } from "@/components/ui/badge";
 import { CLAIM_VERDICT_TEXT } from "@/lib/listing";
 
 export type Status =
-  "done" | "partial" | "provisional" | "blocked" | "deferred" | "owner_review" | "not_met";
+  | "done"
+  | "waived"
+  | "partial"
+  | "provisional"
+  | "blocked"
+  | "deferred"
+  | "owner_review"
+  | "not_met";
 
 export const STATUS: Record<Status, { text: string; tone: Tone; Icon: typeof CircleCheck }> = {
   done: { text: "انجام شد", tone: "verified", Icon: CircleCheck },
+  // Closed by the owner's decision: not achieved as written, and no longer required (said so).
+  waived: { text: "بسته به تصمیم مالک", tone: "muted", Icon: CircleCheckBig },
   partial: { text: "بخشی انجام شد", tone: "info", Icon: CircleDashed },
   provisional: { text: "موقت", tone: "caution", Icon: Hourglass },
   blocked: { text: "مسدود", tone: "danger", Icon: CircleSlash },

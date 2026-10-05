@@ -102,7 +102,7 @@ export const DOCS_NAV: DocGroup[] = [
       {
         href: "/docs/limitations",
         title: "محدودیت‌ها و کارهای باز",
-        summary: "آنچه پاس نشده، به تعویق افتاده یا به مالک نیاز دارد",
+        summary: "آنچه باز است، آنچه مالک بست، و محدودیت‌های روش‌ها",
       },
       {
         href: "/docs/reports",

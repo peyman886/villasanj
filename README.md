@@ -8,11 +8,12 @@ choice.** Each real villa gets one page that brings its listings from different 
 together, with the all-in price for your dates and group, a calendar, reviews and a
 truth check of what the listing claims. Every number shown has a source and an observation time.
 
-Status (2026-10-04): M0–M3 done; M4–M11 complete as far as their dependencies allow. The status of
-every acceptance criterion, with its evidence, is generated into [`docs/ROADMAP.md`](docs/ROADMAP.md)
-and shown in the app at **`/docs/milestones`**. What remains is the owner's (reviews, labels, the
-AvalAI dashboard), waits for AvalAI credit (the account is out of credit; pages degrade without
-it), or is blocked by others (new platforms, a public direct quote).
+Status (2026-10-05): every milestone is done except M8, whose two open criteria wait for the
+owner's reviews (the 50-query set and relevance grades for 30 queries; the tools are linked from
+`/review`). Three criteria were closed by the owner's decision rather than met (no new platforms,
+no public direct quote, explanation latency accepted with the cache). The status of every
+criterion, with its evidence, is generated into [`docs/ROADMAP.md`](docs/ROADMAP.md) and shown in
+the app at **`/docs/milestones`**.
 
 **Documentation and technical report: [`/docs`](http://localhost:3300/docs)** inside the app
 (Persian): architecture, entity resolution and the label-correction history, search, truth check,
@@ -58,7 +59,7 @@ make health             # web=ok db=ok blob=ok llm=fake-ok (or llm=avalai-ok wit
 ```
 
 - Web: <http://localhost:3300> (`/search`, `/villas/<id>`, `/listings/<platform>/<id>`, `/metrics`,
-  `/how-we-rank`, **`/docs`**; labelling: `/label`, `/label?queue=er-human`, `/label/photos`, `/label/summaries`,
+  `/how-we-rank`, **`/docs`**, the owner's review hub `/review`; labelling: `/label`, `/label?queue=er-human`, `/label/photos`, `/label/summaries`,
   `/label/claims`) · API:
   <http://localhost:8800/docs> · Postgres: `127.0.0.1:5433`.
 - Without `AVALAI_API_KEY` the stack runs with a deterministic fake LLM provider.

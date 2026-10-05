@@ -145,6 +145,18 @@ export type Performance = {
   }[];
 };
 
+export type Relevance = {
+  total: number;
+  judged: number;
+  judgements: number;
+  systems: {
+    system: string;
+    ndcg_at_10: number | null;
+    recall_at_20: number | null;
+    queries: number;
+  }[];
+};
+
 type Kinds = {
   "er-eval": ErEval;
   hypotheses: Hypotheses;
@@ -152,6 +164,7 @@ type Kinds = {
   "judge-eval": JudgeEval;
   quality: Quality;
   performance: Performance;
+  relevance: Relevance;
 };
 export type Kind = keyof Kinds;
 

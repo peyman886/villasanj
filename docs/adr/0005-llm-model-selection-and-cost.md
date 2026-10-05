@@ -271,3 +271,11 @@ $0; `reports/judge-eval-<model>-2026-10-04.md`):
 
 The extra false matches of the other two models are pairs now labelled "not the same villa" (units
 of one complex). The choice stands; cost and latency are those of the first run above.
+
+
+## Amendment (owner's decision, 2026-10-05): explanation latency accepted with the cache
+
+M10 criterion 4 (explanation p95 at most 4 s uncached) was not met: 6.1–10.6 s uncached on
+2026-10-02. Because the results never wait for the explanation and every cached path is instant,
+the owner accepted the latency and closed the criterion. gemini-3.8-flash stays the explanation
+model; no faster-model re-run is planned unless the owner asks for one.
