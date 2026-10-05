@@ -53,6 +53,12 @@ export function SiteFooter() {
           </Link>
           <Link
             className="focus-ring block w-fit rounded-sm text-fg-muted hover:text-fg"
+            href="/review"
+          >
+            بازبینی‌های مالک
+          </Link>
+          <Link
+            className="focus-ring block w-fit rounded-sm text-fg-muted hover:text-fg"
             href="/docs/demo"
           >
             راهنمای دمو
