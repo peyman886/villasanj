@@ -110,6 +110,13 @@ class Stub:
         task = SimpleNamespace(total=20, reviewed=3) if self._labelled else None
         return Async(task=task)
 
+    def query_reviewing(self) -> Async:
+        return Async(task=SimpleNamespace(total=50, reviewed=5) if self._labelled else None)
+
+    def relevance_reviewing(self) -> Async:
+        task = SimpleNamespace(total=30, queries_done=2) if self._labelled else None
+        return Async(task=task)
+
     async def aclose(self) -> None:
         return None
 
@@ -162,6 +169,9 @@ def test_metrics_report_politeness_offers_spend_and_labelling(client: TestClient
         {"queue": "gold-v1", "total": 300, "labelled": 12},
         {"queue": "summaries-v1", "total": 20, "labelled": 3},
         {"queue": "claims-v1", "total": 60, "labelled": 0},
+        {"queue": "er-human", "total": 300, "labelled": 12},
+        {"queue": "queries-v1", "total": 50, "labelled": 5},
+        {"queue": "relevance-v1", "total": 30, "labelled": 2},
     ]
 
 

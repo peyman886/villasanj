@@ -36,6 +36,7 @@ from villasanj.discovery.application.explanation import (
 from villasanj.discovery.application.explanation_eval import EvaluateExplanations
 from villasanj.discovery.application.hypotheses import render_markdown
 from villasanj.discovery.application.hypotheses import to_artifact as hypotheses_artifact
+from villasanj.discovery.application.reviews import ReviewQueueExists
 from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.application.understanding_eval import EvaluateUnderstanding
 from villasanj.discovery.domain.dates import (
@@ -49,6 +50,7 @@ from villasanj.discovery.domain.dates import (
     resolve,
 )
 from villasanj.discovery.infrastructure.eval_cases import load_cases
+from villasanj.discovery.infrastructure.reviews import load_drafts, load_queries, write_cases
 from villasanj.enrichment.application.claim_extraction import ReadClaimsWithLLM
 from villasanj.enrichment.application.claim_labels import ClaimQueueExists
 from villasanj.enrichment.application.claims import MeasureClaimParsing
@@ -77,6 +79,7 @@ from villasanj.ingestion.application.errors import CrawlError, SourceBlocked
 from villasanj.ingestion.domain.pages import PageKind, PageRequest
 from villasanj.ingestion.infrastructure.stats import PgCrawlStatsQuery
 from villasanj.pricing.domain.quote import Quote, StayRequest
+from villasanj.shared.application.artifacts import envelope
 from villasanj.shared.application.errors import LLMError
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.application.llm.smoke import LLMSmokeCheck
@@ -1214,6 +1217,156 @@ def discovery_eval_understanding(
 
     if not asyncio.run(_with_container(run)):
         raise typer.Exit(code=1)
+
+
+@discovery_app.command("query-review-queue")
+def discovery_query_review_queue(
+    cases: Annotated[
+        Path, typer.Argument(help="Draft cases: JSON lines of query, expected, note.")
+    ],
+    name: Annotated[str, typer.Option(help="Queue name.")] = "queries-v1",
+) -> None:
+    """Queue the drafted query set for the owner's review (M8 criterion 1), once."""
+
+    async def run(container: Container) -> bool:
+        try:
+            n = await container.query_review_queue().run(name, load_drafts(cases))
+        except ReviewQueueExists:
+            typer.echo(f"queue {name} exists: queues are built once")
+            return False
+        typer.echo(f"queue={name} cases={n} review at /label/queries")
+        return True
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@discovery_app.command("query-review-export")
+def discovery_query_review_export(
+    out: Annotated[Path, typer.Argument(help="Where to write the reviewed eval set.")],
+    queue: Annotated[str, typer.Option(help="Queue name.")] = "queries-v1",
+    labeler: Annotated[str, typer.Option(help="Who reviewed.")] = "owner",
+) -> None:
+    """Write the cases the owner accepted or corrected, for eval-understanding."""
+
+    async def run(container: Container) -> bool:
+        r = await container.reviewed_queries().run(queue, labeler)
+        write_cases(
+            out,
+            r.cases,
+            [
+                f"Reviewed by {labeler} in queue {queue} (discovery query-review-export).",
+                f"accepted={r.accepted} corrected={r.corrected} rejected={r.rejected} "
+                f"unreviewed={r.unreviewed}",
+            ],
+        )
+        typer.echo(
+            f"wrote {out}: cases={len(r.cases)} accepted={r.accepted} corrected={r.corrected} "
+            f"rejected={r.rejected} unreviewed={r.unreviewed}"
+        )
+        return r.unreviewed == 0
+
+    if not asyncio.run(_with_container(run)):
+        typer.echo("not every case is reviewed yet: the eval would not count")
+        raise typer.Exit(code=1)
+
+
+@discovery_app.command("relevance-queue")
+def discovery_relevance_queue(
+    queries: Annotated[Path, typer.Argument(help="One query per line.")],
+    name: Annotated[str, typer.Option(help="Queue name.")] = "relevance-v1",
+    dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "0.20",
+) -> None:
+    """Run each query once; pool the shipped ranking and two baselines, blind (M8 crit. 2)."""
+
+    async def run(container: Container) -> bool:
+        texts = load_queries(queries)
+        if dry_run:
+            plan = UnderstandQuery(container.llm.client, texts).plan()
+            estimate = await container.llm.dry_run.estimate(plan)
+            typer.echo(
+                f"queries={len(texts)} calls={estimate.calls} cache_hits={estimate.cache_hits} "
+                f"expected=${estimate.expected_usd:.6f} worst_case=${estimate.worst_case_usd:.6f}"
+            )
+            return True
+        ctx = await container.jobs.start("relevance_queue", Decimal(budget_usd), {})
+        try:
+            built = await container.relevance_queue().run(name, texts, ctx)
+        except ReviewQueueExists:
+            await container.jobs.finish(ctx.job_id, JobStatus.FAILED)
+            typer.echo(f"queue {name} exists: queues are built once")
+            return False
+        await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
+        typer.echo(f"queue={name} queries={built.queued} review at /label/relevance")
+        for query, why in built.skipped.items():
+            typer.echo(f"  skipped {query}: {why}")
+        return built.queued > 0
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
+@discovery_app.command("relevance-eval")
+def discovery_relevance_eval(
+    queue: Annotated[str, typer.Option(help="Queue name.")] = "relevance-v1",
+    labeler: Annotated[str, typer.Option(help="Who judged.")] = "owner",
+    out: Annotated[Path | None, typer.Option(help="Also write a report (and JSON) here.")] = None,
+) -> None:
+    """M8 criterion 2: nDCG@10 and Recall@20 per system on the owner's relevance judgements."""
+
+    async def run(container: Container) -> bool:
+        r = await container.relevance_eval().run(queue, labeler)
+
+        def fmt(value: float | None) -> str:
+            return "-" if value is None else f"{value:.3f}"
+
+        lines = [
+            f"# Relevance evaluation: {queue}",
+            "",
+            f"`uv run villasanj discovery relevance-eval --queue {queue}`: {r.judged} of {r.total} "
+            f"queries fully judged by `{labeler}` ({r.judgements} judgements). Pooled: the shipped "
+            "ranking's top 20 and each baseline's top 10, shown blind; unjudged villas count as "
+            "not relevant. Recall@20 counts grades 1 and 2 as relevant.",
+            "",
+            "| System | nDCG@10 | Recall@20 | Queries |",
+            "|---|---|---|---|",
+            *(
+                f"| {s.system} | {fmt(s.ndcg_at_10)} | {fmt(s.recall_at_20)} | {s.queries} |"
+                for s in r.systems
+            ),
+            "",
+            "Systems: `ranking` is the shipped order (confirmed requested features first, then 60% "
+            "price per person and night, 40% Bayesian rating); `price` is cheapest first; `rating` "
+            "is best rated first, over the same filtered villas.",
+        ]
+        typer.echo("\n".join(lines))
+        if out is not None:
+            artifact = envelope(
+                "relevance",
+                f"uv run villasanj discovery relevance-eval --queue {queue}",
+                container.clock.now(),
+                {"queue": queue, "labeler": labeler},
+                {
+                    "total": r.total,
+                    "judged": r.judged,
+                    "judgements": r.judgements,
+                    "systems": [
+                        {
+                            "system": s.system,
+                            "ndcg_at_10": s.ndcg_at_10,
+                            "recall_at_20": s.recall_at_20,
+                            "queries": s.queries,
+                        }
+                        for s in r.systems
+                    ],
+                },
+            )
+            _write_report(out, "\n".join(lines) + "\n", artifact)
+            typer.echo(f"wrote {out}")
+        return True
+
+    asyncio.run(_with_container(run))
 
 
 @discovery_app.command("drive-times")

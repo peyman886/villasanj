@@ -1681,6 +1681,177 @@
         "title": "ProvenanceOut",
         "type": "object"
       },
+      "QueryReviewIn": {
+        "properties": {
+          "correct": {
+            "title": "Correct",
+            "type": "boolean"
+          },
+          "corrected": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrected"
+          },
+          "labeler": {
+            "default": "owner",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Labeler",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "position": {
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "queue": {
+            "default": "queries-v1",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Queue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "correct"
+        ],
+        "title": "QueryReviewIn",
+        "type": "object"
+      },
+      "QueryReviewTaskOut": {
+        "properties": {
+          "correct": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correct"
+          },
+          "corrected": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrected"
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "expected": {
+            "additionalProperties": true,
+            "title": "Expected",
+            "type": "object"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "queue": {
+            "title": "Queue",
+            "type": "string"
+          },
+          "reviewed": {
+            "title": "Reviewed",
+            "type": "integer"
+          },
+          "reviewer_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Note"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queue",
+          "position",
+          "total",
+          "reviewed",
+          "done",
+          "query",
+          "expected",
+          "note",
+          "correct",
+          "corrected",
+          "reviewer_note"
+        ],
+        "title": "QueryReviewTaskOut",
+        "type": "object"
+      },
+      "QueueProgressOut": {
+        "properties": {
+          "built": {
+            "title": "Built",
+            "type": "boolean"
+          },
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "queue": {
+            "title": "Queue",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queue",
+          "total",
+          "done",
+          "built"
+        ],
+        "title": "QueueProgressOut",
+        "type": "object"
+      },
       "RankingRulesOut": {
         "description": "The numbers the public \"how we rank\" page states, from the code that uses them.",
         "properties": {
@@ -1723,6 +1894,287 @@
           "origin"
         ],
         "title": "RankingRulesOut",
+        "type": "object"
+      },
+      "RelevanceIn": {
+        "properties": {
+          "grade": {
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Grade",
+            "type": "integer"
+          },
+          "labeler": {
+            "default": "owner",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Labeler",
+            "type": "string"
+          },
+          "listing": {
+            "maxLength": 96,
+            "minLength": 3,
+            "title": "Listing",
+            "type": "string"
+          },
+          "position": {
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "queue": {
+            "default": "relevance-v1",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Queue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "listing",
+          "grade"
+        ],
+        "title": "RelevanceIn",
+        "type": "object"
+      },
+      "RelevanceItemOut": {
+        "properties": {
+          "bedrooms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bedrooms"
+          },
+          "coast_m": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coast M"
+          },
+          "drive_min": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drive Min"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "listing": {
+            "title": "Listing",
+            "type": "string"
+          },
+          "max_capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Capacity"
+          },
+          "other_platforms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Other Platforms",
+            "type": "array"
+          },
+          "per_person_night_toman": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Person Night Toman"
+          },
+          "place": {
+            "title": "Place",
+            "type": "string"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_high_toman": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total High Toman"
+          },
+          "total_low_toman": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Low Toman"
+          },
+          "villa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Villa"
+          }
+        },
+        "required": [
+          "listing",
+          "villa",
+          "title",
+          "place",
+          "bedrooms",
+          "max_capacity",
+          "total_low_toman",
+          "total_high_toman",
+          "per_person_night_toman",
+          "rating",
+          "features",
+          "coast_m",
+          "drive_min",
+          "other_platforms",
+          "grade"
+        ],
+        "title": "RelevanceItemOut",
+        "type": "object"
+      },
+      "RelevanceTaskOut": {
+        "properties": {
+          "check_in": {
+            "title": "Check In",
+            "type": "string"
+          },
+          "check_out": {
+            "title": "Check Out",
+            "type": "string"
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "guests": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guests"
+          },
+          "intent": {
+            "additionalProperties": true,
+            "title": "Intent",
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RelevanceItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "queries_done": {
+            "title": "Queries Done",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "queue": {
+            "title": "Queue",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queue",
+          "position",
+          "total",
+          "queries_done",
+          "done",
+          "query",
+          "check_in",
+          "check_out",
+          "guests",
+          "intent",
+          "items"
+        ],
+        "title": "RelevanceTaskOut",
         "type": "object"
       },
       "ResultOut": {
@@ -3599,6 +4051,262 @@
         "summary": "Get Task",
         "tags": [
           "photo-labels"
+        ]
+      }
+    },
+    "/reviews/progress": {
+      "get": {
+        "description": "Every human queue the hub links to, built or not.",
+        "operationId": "progress_reviews_progress_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "labeler",
+            "required": false,
+            "schema": {
+              "default": "owner",
+              "title": "Labeler",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/QueueProgressOut"
+                  },
+                  "title": "Response Progress Reviews Progress Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Progress",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/reviews/queries": {
+      "post": {
+        "operationId": "post_query_verdict_reviews_queries_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Query Verdict",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/reviews/queries/task": {
+      "get": {
+        "operationId": "query_task_reviews_queries_task_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "queue",
+            "required": false,
+            "schema": {
+              "default": "queries-v1",
+              "title": "Queue",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "labeler",
+            "required": false,
+            "schema": {
+              "default": "owner",
+              "title": "Labeler",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "position",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryReviewTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Query Task",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/reviews/relevance": {
+      "post": {
+        "operationId": "post_relevance_reviews_relevance_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelevanceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Relevance",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/reviews/relevance/task": {
+      "get": {
+        "operationId": "relevance_task_reviews_relevance_task_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "queue",
+            "required": false,
+            "schema": {
+              "default": "relevance-v1",
+              "title": "Queue",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "labeler",
+            "required": false,
+            "schema": {
+              "default": "owner",
+              "title": "Labeler",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "position",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelevanceTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Relevance Task",
+        "tags": [
+          "reviews"
         ]
       }
     },

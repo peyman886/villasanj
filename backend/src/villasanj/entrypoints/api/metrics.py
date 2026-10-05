@@ -149,6 +149,21 @@ async def get_metrics(request: Request) -> MetricsOut:
         labelling.append(
             LabellingOut(queue="claims-v1", total=claims.total, labelled=claims.labelled)
         )
+    human = await container.labeling().progress("er-human", "owner")
+    if human is not None:
+        labelling.append(LabellingOut(queue="er-human", total=human[0], labelled=human[1]))
+    queries = await container.query_reviewing().task("queries-v1", "owner")
+    if queries is not None:
+        labelling.append(
+            LabellingOut(queue="queries-v1", total=queries.total, labelled=queries.reviewed)
+        )
+    relevance = await container.relevance_reviewing().task("relevance-v1", "owner")
+    if relevance is not None:
+        labelling.append(
+            LabellingOut(
+                queue="relevance-v1", total=relevance.total, labelled=relevance.queries_done
+            )
+        )
     photos_task = await container.photo_labeling().task("photos-v1", "owner")
     if photos_task is not None:
         labelling.append(

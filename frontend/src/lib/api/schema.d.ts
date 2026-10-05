@@ -325,6 +325,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reviews/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Progress
+         * @description Every human queue the hub links to, built or not.
+         */
+        get: operations["progress_reviews_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reviews/queries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Query Verdict */
+        post: operations["post_query_verdict_reviews_queries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reviews/queries/task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Query Task */
+        get: operations["query_task_reviews_queries_task_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reviews/relevance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Relevance */
+        post: operations["post_relevance_reviews_relevance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reviews/relevance/task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Relevance Task */
+        get: operations["relevance_task_reviews_relevance_task_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scenarios": {
         parameters: {
             query?: never;
@@ -1133,6 +1221,69 @@ export interface components {
             snapshot_id: string | null;
             source: components["schemas"]["SourceOut"] | null;
         };
+        /** QueryReviewIn */
+        QueryReviewIn: {
+            /** Correct */
+            correct: boolean;
+            /** Corrected */
+            corrected?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Labeler
+             * @default owner
+             */
+            labeler: string;
+            /** Note */
+            note?: string | null;
+            /** Position */
+            position: number;
+            /**
+             * Queue
+             * @default queries-v1
+             */
+            queue: string;
+        };
+        /** QueryReviewTaskOut */
+        QueryReviewTaskOut: {
+            /** Correct */
+            correct: boolean | null;
+            /** Corrected */
+            corrected: {
+                [key: string]: unknown;
+            } | null;
+            /** Done */
+            done: boolean;
+            /** Expected */
+            expected: {
+                [key: string]: unknown;
+            };
+            /** Note */
+            note: string;
+            /** Position */
+            position: number;
+            /** Query */
+            query: string;
+            /** Queue */
+            queue: string;
+            /** Reviewed */
+            reviewed: number;
+            /** Reviewer Note */
+            reviewer_note: string | null;
+            /** Total */
+            total: number;
+        };
+        /** QueueProgressOut */
+        QueueProgressOut: {
+            /** Built */
+            built: boolean;
+            /** Done */
+            done: number;
+            /** Queue */
+            queue: string;
+            /** Total */
+            total: number;
+        };
         /**
          * RankingRulesOut
          * @description The numbers the public "how we rank" page states, from the code that uses them.
@@ -1150,6 +1301,85 @@ export interface components {
             weights: {
                 [key: string]: number;
             };
+        };
+        /** RelevanceIn */
+        RelevanceIn: {
+            /** Grade */
+            grade: number;
+            /**
+             * Labeler
+             * @default owner
+             */
+            labeler: string;
+            /** Listing */
+            listing: string;
+            /** Position */
+            position: number;
+            /**
+             * Queue
+             * @default relevance-v1
+             */
+            queue: string;
+        };
+        /** RelevanceItemOut */
+        RelevanceItemOut: {
+            /** Bedrooms */
+            bedrooms: number | null;
+            /** Coast M */
+            coast_m: number[] | null;
+            /** Drive Min */
+            drive_min: number[] | null;
+            /** Features */
+            features: string[];
+            /** Grade */
+            grade: number | null;
+            /** Listing */
+            listing: string;
+            /** Max Capacity */
+            max_capacity: number | null;
+            /** Other Platforms */
+            other_platforms: string[];
+            /** Per Person Night Toman */
+            per_person_night_toman: number | null;
+            /** Place */
+            place: string;
+            /** Rating */
+            rating: number | null;
+            /** Title */
+            title: string;
+            /** Total High Toman */
+            total_high_toman: number | null;
+            /** Total Low Toman */
+            total_low_toman: number | null;
+            /** Villa */
+            villa: string | null;
+        };
+        /** RelevanceTaskOut */
+        RelevanceTaskOut: {
+            /** Check In */
+            check_in: string;
+            /** Check Out */
+            check_out: string;
+            /** Done */
+            done: boolean;
+            /** Guests */
+            guests: number | null;
+            /** Intent */
+            intent: {
+                [key: string]: unknown;
+            };
+            /** Items */
+            items: components["schemas"]["RelevanceItemOut"][];
+            /** Position */
+            position: number;
+            /** Queries Done */
+            queries_done: number;
+            /** Query */
+            query: string;
+            /** Queue */
+            queue: string;
+            /** Total */
+            total: number;
         };
         /** ResultOut */
         ResultOut: {
@@ -1973,6 +2203,165 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PhotoTaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    progress_reviews_progress_get: {
+        parameters: {
+            query?: {
+                labeler?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueProgressOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_query_verdict_reviews_queries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueryReviewIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    query_task_reviews_queries_task_get: {
+        parameters: {
+            query?: {
+                queue?: string;
+                labeler?: string;
+                position?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueryReviewTaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_relevance_reviews_relevance_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelevanceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    relevance_task_reviews_relevance_task_get: {
+        parameters: {
+            query?: {
+                queue?: string;
+                labeler?: string;
+                position?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelevanceTaskOut"];
                 };
             };
             /** @description Validation Error */

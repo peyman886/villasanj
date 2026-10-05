@@ -25,10 +25,19 @@ from villasanj.catalog.infrastructure.repositories import (
 )
 from villasanj.discovery.application.dates import BuildHolidayCalendar
 from villasanj.discovery.application.hypotheses import BuildHypothesisReport
+from villasanj.discovery.application.reviews import (
+    BuildQueryReviewQueue,
+    BuildRelevanceQueue,
+    EvaluateRelevance,
+    ExportReviewedQueries,
+    QueryReviewing,
+    RelevanceReviewing,
+)
 from villasanj.discovery.application.routing import ComputeDriveTimes, Origin
 from villasanj.discovery.application.search import SearchListings
 from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.infrastructure.holidays import load_holiday_sources
+from villasanj.discovery.infrastructure.reviews import PgReviewStore
 from villasanj.discovery.infrastructure.routing import (
     OsrmRoutingService,
     PgDriveTimeStore,
@@ -465,6 +474,27 @@ class Container:
 
     def summary_review_eval(self) -> EvaluateSummaryReviews:
         return EvaluateSummaryReviews(PgSummaryReviewStore(self.engine))
+
+    def reviews(self) -> PgReviewStore:
+        return PgReviewStore(self.engine)
+
+    def query_review_queue(self) -> BuildQueryReviewQueue:
+        return BuildQueryReviewQueue(self.reviews(), self.clock)
+
+    def query_reviewing(self) -> QueryReviewing:
+        return QueryReviewing(self.reviews(), self.clock)
+
+    def reviewed_queries(self) -> ExportReviewedQueries:
+        return ExportReviewedQueries(self.reviews())
+
+    def relevance_queue(self) -> BuildRelevanceQueue:
+        return BuildRelevanceQueue(self.search(), self.reviews(), self.clock)
+
+    def relevance_reviewing(self) -> RelevanceReviewing:
+        return RelevanceReviewing(self.reviews(), self.clock)
+
+    def relevance_eval(self) -> EvaluateRelevance:
+        return EvaluateRelevance(self.reviews())
 
     def review_summaries(self) -> SummarizeReviews:
         return SummarizeReviews(self.llm.client, self.listings)
