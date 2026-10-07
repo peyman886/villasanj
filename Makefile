@@ -72,6 +72,7 @@ test-smoke: ## 50 sampled listing pages render without errors (E2E_API_URL, E2E_
 	cd frontend && PLAYWRIGHT_HTML_OPEN=never npx playwright test --grep @smoke
 
 quality-report: ## reports/quality-<date>.json: every suite's result, lint, coverage (app must be up for E2E)
+	$(MAKE) roadmap  # the drift test runs inside the report: start from the current artifacts
 	cd backend && uv run python ../infra/reports/quality.py
 	$(MAKE) roadmap
 

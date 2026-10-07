@@ -43,8 +43,14 @@ test.describe("owner's reviews", () => {
     // No rank or system name is shown on a card.
     await expect(cards.first()).not.toContainText(/ranking|price|rating|رتبه‌ی/);
     await expect(page.locator("html[data-review-keys=on]")).toHaveCount(1); // hydrated
-    await page.keyboard.press("ArrowDown");
-    await expect(cards.nth(1)).toHaveClass(/border-brand-500/);
+    // The selection starts on the first card not graded yet (the owner may have started).
+    const selected = await cards.evaluateAll((items) =>
+      items.findIndex((li) => li.className.includes("border-brand-500")),
+    );
+    const count = await cards.count();
+    await page.keyboard.press(selected < count - 1 ? "ArrowDown" : "ArrowUp");
+    const next = selected < count - 1 ? selected + 1 : selected - 1;
+    await expect(cards.nth(next)).toHaveClass(/border-brand-500/);
     await noSeriousViolations(page);
   });
 });

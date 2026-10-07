@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "kind": "quality",
+  "command": "make quality-report",
+  "generated_at": "2026-10-07T01:23:01.250225+00:00",
+  "provenance": {
+    "commit": "60218c0",
+    "e2e": true,
+    "e2e_base_url": "http://localhost:3300",
+    "e2e_api_url": "http://127.0.0.1:8800"
+  },
+  "data": {
+    "suites": [
+      {
+        "name": "backend: unit + architecture",
+        "passed": 817,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 10.6
+      },
+      {
+        "name": "backend: integration (Postgres)",
+        "passed": 41,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 8.6
+      },
+      {
+        "name": "frontend: unit",
+        "passed": 45,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 1.0
+      },
+      {
+        "name": "E2E (Playwright, axe)",
+        "passed": 51,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 133.1
+      },
+      {
+        "name": "smoke (sampled pages)",
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 37.5
+      }
+    ],
+    "coverage": [
+      {
+        "name": "domain",
+        "percent": 99.0
+      },
+      {
+        "name": "pricing domain",
+        "percent": 100.0
+      },
+      {
+        "name": "all",
+        "percent": 81.0
+      }
+    ],
+    "lint": {
+      "ok": true,
+      "seconds": 7.0
+    }
+  }
+}

@@ -115,7 +115,7 @@ from `/review`.
 | M7 | 1 | OpenAPI generated; TS client strict; contract tests | ✅ done | make openapi-check. |
 | M7 | 2 | Smoke over 50 multi-platform villas | ✅ done | Two smoke tests (50 sampled listings, 50 sampled two-platform villas): 2 passed, 0 failed. |
 | M7 | 3 | Every number links to its provenance (E2E) | ✅ done | 10 random numbers on listing, villa and search pages. |
-| M7 | 4 | No critical axe violations; keyboard | ✅ done | E2E (with axe): 48 passed, 0 failed. |
+| M7 | 4 | No critical axe violations; keyboard | ✅ done | E2E (with axe): 51 passed, 0 failed. |
 | M7 | 5 | p95 villa + offers < 300 ms | ✅ done | p95 10.4 ms on 50 villas. |
 | M8 | 1 | Query understanding eval on 50 queries | ⚠️ provisional | On the agent-written 50-query draft: 100% slots, 0 invented numbers, p95 1.4 s; provisional until the owner's review at /label/queries. |
 | M8 | 2 | Retrieval eval: 30 queries with judged relevant villas | 👤 needs the owner | 30 queries with 946 pooled villas from the shipped ranking and two baselines (cheapest, best rated), blind, await the owner's grades at /label/relevance. FTS and dense retrieval are not built; dense ships only if it lifts nDCG@10 by ≥ 0.03. |
@@ -133,7 +133,7 @@ from `/review`.
 | M11 | 1 | make demo from a local bundle, no network but cached LLM answers | ✅ done | Separate project on :3400, cached model answers only, no outbound request; photos stay hotlinked. |
 | M11 | 2 | Every number in the demo script in a generated report | ✅ done | docs/demo-script.md and the demo guide page. |
 | M11 | 3 | LLM spend ≤ $30 and reconciled with the dashboard | ✅ done | The ledger is under the $30 cap and the owner confirmed it against the AvalAI dashboard (2026-10-05). |
-| M11 | 4 | E2E green for the storyboard paths | ✅ done | 48 E2E tests, 0 failed. |
+| M11 | 4 | E2E green for the storyboard paths | ✅ done | 51 E2E tests, 0 failed. |
 <!-- generated:criteria:end -->
 
 ### Still open
