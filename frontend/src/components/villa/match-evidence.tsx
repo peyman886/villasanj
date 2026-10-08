@@ -125,7 +125,7 @@ export function MatchEvidence({ pairs, members }: { pairs: MatchPair[]; members:
   const byId = new Map(members.map((m) => [m.id, m]));
   return (
     <section id="match" aria-labelledby="match-title" className="scroll-mt-28 group/match">
-      <h2 id="match-title" className="text-xl font-bold text-balance">
+      <h2 id="match-title" tabIndex={-1} className="focus-ring text-xl font-bold text-balance">
         چرا مطمئنیم این آگهی‌ها یک ویلاست؟
       </h2>
       {pairs.map((pair) => {

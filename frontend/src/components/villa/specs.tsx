@@ -1,3 +1,5 @@
+import { Bath, BedDouble, House, Ruler, UserPlus, Users, type LucideIcon } from "lucide-react";
+
 import { Sourced } from "@/components/sourced";
 import type { Listing, Villa } from "@/lib/api/client";
 import { COPY } from "@/lib/copy";
@@ -8,13 +10,38 @@ import { platformRank } from "@/lib/platforms";
 type Field =
   "property_type" | "bedrooms" | "bathrooms" | "area_m2" | "base_capacity" | "max_capacity";
 
-const FIELDS: { key: Field; label: string; text: (v: number | string) => string }[] = [
-  { key: "property_type", label: "نوع", text: (v) => faPropertyType(String(v)) },
-  { key: "bedrooms", label: "اتاق خواب", text: (v) => `${faNum(Number(v))} خوابه` },
-  { key: "bathrooms", label: "سرویس بهداشتی", text: (v) => `${faNum(Number(v))} سرویس` },
-  { key: "base_capacity", label: "ظرفیت پایه", text: (v) => `ظرفیت پایه ${faNum(Number(v))} نفر` },
-  { key: "max_capacity", label: "حداکثر ظرفیت", text: (v) => `تا ${faNum(Number(v))} مهمان` },
-  { key: "area_m2", label: "متراژ", text: (v) => `${faNum(Number(v))} متر` },
+const FIELDS: {
+  key: Field;
+  label: string;
+  Icon: LucideIcon;
+  text: (v: number | string) => string;
+}[] = [
+  { key: "property_type", label: "نوع", Icon: House, text: (v) => faPropertyType(String(v)) },
+  {
+    key: "bedrooms",
+    label: "اتاق خواب",
+    Icon: BedDouble,
+    text: (v) => `${faNum(Number(v))} خوابه`,
+  },
+  {
+    key: "bathrooms",
+    label: "سرویس بهداشتی",
+    Icon: Bath,
+    text: (v) => `${faNum(Number(v))} سرویس`,
+  },
+  {
+    key: "base_capacity",
+    label: "ظرفیت پایه",
+    Icon: Users,
+    text: (v) => `ظرفیت پایه ${faNum(Number(v))} نفر`,
+  },
+  {
+    key: "max_capacity",
+    label: "حداکثر ظرفیت",
+    Icon: UserPlus,
+    text: (v) => `تا ${faNum(Number(v))} مهمان`,
+  },
+  { key: "area_m2", label: "متراژ", Icon: Ruler, text: (v) => `${faNum(Number(v))} متر` },
 ];
 
 /**
@@ -38,19 +65,14 @@ export function Specs({ villa, now }: { villa: Villa; now: Date }) {
   const rows = FIELDS.filter((f) => differing.has(f.key));
   return (
     <section id="stay" aria-labelledby="stay-title" className="scroll-mt-28">
-      <h2 id="stay-title" className="text-xl font-bold">
+      <h2 id="stay-title" tabIndex={-1} className="focus-ring text-xl font-bold">
         اقامت
       </h2>
       {agreed.length ? (
-        <p className="mt-2 text-base tabular-nums">
-          {agreed.map((a, i) => (
-            <span key={a.field.key}>
-              {i > 0 ? (
-                <span aria-hidden="true" className="text-fg-subtle">
-                  {" "}
-                  ∙{" "}
-                </span>
-              ) : null}
+        <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-base tabular-nums" data-specs="">
+          {agreed.map((a) => (
+            <li key={a.field.key} className="flex items-center gap-1.5">
+              <a.field.Icon aria-hidden="true" className="size-4 text-fg-muted" />
               <Sourced
                 quiet
                 id={`spec-${a.field.key}`}
@@ -61,9 +83,9 @@ export function Specs({ villa, now }: { villa: Villa; now: Date }) {
               >
                 {a.field.text(a.value)}
               </Sourced>
-            </span>
+            </li>
           ))}
-        </p>
+        </ul>
       ) : null}
       {rows.length ? (
         <table className="mt-4 w-full max-w-lg text-sm">

@@ -269,11 +269,7 @@ export default async function ListingPage(props: {
             now={now}
             summary={
               <Suspense fallback={<ReviewSummarySkeleton />}>
-                <ReviewSummarySection
-                  platform={platform}
-                  id={id}
-                  order={Object.fromEntries(data.reviews.map((r, index) => [r.id, index + 1]))}
-                />
+                <ReviewSummarySection platform={platform} id={id} />
               </Suspense>
             }
           />

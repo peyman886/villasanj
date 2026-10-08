@@ -29,12 +29,9 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <Link
-          href="/docs"
-          className={buttonClass("secondary", "sm", "ms-auto hidden md:inline-flex")}
-        >
+        <Link href="/docs" className={buttonClass("ghost", "sm", "ms-auto hidden md:inline-flex")}>
           <BookOpenText aria-hidden="true" className="size-4" />
-          مستندات پروژه
+          برای داوران
         </Link>
         <details className="group relative ms-auto md:hidden">
           <summary
@@ -68,7 +65,7 @@ export function SiteHeader() {
               className="focus-ring mt-1 flex items-center gap-2 rounded-control border-t border-line px-3 py-2.5 text-sm font-medium text-accent hover:bg-brand-50"
             >
               <BookOpenText aria-hidden="true" className="size-4" />
-              مستندات پروژه / گزارش فنی
+              برای داوران: گزارش فنی
             </Link>
           </nav>
         </details>

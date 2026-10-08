@@ -58,12 +58,15 @@ test.describe("listing page", () => {
   test("summary points cite reviews that are on the page (M10)", async ({ page }) => {
     const summary = page.locator("#summary-title");
     await expect(summary).toBeVisible({ timeout: 60_000 }); // streamed after the page
+    // Each point's chip filters the list to the reviews it cites (M12 2.4): they must be here.
     const targets = await page
-      .locator("[aria-labelledby=summary-title] a[href^='#review-']")
-      .evaluateAll((links) => links.map((a) => a.getAttribute("href") ?? ""));
+      .locator("[aria-labelledby=summary-title] [data-cite-chip]")
+      .evaluateAll((chips) =>
+        chips.flatMap((c) => (c.getAttribute("data-anchors") ?? "").split(" ")),
+      );
     expect(targets.length).toBeGreaterThan(0);
     for (const target of new Set(targets)) {
-      await expect(page.locator(target)).toHaveCount(1);
+      await expect(page.locator(`[id="${target}"]`)).toHaveCount(1);
     }
   });
 });

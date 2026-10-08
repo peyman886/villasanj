@@ -25,7 +25,9 @@ Context files (local):
   wave 1 done 2026-10-08 (`reports/m12-wave-1-2026-10-08.md`): split-view search with price pins,
   Torob-style cards, booking card, two-platform Jalali calendar, «چرا مطمئنیم؟», deduplicated
   gallery; presentation rules in ADR-0015 (`frontend/src/lib/numbers.ts`, `lib/copy.ts`). Demo
-  villa `v-6331f454983f` (`scripts/pick_demo_villa.py`, rule D8.4 + A26).
+  villa `v-6331f454983f` (`scripts/pick_demo_villa.py`, rule D8.4 + A26). Wave 2 done
+  (`reports/m12-wave-2-2026-10-08.md`): highlights and grouped truth check, anchor nav, review
+  citation chips, the new home page, colour-discipline test (`content/tokens.test.ts`), demo script.
 - **Every milestone M0–M11 is done (2026-10-08).** Status per criterion is
   generated from `frontend/src/content/milestones.ts` + `reports/*.json` into `docs/ROADMAP.md`
   (top) and shown at `/docs/milestones`; a Vitest test fails when they drift (`make roadmap`).

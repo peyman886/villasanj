@@ -1,6 +1,7 @@
 import { MessageSquareReply, Quote, Sparkles, Star, ThumbsDown, ThumbsUp } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { CiteChip, ReviewFilter } from "@/components/listing/review-filter";
 import { Sourced } from "@/components/sourced";
 import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/ui/callout";
@@ -107,17 +108,19 @@ export function ReviewsSection({
       {shown.length === 0 ? (
         <p className="text-sm text-fg-muted">نظری ذخیره نشده است.</p>
       ) : (
-        <ol className="mt-4 divide-y divide-line rounded-card border border-line bg-surface">
-          {shown.map((review, index) => (
-            <ReviewItem
-              key={review.id}
-              review={review}
-              index={index}
-              sourceName={listing.platform_name}
-              now={now}
-            />
-          ))}
-        </ol>
+        <ReviewFilter>
+          <ol className="mt-4 divide-y divide-line rounded-card border border-line bg-surface">
+            {shown.map((review, index) => (
+              <ReviewItem
+                key={review.id}
+                review={review}
+                index={index}
+                sourceName={listing.platform_name}
+                now={now}
+              />
+            ))}
+          </ol>
+        </ReviewFilter>
       )}
       {reviews.length > shown.length ? (
         <p className="mt-2 text-sm text-fg-muted">
@@ -135,14 +138,16 @@ function SummaryList({
   title,
   icon,
   points,
-  order,
+  minReviews,
 }: {
   title: string;
   icon: ReactNode;
   points: SummaryPoint[];
-  order: Record<string, number>; // review id -> its number in the list below
+  minReviews: number;
 }) {
-  if (points.length === 0) return null;
+  // A point fewer than two reviews make is not shown (M12 2.4; Amazon's rule for highlights).
+  const shown = points.filter((p) => p.review_ids.length >= minReviews);
+  if (shown.length === 0) return null;
   return (
     <div>
       <h3 className="flex items-center gap-1.5 text-sm font-semibold">
@@ -150,24 +155,10 @@ function SummaryList({
         {title}
       </h3>
       <ul className="mt-2 space-y-2 text-sm">
-        {points.map((point) => (
+        {shown.map((point) => (
           <li key={point.text} className="text-pretty">
             {point.text}{" "}
-            <span className="text-xs text-fg-muted">
-              {point.single_opinion ? "(نظر یک مهمان: " : "(بر اساس "}
-              {point.review_ids.map((id, index) => (
-                <span key={id}>
-                  {index > 0 ? "، " : ""}
-                  <a
-                    href={`#${reviewAnchor(id)}`}
-                    className="focus-ring rounded-sm text-accent underline underline-offset-4"
-                  >
-                    نظر {faNumber(order[id] ?? index + 1)}
-                  </a>
-                </span>
-              ))}
-              )
-            </span>
+            <CiteChip anchors={point.review_ids.map(reviewAnchor)} label={point.text} />
           </li>
         ))}
       </ul>
@@ -175,15 +166,15 @@ function SummaryList({
   );
 }
 
-/** A summary's pros and cons; each point links to the reviews it cites (``order`` numbers them). */
+/** A summary's pros and cons; each point's chip filters the list to the reviews it cites. */
 export function SummaryCard({
   summary,
-  order,
   title,
+  minReviews = 2,
 }: {
   summary: Summary | null;
-  order: Record<string, number>;
   title?: string;
+  minReviews?: number; // the owner's review tool shows every point (1)
 }) {
   if (!summary || (summary.pros.length === 0 && summary.cons.length === 0)) return null;
   return (
@@ -206,18 +197,18 @@ export function SummaryCard({
           title="خوب‌ها"
           icon={<ThumbsUp aria-hidden="true" className="size-4 text-brand-700" />}
           points={summary.pros}
-          order={order}
+          minReviews={minReviews}
         />
         <SummaryList
           title="ایرادها"
-          icon={<ThumbsDown aria-hidden="true" className="size-4 text-amber-700" />}
+          icon={<ThumbsDown aria-hidden="true" className="size-4 text-fg-muted" />}
           points={summary.cons}
-          order={order}
+          minReviews={minReviews}
         />
       </div>
       <p className="mt-4 text-xs text-fg-muted">
-        هر نکته به نظرهایی که آن را گفته‌اند پیوند دارد؛ متن خلاصه را مدل زبانی نوشته و پیش از نمایش
-        بررسی شده است.
+        عدد کنار هر نکته نظرهایی را که آن را گفته‌اند نشان می‌دهد؛ متن را مدل زبانی نوشته و پیش از
+        نمایش بررسی شده است.
       </p>
     </section>
   );
@@ -252,15 +243,15 @@ export async function fetchListingSummary(platform: string, id: string): Promise
 export async function ReviewSummarySection({
   platform,
   id,
-  order,
+  minReviews = 2,
 }: {
   platform: string;
   id: string;
-  order: Record<string, number>;
+  minReviews?: number;
 }) {
   const outcome = await fetchListingSummary(platform, id);
   if (outcome.unavailable) return <SummaryUnavailable />;
-  return <SummaryCard summary={outcome.summary} order={order} />;
+  return <SummaryCard summary={outcome.summary} minReviews={minReviews} />;
 }
 
 export function ReviewSummarySkeleton() {

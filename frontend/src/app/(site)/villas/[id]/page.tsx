@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { ListingMap } from "@/components/listing-map";
-import { ClaimsSection } from "@/components/listing/claims";
+import { ClaimGroups } from "@/components/listing/claims";
+import { ReviewFilter } from "@/components/listing/review-filter";
 import { OfferCell } from "@/components/listing/offers";
 import {
   ReviewItem,
@@ -18,8 +19,10 @@ import { Sourced } from "@/components/sourced";
 import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/ui/callout";
 import { DataTable } from "@/components/ui/table";
+import { AnchorNav } from "@/components/villa/anchor-nav";
 import { BookingCard, type Stay } from "@/components/villa/booking-card";
 import { VillaGallery } from "@/components/villa/gallery";
+import { Highlights } from "@/components/villa/highlights";
 import { MatchEvidence, type MatchPair } from "@/components/villa/match-evidence";
 import { Specs } from "@/components/villa/specs";
 import { SplitCalendar } from "@/components/villa/split-calendar";
@@ -39,6 +42,7 @@ import { CLAIM_TARGET_TEXT, faDay, iranToday } from "@/lib/listing";
 import { faDigits, faNum, rating } from "@/lib/numbers";
 import { platformRank } from "@/lib/platforms";
 import { FEATURE_TEXT } from "@/lib/search";
+import { verifiedHighlights } from "@/lib/truth";
 
 export const metadata: Metadata = { title: "ویلا" };
 
@@ -94,7 +98,8 @@ async function load(id: string, params: SearchParams, now: Date) {
   const maxGuests = Math.max(...members.map((m) => m.max_capacity ?? m.base_capacity ?? 0), 1);
   const scenarios = (await api.GET("/scenarios", NO_STORE)).data ?? [];
   const stay = stayFrom(params, scenarios, Math.max(maxGuests, 20));
-  const [match, calendar, reviews, claims, offers, samples] = await Promise.all([
+  const located = members.find((m) => m.location);
+  const [match, calendar, reviews, claims, offers, samples, geo] = await Promise.all([
     api.GET("/villas/{villa_id}/match", { params: { path }, ...NO_STORE }),
     api.GET("/villas/{villa_id}/calendar", {
       params: { path, query: { start, end: addDays(start, CALENDAR_DAYS) } },
@@ -136,6 +141,14 @@ async function load(id: string, params: SearchParams, now: Date) {
         ),
       })),
     ),
+    located
+      ? api.GET("/listings/{platform}/{external_id}/geo", {
+          params: {
+            path: { platform: located.platform, external_id: located.id.split(":")[1] ?? "" },
+          },
+          ...NO_STORE,
+        })
+      : Promise.resolve({ data: null }),
   ]);
   return {
     villa: { ...villa.data, members },
@@ -148,6 +161,7 @@ async function load(id: string, params: SearchParams, now: Date) {
     samples: samples as ScenarioOffers[],
     stay,
     maxGuests: Math.max(maxGuests, stay.guests),
+    geo: geo.data ?? null,
   };
 }
 
@@ -160,31 +174,9 @@ const SECTIONS = [
   ["truth", "حقیقت‌سنجی"],
 ] as const;
 
-function AnchorNav() {
-  return (
-    <nav
-      aria-label="بخش‌های صفحه"
-      className="sticky top-16 z-20 -mx-4 border-b border-line bg-canvas/95 px-4 backdrop-blur sm:-mx-6 sm:px-6"
-    >
-      <ul className="flex gap-1 overflow-x-auto py-1 text-sm">
-        {SECTIONS.map(([id, label]) => (
-          <li key={id}>
-            <a
-              href={`#${id}`}
-              className="focus-ring block rounded-control px-3 py-2 whitespace-nowrap text-fg-muted hover:bg-sunken hover:text-fg"
-            >
-              {label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
-
 function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <h2 id={`${id}-title`} className="text-xl font-bold text-balance">
+    <h2 id={`${id}-title`} tabIndex={-1} className="focus-ring text-xl font-bold text-balance">
       {children}
     </h2>
   );
@@ -330,19 +322,12 @@ async function fetchVillaSummary(villaId: string): Promise<SummaryOutcome> {
   }
 }
 
-async function VillaReviewSummary({
-  villaId,
-  order,
-}: {
-  villaId: string;
-  order: Record<string, number>;
-}) {
+async function VillaReviewSummary({ villaId }: { villaId: string }) {
   const { summary, unavailable } = await fetchVillaSummary(villaId);
   if (unavailable) return <SummaryUnavailable />;
   return (
     <SummaryCard
       summary={summary}
-      order={order}
       {...(summary
         ? { title: `خلاصه‌ی ${faNum(summary.reviews_given)} نظر اخیر از همه‌ی پلتفرم‌ها` }
         : {})}
@@ -352,7 +337,6 @@ async function VillaReviewSummary({
 
 function Reviews({ villa, reviews, now }: { villa: Villa; reviews: VillaReview[]; now: Date }) {
   const shown = reviews.slice(0, MAX_REVIEWS);
-  const order = Object.fromEntries(shown.map((r, index) => [villaReviewKey(r), index + 1]));
   return (
     <section id="reviews" aria-labelledby="reviews-title" className="scroll-mt-28 space-y-4">
       <div>
@@ -367,24 +351,26 @@ function Reviews({ villa, reviews, now }: { villa: Villa; reviews: VillaReview[]
         </p>
       </div>
       <Suspense fallback={<ReviewSummarySkeleton />}>
-        <VillaReviewSummary villaId={villa.id} order={order} />
+        <VillaReviewSummary villaId={villa.id} />
       </Suspense>
-      <ol className="divide-y divide-line rounded-card border border-line bg-surface">
-        {shown.map((review, index) => {
-          const member = villa.members.find((m) => m.platform === review.platform);
-          return (
-            <ReviewItem
-              key={villaReviewKey(review)}
-              review={review}
-              index={index}
-              idPrefix={`${review.platform}:`}
-              badge={<Badge tone="muted">{member?.platform_name ?? review.platform}</Badge>}
-              sourceName={member?.platform_name ?? review.platform}
-              now={now}
-            />
-          );
-        })}
-      </ol>
+      <ReviewFilter>
+        <ol className="divide-y divide-line rounded-card border border-line bg-surface">
+          {shown.map((review, index) => {
+            const member = villa.members.find((m) => m.platform === review.platform);
+            return (
+              <ReviewItem
+                key={villaReviewKey(review)}
+                review={review}
+                index={index}
+                idPrefix={`${review.platform}:`}
+                badge={<Badge tone="muted">{member?.platform_name ?? review.platform}</Badge>}
+                sourceName={member?.platform_name ?? review.platform}
+                now={now}
+              />
+            );
+          })}
+        </ol>
+      </ReviewFilter>
     </section>
   );
 }
@@ -421,7 +407,7 @@ export default async function VillaPage(props: {
         </span>
         <span>ویلا</span>
       </nav>
-      <header className="mt-3">
+      <header data-villa-header="" className="mt-3">
         <h1 className="text-2xl font-bold text-balance sm:text-3xl">
           {first ? faDigits(first.title) : "ویلا"}
         </h1>
@@ -455,9 +441,26 @@ export default async function VillaPage(props: {
       <div className="mt-5">
         <VillaGallery gallery={villa.gallery} />
       </div>
+      <div className="mt-6">
+        <Highlights
+          claims={verifiedHighlights(
+            data.claims.map(([listing, claims]) => ({
+              platformName: listing.platform_name,
+              claims,
+            })),
+            (f) => FEATURE_TEXT[f] ?? f,
+            2, // then the measured distance, the drive time and the ratings
+          )}
+          geo={data.geo}
+          ratingValue={villa.rating}
+          ratingCount={villa.rating_count}
+          platforms={villa.members.filter((m) => m.rating_count).length}
+          now={now}
+        />
+      </div>
       <div className="mt-6 grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-12">
-          <AnchorNav />
+          <AnchorNav sections={SECTIONS} />
           <Specs villa={villa} now={now} />
           {multi && data.match.length > 0 ? (
             <MatchEvidence pairs={data.match} members={villa.members} />
@@ -508,15 +511,14 @@ export default async function VillaPage(props: {
           <Reviews villa={villa} reviews={data.reviews} now={now} />
           <section id="truth" aria-labelledby="truth-title" className="scroll-mt-28 space-y-6">
             <SectionTitle id="truth">حقیقت‌سنجی</SectionTitle>
-            {data.claims.map(([member, claims]) => (
-              <ClaimsSection
-                key={member.id}
-                listing={member}
-                claims={claims}
-                now={now}
-                idPrefix={`${member.platform}-`}
-              />
-            ))}
+            <ClaimGroups
+              sources={data.claims.map(([listing, claims]) => ({
+                listing,
+                claims,
+                idPrefix: `${listing.platform}-`,
+              }))}
+              now={now}
+            />
           </section>
         </div>
         <aside aria-label={COPY.platforms} className="lg:sticky lg:top-24 lg:self-start">

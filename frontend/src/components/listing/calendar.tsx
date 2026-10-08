@@ -63,7 +63,7 @@ function NightCell({ night, listing, now }: { night: CalendarNight; listing: Lis
       className={cn(
         "block min-h-14 w-full rounded-control border p-1 text-center no-underline transition-colors sm:p-1.5",
         CELL_TONE[night.availability] ?? "border-line bg-sunken text-fg-muted",
-        night.is_holiday && "ring-1 ring-amber-400 ring-inset",
+        night.is_holiday && "ring-1 ring-line-strong ring-inset",
       )}
     >
       <span className="block font-semibold tabular-nums">{faDayOfMonth(night.night)}</span>
@@ -77,7 +77,7 @@ function NightCell({ night, listing, now }: { night: CalendarNight; listing: Lis
         </span>
       )}
       {night.is_holiday ? (
-        <span className="block text-[0.65rem] leading-tight font-medium text-amber-800">تعطیل</span>
+        <span className="block text-[0.65rem] leading-tight font-semibold text-fg">تعطیل</span>
       ) : null}
     </Sourced>
   );

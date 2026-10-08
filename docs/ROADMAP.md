@@ -53,7 +53,7 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M9 | Enrichment & truth check | ✅ done | 5/5 |
 | M10 | Reviews & “why this villa?” | ✅ done (2026-10-05) | 3/4 (+1 closed by the owner) |
 | M11 | Demo polish | ✅ done (2026-10-05) | 4/4 |
-| M12 | UX redesign & public release | ◐ partly done | 9/22 |
+| M12 | UX redesign & public release | ◐ partly done | 17/22 |
 <!-- generated:summary:end -->
 
 ### The owner's decisions of 2026-10-05
@@ -154,14 +154,14 @@ from `/review`.
 | M12 | 7 | 1.7: Gallery without duplicates | ✅ done | Unit test on a fixture villa with a known duplicate; E2E on the demo villa (hash distance over 10 bits). |
 | M12 | 8 | 1.8: Two-platform Jalali calendar | ✅ done | E2E: Saturday first, two halves, states by hatch and outline, keyboard range picking, screen-reader labels. |
 | M12 | 9 | 1.9: Match evidence («چرا مطمئنیم؟») | ✅ done | Unit test maps each line to a stored field; E2E: photo pairs equal the API's, 2 to 3 lines, three decision steps. |
-| M12 | 10 | 2.1: Evidence-backed highlights; grouped truth check | ❌ not met | In progress. |
-| M12 | 11 | 2.2: Sticky anchor navigation | ❌ not met | In progress. |
-| M12 | 12 | 2.3: Specs: agreed line, differences table | ❌ not met | In progress. |
-| M12 | 13 | 2.4: Review citation chips | ❌ not met | In progress. |
-| M12 | 14 | 2.5: Home page | ❌ not met | In progress. |
-| M12 | 15 | 2.6: Drawers | ❌ not met | In progress. |
-| M12 | 16 | 2.7: Tokens and contrast | ❌ not met | In progress. |
-| M12 | 17 | 2.8: Demo script | ❌ not met | In progress. |
+| M12 | 10 | 2.1: Evidence-backed highlights; grouped truth check | ✅ done | 3 to 5 highlights from verified evidence only (map, photos, measurements, ratings); groups تأیید شد / تأیید نشد / با نقشه نمی‌خواند, no progress bar; the blur note once per group (E2E). |
+| M12 | 11 | 2.2: Sticky anchor navigation | ✅ done | The section in view is marked; a click moves focus to its heading (E2E). |
+| M12 | 12 | 2.3: Specs: agreed line, differences table | ✅ done | An icon line for agreed fields, a table only for «دو عدد متفاوت»; the search card shows the area as a range (E2E). |
+| M12 | 13 | 2.4: Review citation chips | ✅ done | One chip per point filters the list; points from fewer than 2 reviews are hidden; both «امتیاز» and «نظر» counts in the header (E2E). |
+| M12 | 14 | 2.5: Home page | ✅ done | No stats cards, principles or dark box; the two-platform villas right after the hero with each platform's price; one proof strip to /metrics with numbers from the ER artifact; «برای داوران» in the footer (E2E). |
+| M12 | 15 | 2.6: Drawers | ✅ done | «قیمت‌های نمونه» closed on load; the exclusions drawer on search; no empty drive-time bucket (E2E and unit test). |
+| M12 | 16 | 2.7: Tokens and contrast | ✅ done | axe: no serious violation on home, search and villa; tokens.test.ts allows amber and red only where the copy rules do. |
+| M12 | 17 | 2.8: Demo script | ✅ done | docs/demo-script.md on the new paths and words («ناموجود», «از»); every number names its report. |
 | M12 | 18 | 3.1: Mobile search with a map button | ❌ not met | In progress. |
 | M12 | 19 | 3.2: Search this area | ❌ not met | In progress. |
 | M12 | 20 | 3.3: Mobile villa page | ❌ not met | In progress. |
@@ -173,7 +173,7 @@ from `/review`.
 
 <!-- generated:open:begin -->
 - **Not met:**
-  - M12 runs end to end without stops: M12 crit. 10, M12 crit. 11, M12 crit. 12, M12 crit. 13, M12 crit. 14, M12 crit. 15, M12 crit. 16, M12 crit. 17, M12 crit. 18, M12 crit. 19, M12 crit. 20, M12 crit. 21, M12 crit. 22 (waves 2 and 3, then the public release).
+  - M12 runs end to end without stops: M12 crit. 18, M12 crit. 19, M12 crit. 20, M12 crit. 21, M12 crit. 22 (waves 2 and 3, then the public release).
 <!-- generated:open:end -->
 
 ---|---|---|---|

@@ -165,7 +165,70 @@ test.describe("villa page", () => {
     expect(lines).toBeLessThanOrEqual(3);
     await expect(section.locator("[data-decision]")).toHaveCount(3);
     // The technical ER paragraph is no longer at the top of the page.
-    await expect(page.locator("main header")).not.toContainText("داور مدل‌زبانی");
+    await expect(page.locator("[data-villa-header]")).not.toContainText("داور مدل‌زبانی");
+  });
+
+  test("highlights are verified facts with their source; the truth check is grouped (2.1)", async ({
+    page,
+  }) => {
+    await open(page);
+    const highlights = page.locator("[data-highlights] > li");
+    const n = await highlights.count();
+    expect(n).toBeGreaterThanOrEqual(3);
+    expect(n).toBeLessThanOrEqual(5);
+    for (const h of await highlights.all()) {
+      await expect(h).toContainText(/تأیید شد|اندازه‌گیری شد|روی نقشه|امتیاز|پلتفرم/);
+    }
+    const groups = page.locator("#truth [data-group]");
+    expect(await groups.count()).toBeGreaterThan(0);
+    const order = await groups.evaluateAll((els) => els.map((e) => e.getAttribute("data-group")));
+    const rank = ["verified", "not_verified", "map_disagrees", "not_checked"];
+    expect(order).toEqual([...order].sort((a, b) => rank.indexOf(a ?? "") - rank.indexOf(b ?? "")));
+    // No score bar, and the blur note at most once per group.
+    await expect(page.locator("#truth [style*='width']")).toHaveCount(0);
+    const notes = await page.locator("#truth").getByText("تا ۵۰۰ متر خطا فرض شده").count();
+    expect(notes).toBeLessThanOrEqual(await groups.count());
+  });
+
+  test("the section bar follows the scroll and moves focus to the heading (2.2)", async ({
+    page,
+  }) => {
+    await open(page);
+    const nav = page.getByRole("navigation", { name: "بخش‌های صفحه" });
+    await nav.getByRole("link", { name: "نظرها" }).click();
+    await expect(page.locator("#reviews-title")).toBeFocused();
+    await expect(nav.getByRole("link", { name: "نظرها" })).toHaveAttribute(
+      "aria-current",
+      "location",
+      { timeout: 5_000 },
+    );
+  });
+
+  test("specs agree on one line; differences get «دو عدد متفاوت» (2.3)", async ({ page }) => {
+    await open(page);
+    await expect(page.locator("#stay [data-specs] > li").first()).toBeVisible();
+    await expect(page.locator("#stay table")).toContainText("دو عدد متفاوت");
+  });
+
+  test("a summary point's chip filters the reviews to the ones it cites (2.4)", async ({
+    page,
+  }) => {
+    await open(page);
+    const chip = page.locator("[data-cite-chip]").first();
+    await expect(chip).toBeVisible({ timeout: 30_000 });
+    const label = (await chip.textContent()) ?? "";
+    const cited = Number(
+      label.replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0)).replace(/[^0-9]/g, ""),
+    );
+    expect(cited).toBeGreaterThanOrEqual(2);
+    const reviews = page.locator("#reviews li[id^='review-']");
+    const all = await reviews.count();
+    await chip.click();
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#reviews li[id^='review-']:visible")).toHaveCount(cited);
+    await page.getByRole("button", { name: "همه‌ی نظرها" }).click();
+    await expect(page.locator("#reviews li[id^='review-']:visible")).toHaveCount(all);
+    await expect(page.locator("[data-villa-header]")).toContainText(/[۰-۹]+ امتیاز · [۰-۹]+ نظر/);
   });
 
   test("words and digits follow the copy rules", async ({ page }) => {

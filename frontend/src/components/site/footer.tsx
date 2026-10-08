@@ -5,7 +5,7 @@ import { LogoMark } from "@/components/site/logo";
 export function SiteFooter() {
   return (
     <footer className="mt-24 border-t border-line bg-surface">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-sm sm:px-6 md:grid-cols-[1.5fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm sm:px-6 md:grid-cols-[1.5fr_1fr_1fr]">
         <div>
           <div className="flex items-center gap-2">
             <LogoMark className="size-7" />
@@ -37,13 +37,13 @@ export function SiteFooter() {
             سنجه‌ها
           </Link>
         </nav>
-        <nav aria-label="مستندات" className="space-y-2">
-          <p className="font-semibold">مستندات</p>
+        <nav aria-label="برای داوران" className="space-y-2">
+          <p className="font-semibold">برای داوران</p>
           <Link
             className="focus-ring block w-fit rounded-sm text-fg-muted hover:text-fg"
             href="/docs"
           >
-            گزارش فنی پروژه
+            گزارش فنی و روش کار
           </Link>
           <Link
             className="focus-ring block w-fit rounded-sm text-fg-muted hover:text-fg"

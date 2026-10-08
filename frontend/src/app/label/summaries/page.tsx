@@ -8,6 +8,7 @@ import { apiBaseUrl } from "@/lib/health";
 import { faNumber, faStayed } from "@/lib/listing";
 import { fetchSummaryReviewTask } from "@/lib/summary-reviews";
 
+import { ReviewFilter } from "@/components/listing/review-filter";
 import {
   ReviewSummarySection,
   ReviewSummarySkeleton,
@@ -57,7 +58,6 @@ export default async function SummaryReviewPage(props: { searchParams: Promise<S
     api.GET("/listings/{platform}/{external_id}/reviews", { params: { path }, cache: "no-store" }),
   ]);
   const shown: Review[] = (reviews.data ?? []).slice(0, MAX_REVIEWS);
-  const order = Object.fromEntries(shown.map((r, index) => [r.id, index + 1]));
   return (
     <main className="mx-auto max-w-3xl px-4 pt-6 pb-16">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
@@ -81,7 +81,7 @@ export default async function SummaryReviewPage(props: { searchParams: Promise<S
         </Link>
       </h2>
       <Suspense fallback={<ReviewSummarySkeleton />}>
-        <ReviewSummarySection platform={task.platform} id={task.external_id} order={order} />
+        <ReviewSummarySection platform={task.platform} id={task.external_id} minReviews={1} />
       </Suspense>
       <VerdictForm
         key={`${task.platform}/${task.external_id}`}
@@ -93,18 +93,20 @@ export default async function SummaryReviewPage(props: { searchParams: Promise<S
         <h2 id="raw-title" className="font-medium">
           نظرهای خام ({faNumber(shown.length)})
         </h2>
-        <ol className="mt-3 divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
-          {shown.map((review, index) => (
-            <li key={review.id} id={reviewAnchor(review.id)} className="scroll-mt-4 p-3 text-sm">
-              <p className="text-xs text-stone-600 tabular-nums">
-                نظر {faNumber(index + 1)} ·{" "}
-                {review.rating === null ? "بدون امتیاز" : `${faNumber(review.rating)} از ۵`} ·{" "}
-                {faStayed(review)}
-              </p>
-              <p className="mt-1 text-pretty">{review.text ?? "بدون متن"}</p>
-            </li>
-          ))}
-        </ol>
+        <ReviewFilter>
+          <ol className="mt-3 divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
+            {shown.map((review, index) => (
+              <li key={review.id} id={reviewAnchor(review.id)} className="scroll-mt-4 p-3 text-sm">
+                <p className="text-xs text-stone-600 tabular-nums">
+                  نظر {faNumber(index + 1)} ·{" "}
+                  {review.rating === null ? "بدون امتیاز" : `${faNumber(review.rating)} از ۵`} ·{" "}
+                  {faStayed(review)}
+                </p>
+                <p className="mt-1 text-pretty">{review.text ?? "بدون متن"}</p>
+              </li>
+            ))}
+          </ol>
+        </ReviewFilter>
       </section>
     </main>
   );
