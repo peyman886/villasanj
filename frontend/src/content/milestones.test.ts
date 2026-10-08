@@ -40,6 +40,7 @@ function loadEvidence(): Evidence {
     quality: newest("quality"),
     perf: newest("performance"),
     relevance: newest("relevance"),
+    understanding: newest("understanding"),
   };
 }
 
@@ -80,6 +81,8 @@ const KIND_EN = {
 } as const;
 
 function openBlock(): string {
+  if (OPEN_ITEMS.length === 0)
+    return "Nothing is open: every criterion is done or closed by the owner.";
   return (Object.keys(KIND_EN) as (keyof typeof KIND_EN)[])
     .map((k) => {
       const items = OPEN_ITEMS.filter((i) => i.kind === k).map((i) => `  - ${i.en}`);

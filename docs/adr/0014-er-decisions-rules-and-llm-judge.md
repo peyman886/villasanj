@@ -137,3 +137,23 @@ on both platforms) to 3,283 (305); H1–H3 follow the policy (`reports/hypothese
 The bake-off, re-scored from the cache on the revised labels, separates the models further
 (ADR-0005). Decision 2's "merges neither rule false match" is superseded: the judge is now the
 precision guard of the rules.
+
+
+## Amendment (the human queue labelled, 2026-10-08)
+
+The owner labelled all 376 pairs of `er-human` (74 same villa, 263 not, 39 unsure; where photos
+were missing the owner chose unsure or not, and opened listings on the platforms to tell units of
+one property apart). `reports/er-eval-2026-10-08.md`, section "The human queue against the judge":
+
+| Why queued | Same villa | Not the same | Unsure |
+|---|---|---|---|
+| judge suggested a match below the threshold | 70 | 2 | 11 |
+| judge vetoed a rule match | 1 | 77 | 3 |
+| judge unsure | 3 | 184 | 25 |
+
+The judge's suggested matches were confirmed in 70 of 72 decided pairs (97.2%, Wilson 90.4–99.2%)
+and its vetoes in 77 of 78 (98.7%, 93.1–99.8%). These are the judge's own pairs, not a random
+sample, so they measure its calls in the zone, not the matcher's precision. The suggestions'
+lower bound is still under 92%, so `judge_merges` stays off for new candidates; every pair the
+judge suggested is decided by the owner anyway. With the labels as must-links the catalog has 3,211
+villas, 377 on both platforms (was 305); the gold-v1 evaluation is unchanged.

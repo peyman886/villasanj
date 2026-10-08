@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Heading } from "@/components/docs/prose";
 import { Badge } from "@/components/ui/badge";
+import { Callout } from "@/components/ui/callout";
 import { STATUS, StatusBadge } from "@/components/ui/status";
 import {
   MILESTONES,
@@ -224,6 +225,13 @@ export function OpenItems({ only }: { only?: OpenItem["kind"][] }) {
   const kinds = (only ?? (["not_met", "blocked", "avalai", "owner"] as const)).filter((k) =>
     OPEN_ITEMS.some((i) => i.kind === k),
   );
+  if (kinds.length === 0) {
+    return (
+      <Callout kind="verified" title="هیچ کاری باز نیست">
+        همه‌ی معیارهای پذیرش M0 تا M11 یا انجام شده‌اند یا مالک صریحاً آن‌ها را بسته است.
+      </Callout>
+    );
+  }
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {kinds.map((k) => {

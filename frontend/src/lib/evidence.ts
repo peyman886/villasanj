@@ -7,7 +7,7 @@ import { allOf, latest, type JudgeEval } from "@/lib/artifacts";
 
 /** The newest artifact of each kind, the inputs of every milestone criterion's evidence. */
 export const loadEvidence = cache(async (): Promise<Evidence> => {
-  const [er, hyp, h4, judges, quality, perf, relevance] = await Promise.all([
+  const [er, hyp, h4, judges, quality, perf, relevance, understanding] = await Promise.all([
     latest("er-eval"),
     latest("hypotheses"),
     latest("h4"),
@@ -15,6 +15,7 @@ export const loadEvidence = cache(async (): Promise<Evidence> => {
     latest("quality"),
     latest("performance"),
     latest("relevance"),
+    latest("understanding"),
   ]);
   const judge: Record<string, JudgeEval> = {};
   for (const a of judges) {
@@ -29,5 +30,6 @@ export const loadEvidence = cache(async (): Promise<Evidence> => {
     quality: quality?.data ?? null,
     perf: perf?.data ?? null,
     relevance: relevance?.data ?? null,
+    understanding: understanding?.data ?? null,
   };
 });

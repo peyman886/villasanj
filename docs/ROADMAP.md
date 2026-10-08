@@ -49,7 +49,7 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M5 | Full entity resolution | ✅ done (2026-10-04) | 7/7 |
 | M6 | Pricing complete & offers | ✅ done (2026-10-05) | 3/4 (+1 closed by the owner) |
 | M7 | API & canonical villa page | ✅ done (2026-10-03) | 5/5 |
-| M8 | Search: intent, retrieval, ranking, drive time | ◐ partly done | 2/4 |
+| M8 | Search: intent, retrieval, ranking, drive time | ✅ done (2026-10-08) | 3/4 (+1 closed by the owner) |
 | M9 | Enrichment & truth check | ✅ done | 5/5 |
 | M10 | Reviews & “why this villa?” | ✅ done (2026-10-05) | 3/4 (+1 closed by the owner) |
 | M11 | Demo polish | ✅ done (2026-10-05) | 4/4 |
@@ -65,6 +65,16 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 "Closed by the owner" is not "done": those criteria did not reach their target, and the table says
 so. The remaining human reviews (the M8 query set, M8 relevance, `er-human`) have UI tools linked
 from `/review`.
+
+### The owner's decisions and reviews of 2026-10-08
+
+- The owner labelled all 376 pairs of `er-human`, reviewed and accepted all 50 cases of the query
+  set, and fully graded 11 of the 30 relevance queries; no further labelling tasks are created.
+- M8 crit. 1: met on the reviewed set (uncached: 99.3% slots, 0 invented, p95 2.1 s).
+- M8 crit. 2: closed by the owner with the 11 judged queries (shipped ranking nDCG@10 0.786 vs 0.581
+  for both baselines; FTS and dense retrieval not built). Every milestone is now done.
+- The vision check for sea view and fireplace was built and measured (ADR-0005 amendment); it does
+  not reach 85% against the labels and is not used.
 
 ### Every criterion with its evidence
 
@@ -105,7 +115,7 @@ from `/review`.
 | M5 | 2 | End-to-end precision ≥ 95% (Wilson low ≥ 92%), recall reported | ✅ done | Configured policy (judge vetoes, a human merges): precision 100.0% (95.9–100.0%), recall 65.0% (41.5–83.0%). Rules alone at −0.25 no longer pass: 91.9% (84.7–95.9%). |
 | M5 | 3 | Pairwise P/R/F1, B-cubed, PR curve; reproducible | ✅ done | reports/er-eval-*.md from er report, with the match run and dataset hash. |
 | M5 | 4 | Judge bake-off; MATCH precision ≥ 95% | ✅ done | gemini-3.8-flash on 141 gold pairs: 71 correct MATCH verdicts, 0 false; stratum-weighted precision 100.0% (75.4–100.0%) (wide because strata carry different weights). |
-| M5 | 5 | ≤ 1 listing per platform; every merge traceable | ✅ done | DB constraint and tests; merges by decider: human 118, rule 187. |
+| M5 | 5 | ≤ 1 listing per platform; every merge traceable | ✅ done | DB constraint and tests; merges by decider: human 191, rule 186. |
 | M5 | 6 | Ablations (H5) | ✅ done | Photos alone and other evidence alone miss the bar; together they clear it. |
 | M5 | 7 | Human queue; idempotent resolution | ✅ done | Queue er-human: disputed 81, suggested 83, unsure 212; each label rebuilds the villas. |
 | M6 | 1 | Every quote component has provenance (property test) | ✅ done | test_every_quote_carries_provenance_for_every_component. |
@@ -117,14 +127,14 @@ from `/review`.
 | M7 | 3 | Every number links to its provenance (E2E) | ✅ done | 10 random numbers on listing, villa and search pages. |
 | M7 | 4 | No critical axe violations; keyboard | ✅ done | E2E (with axe): 51 passed, 0 failed. |
 | M7 | 5 | p95 villa + offers < 300 ms | ✅ done | p95 10.4 ms on 50 villas. |
-| M8 | 1 | Query understanding eval on 50 queries | ⚠️ provisional | On the agent-written 50-query draft: 100% slots, 0 invented numbers, p95 1.4 s; provisional until the owner's review at /label/queries. |
-| M8 | 2 | Retrieval eval: 30 queries with judged relevant villas | 👤 needs the owner | 30 queries with 946 pooled villas from the shipped ranking and two baselines (cheapest, best rated), blind, await the owner's grades at /label/relevance. FTS and dense retrieval are not built; dense ships only if it lifts nDCG@10 by ≥ 0.03. |
+| M8 | 1 | Query understanding eval on 50 queries | ✅ done | The owner reviewed and accepted all 50 cases; on that set, uncached: slots 99.3%, exact 98.0%, 0 invented numbers, gpt-5.4-mini p95 2085 ms. |
+| M8 | 2 | Retrieval eval: 30 queries with judged relevant villas | ☑️ closed by the owner | The owner fully judged 11 of 30 queries and closed the criterion with them (2026-10-08): ranking nDCG@10 0.786, price nDCG@10 0.581, rating nDCG@10 0.581. The shipped ranking beats both baselines; FTS and dense retrieval were not built. |
 | M8 | 3 | Drive time for 100% of villas, coverage note | ✅ done | Free-flow OSRM from Azadi Square for all 3,588 listings. |
 | M8 | 4 | Score breakdown in API and UI | ✅ done | 'Why this rank?' on every result card. |
 | M9 | 1 | Claim extraction on 60 descriptions: P ≥ 90%, R ≥ 80% | ✅ done | Rules + LLM residue: precision 93.7% (84.8–97.5%), recall 80.8% (70.3–88.2%); every quote verbatim (2026-10-03). |
-| M9 | 2 | Photo tags on 300 photos; < 85% precision unused | ✅ done | 336 owner labels; pool, jacuzzi, forest, barbecue used; sea view and fireplace not. |
+| M9 | 2 | Photo tags on 300 photos; < 85% precision unused | ✅ done | 336 owner labels; pool, jacuzzi, forest, barbecue used. Sea view and fireplace reach 85% neither with SigLIP nor with a vision model (2026-10-08: 73% and 69%) and are not used. |
 | M9 | 3 | Verdict rule tests (best case; walk and drive) | ✅ done | Unit tests. |
-| M9 | 4 | H4 measured with CI | ✅ done | jabama 9.8% (8.6–11.1%), shab 5.3% (3.8–7.5%); the ≥ 25% hypothesis is not supported. |
+| M9 | 4 | H4 measured with CI | ✅ done | jabama 9.7% (8.5–11.0%), shab 5.5% (3.9–7.6%); the ≥ 25% hypothesis is not supported. |
 | M9 | 5 | Dry-run estimate within ±25% of the ledger | ✅ done | Review summaries +3%; claim reading +22% after counting repeated requests once. |
 | M10 | 1 | Verifier unit tests | ✅ done | Digits outside slots, unknown slots, contradicting comparisons, uncited points. |
 | M10 | 2 | 100% of displayed text verified; fallback rate | ✅ done | 0% template in the explanation eval; 48/48 summaries first try; without a model, the template. |
@@ -139,15 +149,7 @@ from `/review`.
 ### Still open
 
 <!-- generated:open:begin -->
-- **Needs AvalAI calls:**
-  - After the query-set review: re-run the understanding eval on it (about $0.07).
-  - Optional: VLM checks for sea view and fireplace (not built; about $1 estimated).
-- **Needs the owner:**
-  - Review the 50-query set at /label/queries (M8 crit. 1).
-  - Grade the 946 pooled villas of 30 queries at /label/relevance (M8 crit. 2).
-  - Label the er-human queue at /label?queue=er-human as far as useful; the judge's 83 suggestions first.
-  - Review the villa page UX (M7).
-  - Whether the offline demo may serve local copies of photos.
+Nothing is open: every criterion is done or closed by the owner.
 <!-- generated:open:end -->
 
 ---|---|---|---|

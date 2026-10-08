@@ -11,13 +11,13 @@ async function noSeriousViolations(page: Page) {
 }
 
 test.describe("owner's reviews", () => {
-  test("the hub lists the open queues with their progress and links", async ({ page }) => {
+  test("the hub lists every queue with its tool and says when all are closed", async ({ page }) => {
     await page.goto("/review");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("بازبینی‌های مالک");
     for (const href of ["/label/queries", "/label/relevance", "/label?queue=er-human"]) {
       await expect(page.locator(`main a[href="${href}"]`)).toBeVisible();
     }
-    await expect(page.getByRole("progressbar").first()).toBeVisible();
+    await expect(page.getByText("همه‌ی بازبینی‌ها بسته شده‌اند")).toBeVisible();
     await noSeriousViolations(page);
   });
 

@@ -39,6 +39,11 @@ export default async function ReviewHub() {
         <ClipboardList aria-hidden="true" className="size-5 text-fg-muted" />
         باقی‌مانده
       </h2>
+      {open.length === 0 ? (
+        <Callout kind="verified" title="همه‌ی بازبینی‌ها بسته شده‌اند" className="mt-4">
+          مالک گفته صف تازه‌ای ساخته نشود؛ نتیجه‌ی هر صف در مستندات آمده است.
+        </Callout>
+      ) : null}
       <ul className="mt-4 grid gap-4 md:grid-cols-3">
         {open.map((q) => {
           const p = byQueue.get(q.queue);

@@ -15,6 +15,7 @@ import type {
   Performance,
   Quality,
   Relevance,
+  Understanding,
 } from "@/lib/artifacts";
 import { faDecimal, faInt, faInterval, faPercent, faRatio } from "@/lib/format";
 
@@ -28,6 +29,7 @@ export type Evidence = {
   quality: Quality | null;
   perf: Performance | null;
   relevance?: Relevance | null;
+  understanding?: Understanding | null;
 };
 
 type Text = string | ((e: Evidence) => string);
@@ -666,44 +668,54 @@ export const MILESTONES: Milestone[] = [
     id: "M8",
     name_fa: "جستجو، رتبه و زمان رانندگی",
     name_en: "Search: intent, retrieval, ranking, drive time",
-    status: "partial",
+    status: "done",
+    date: "2026-10-08",
     summary_fa: "فهم پرسش با محافظ عدد، رتبه‌ی شفاف، گروه‌بندی ویلا و زمان رانندگی.",
     criteria: [
       {
         n: 1,
         title_fa: "ارزیابی فهم پرسش روی ۵۰ پرسش",
         title_en: "Query understanding eval on 50 queries",
-        status: "provisional",
-        evidence_fa:
-          "روی پیش‌نویس ۵۰ پرسش (نوشته‌ی عامل): ۱۰۰٪ اسلات، ۰ عدد ساختگی، p95 ۱٫۴ ثانیه؛ تا بازبینی مالک در /label/queries موقت است.",
-        evidence_en:
-          "On the agent-written 50-query draft: 100% slots, 0 invented numbers, p95 1.4 s; provisional until the owner's review at /label/queries.",
+        status: "done",
+        evidence_fa: (e) => {
+          const u = e.understanding;
+          if (!u) return "مالک هر ۵۰ پرسش را بازبینی کرد.";
+          const p95 = u.latency
+            .map((l) => `${l.model} p95 ${faInt(l.p95_ms)} میلی‌ثانیه`)
+            .join("، ");
+          return `مالک هر ۵۰ پرسش را بازبینی و تأیید کرد؛ روی همین مجموعه بدون کش: اسلات ${faPercent(u.slot_accuracy)}، کاملاً درست ${faPercent(u.exact_match)}، ${faInt(u.invented)} عدد ساختگی، ${p95}.`;
+        },
+        evidence_en: (e) => {
+          const u = e.understanding;
+          if (!u) return "The owner reviewed all 50 queries.";
+          const p95 = u.latency.map((l) => `${l.model} p95 ${l.p95_ms} ms`).join(", ");
+          return `The owner reviewed and accepted all 50 cases; on that set, uncached: slots ${(u.slot_accuracy * 100).toFixed(1)}%, exact ${(u.exact_match * 100).toFixed(1)}%, ${u.invented} invented numbers, ${p95}.`;
+        },
       },
       {
         n: 2,
         title_fa: "ارزیابی بازیابی با ۳۰ پرسش داوری‌شده",
         title_en: "Retrieval eval: 30 queries with judged relevant villas",
-        status: "owner_review",
+        status: "waived",
         evidence_fa: (e) =>
           e.relevance
-            ? `${faInt(e.relevance.judged)} از ${faInt(e.relevance.total)} پرسش داوری‌شده: ` +
+            ? `مالک ${faInt(e.relevance.judged)} پرسش از ${faInt(e.relevance.total)} را کامل داوری کرد و معیار را با همین بست (۱۶ مهر): ` +
               e.relevance.systems
                 .map(
                   (x) =>
-                    `${x.system} nDCG@10 ${x.ndcg_at_10 === null ? "—" : faDecimal(x.ndcg_at_10, 3)}، Recall@20 ${x.recall_at_20 === null ? "—" : faDecimal(x.recall_at_20, 3)}`,
+                    `${x.system} nDCG@10 ${x.ndcg_at_10 === null ? "—" : faDecimal(x.ndcg_at_10, 3)}`,
                 )
-                .join("؛ ")
-            : "۳۰ پرسش با ۹۴۶ ویلای تجمیع‌شده از رتبه‌بندی فعلی و دو baseline (ارزان‌ترین و بهترین امتیاز)، کور، در /label/relevance منتظر داوری مالک است. FTS و جستجوی برداری ساخته نشده‌اند؛ برداری فقط اگر nDCG@10 را دست‌کم ۰٫۰۳ بهتر کند.",
+                .join("، ") +
+              ". رتبه‌بندی فعلی از هر دو baseline بهتر است؛ FTS و جستجوی برداری ساخته نشدند."
+            : "مالک معیار را با داوری‌های موجود بست (۱۶ مهر).",
         evidence_en: (e) =>
           e.relevance
-            ? `${e.relevance.judged}/${e.relevance.total} queries judged: ` +
+            ? `The owner fully judged ${e.relevance.judged} of ${e.relevance.total} queries and closed the criterion with them (2026-10-08): ` +
               e.relevance.systems
-                .map(
-                  (x) =>
-                    `${x.system} nDCG@10 ${x.ndcg_at_10?.toFixed(3) ?? "-"}, Recall@20 ${x.recall_at_20?.toFixed(3) ?? "-"}`,
-                )
-                .join("; ")
-            : "30 queries with 946 pooled villas from the shipped ranking and two baselines (cheapest, best rated), blind, await the owner's grades at /label/relevance. FTS and dense retrieval are not built; dense ships only if it lifts nDCG@10 by ≥ 0.03.",
+                .map((x) => `${x.system} nDCG@10 ${x.ndcg_at_10?.toFixed(3) ?? "-"}`)
+                .join(", ") +
+              ". The shipped ranking beats both baselines; FTS and dense retrieval were not built."
+            : "The owner closed the criterion with the judgements given (2026-10-08).",
       },
       {
         n: 3,
@@ -746,9 +758,9 @@ export const MILESTONES: Milestone[] = [
         title_en: "Photo tags on 300 photos; < 85% precision unused",
         status: "done",
         evidence_fa:
-          "۳۳۶ برچسب مالک؛ استخر، جکوزی، جنگل و باربیکیو استفاده می‌شوند؛ منظره‌ی دریا و شومینه نه.",
+          "۳۳۶ برچسب مالک؛ استخر، جکوزی، جنگل و باربیکیو استفاده می‌شوند. منظره‌ی دریا و شومینه نه SigLIP و نه مدل بینایی (۱۶ مهر، دقت ۷۳ و ۶۹٪) به ۸۵٪ نرسیدند و استفاده نمی‌شوند.",
         evidence_en:
-          "336 owner labels; pool, jacuzzi, forest, barbecue used; sea view and fireplace not.",
+          "336 owner labels; pool, jacuzzi, forest, barbecue used. Sea view and fireplace reach 85% neither with SigLIP nor with a vision model (2026-10-08: 73% and 69%) and are not used.",
       },
       {
         n: 3,
@@ -904,40 +916,4 @@ export const STATUS_EN: Record<Status, string> = {
 /** What is still open, and why: the honest list for /docs/limitations and the ROADMAP. */
 export type OpenItem = { kind: "owner" | "avalai" | "blocked" | "not_met"; fa: string; en: string };
 
-export const OPEN_ITEMS: OpenItem[] = [
-  {
-    kind: "owner",
-    fa: "بازبینی مجموعه‌ی ۵۰ پرسش جستجو در /label/queries (M8 معیار ۱).",
-    en: "Review the 50-query set at /label/queries (M8 crit. 1).",
-  },
-  {
-    kind: "owner",
-    fa: "داوری مرتبط‌بودن ۹۴۶ ویلای تجمیع‌شده برای ۳۰ پرسش در /label/relevance (M8 معیار ۲).",
-    en: "Grade the 946 pooled villas of 30 queries at /label/relevance (M8 crit. 2).",
-  },
-  {
-    kind: "owner",
-    fa: "برچسب‌زدن صف er-human در /label?queue=er-human تا هر جا مفید است؛ اول ۸۳ پیشنهاد داور.",
-    en: "Label the er-human queue at /label?queue=er-human as far as useful; the judge's 83 suggestions first.",
-  },
-  {
-    kind: "owner",
-    fa: "بازبینی تجربه‌ی کاربری صفحه‌ی ویلا (M7).",
-    en: "Review the villa page UX (M7).",
-  },
-  {
-    kind: "owner",
-    fa: "اینکه دموی آفلاین نسخه‌ی محلی عکس‌ها را نشان بدهد یا نه.",
-    en: "Whether the offline demo may serve local copies of photos.",
-  },
-  {
-    kind: "avalai",
-    fa: "پس از بازبینی مجموعه‌ی پرسش‌ها: اجرای دوباره‌ی ارزیابی فهم پرسش روی آن (حدود ۰٫۰۷ دلار).",
-    en: "After the query-set review: re-run the understanding eval on it (about $0.07).",
-  },
-  {
-    kind: "avalai",
-    fa: "اختیاری: بررسی تصویری منظره‌ی دریا و شومینه با مدل بینایی (ساخته نشده؛ برآورد حدود ۱ دلار).",
-    en: "Optional: VLM checks for sea view and fireplace (not built; about $1 estimated).",
-  },
-];
+export const OPEN_ITEMS: OpenItem[] = [];

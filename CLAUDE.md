@@ -21,28 +21,27 @@ Context files (local):
 
 ## Current status
 
-- **All milestones done except M8** (2026-10-05). Status per criterion is generated from
-  `frontend/src/content/milestones.ts` + `reports/*.json` into `docs/ROADMAP.md` (top) and shown at
-  `/docs/milestones`; a Vitest test fails when they drift (`make roadmap` regenerates).
-- **Owner's decisions 2026-10-05** (status `waived` = "closed by the owner", not "done"): M4 crit. 1
-  (no new platforms), M6 crit. 3 (no public direct quote), M10 crit. 4 (explanation latency
-  accepted with the cache). M1 crit. 8 / M11 crit. 3: the owner reconciled the ledger → done.
-  Amendments in ADR-0011 and ADR-0005.
-- **Open: M8 crit. 1 (provisional) and crit. 2 (owner review).** Review UIs, hub at `/review`:
-  `/label/queries` (queue `queries-v1`, the 50 drafted cases: correct / corrected / rejected),
-  `/label/relevance` (queue `relevance-v1`, 30 queries, 946 pooled villas graded 0–2 blind),
-  `/label?queue=er-human` (376 pairs; the judge's 83 suggestions first). Storage
-  `discovery.review_case` / `review_label` (migration 0018). After the reviews:
-  `discovery query-review-export eval/query-understanding/reviewed-v1.jsonl` then
-  `discovery eval-understanding` on it (~$0.07), and
-  `discovery relevance-eval --out reports/relevance-<date>.md` (no LLM; the portal and ROADMAP
-  read the `relevance` artifact).
-- ER: policy "judge vetoes, a human merges" (`config/er.toml`), P 100% (95.9–100%), R 65.0%;
-  3,283 villas, 305 on both platforms; 48 complex-unit labels revised 2026-10-04 (`er.label_revision`).
-- **AvalAI** recharged 2026-10-05 with a new key and little credit (~$5). Demo paths are warm in
-  the cache (three passes; the last made 0 provider calls). Ledger ~$12.39 of the $30 cap.
-  Without credit the pages degrade (no weaker workarounds: owner's rule).
-- Pending owner decisions: local photo copies for the offline demo, the M7 UX review.
+- **Every milestone M0–M11 is done (2026-10-08); nothing is open.** Status per criterion is
+  generated from `frontend/src/content/milestones.ts` + `reports/*.json` into `docs/ROADMAP.md`
+  (top) and shown at `/docs/milestones`; a Vitest test fails when they drift (`make roadmap`).
+- **Closed by the owner** (status `waived`, not "done"): M4 crit. 1 (no new platforms), M6 crit. 3
+  (no public direct quote), M10 crit. 4 (explanation latency accepted with the cache), M8 crit. 2
+  (relevance eval on 11 judged queries instead of 30: shipped ranking nDCG@10 0.786 vs 0.581 for
+  both baselines, `reports/relevance-2026-10-08.md`).
+- **Owner's instruction 2026-10-08: no new labelling tasks.** Done: `er-human` all 376 pairs
+  (judge suggestions confirmed 70/72, vetoes 77/78; ADR-0014 amendment), `queries-v1` all 50
+  accepted (M8 crit. 1 met: 99.3% slots, 0 invented, p95 2.1 s uncached,
+  `reports/understanding-2026-10-08.md`), `relevance-v1` 11 of 30 queries.
+- ER: policy "judge vetoes, a human merges" (`config/er.toml`), gold-v1 P 100% (95.9–100%), R 65.0%;
+  with the owner's labels as must-links: 3,211 villas, 377 on both platforms
+  (`reports/er-eval-2026-10-08.md`). H1–H3 count the matcher's own predictions and are unchanged
+  (`hypotheses-2026-10-04`); H4 follows the villas (`h4-2026-10-08`).
+- Vision check for sea view / fireplace (`enrichment vlm-tags`, `photo-tags-eval --vlm`): measured
+  73% / 69% precision against the owner's labels, not used (spot checks suggest label misses).
+- **AvalAI** recharged 2026-10-05 (~$5); spent since then about $0.4. Demo paths are warm in the
+  cache; the offline demo bundle is rebuilt after every change to the data.
+- Defaults kept: offline demo photos stay hotlinked (A24); the M7 UX review was not done (it was
+  never an acceptance criterion).
 
 ## Working agreement (from the owner)
 
@@ -184,7 +183,9 @@ Useful CLI (from `backend/`): `uv run villasanj crawl probe <platform> <url> --k
 `enrichment summarize <platform> <id>... [--dry-run]` (cited pros/cons of a listing's reviews; live calls),
 `enrichment features` (description claims vs amenity lists), `llm spend` (ledger totals and the cap),
 `discovery search <query>` (query → ranked listings with reasons; one LLM call),
-`discovery eval-understanding <cases.jsonl> [--dry-run]` (M8 crit. 1 harness), `enrichment coast`,
+`discovery eval-understanding <cases.jsonl> [--dry-run] [--fresh] [--out]` (M8 crit. 1 harness;
+`--fresh` skips cache reads to measure uncached latency), `discovery relevance-eval --out`,
+`enrichment vlm-tags [--scope labelled|claimed] [--dry-run]`, `enrichment coast`,
 `enrichment truth-sea`, `enrichment places-load` / `places` / `truth-distances`, `discovery drive-times` (OSRM up), `enrichment tag-photos` / `photo-queue` /
 `photo-tags-eval` (SigLIP 2 tags, gated by labels at `/label/photos`), `er report` (M5 evaluation
 into reports/), `er villas` / `er villas-eval` (policy from `config/er.toml`, flags override),

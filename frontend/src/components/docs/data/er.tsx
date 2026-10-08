@@ -535,3 +535,63 @@ export async function JudgeBakeoff() {
     </div>
   );
 }
+
+/** The owner's labels on the queue the judge ordered: how its suggestions and vetoes held up. */
+export async function ErHumanQueue() {
+  const a = await er();
+  if (!a) return <Missing what="ارزیابی تطبیق" />;
+  const labels = a.data.human_queue_labels;
+  const judged = a.data.judge_on_human_queue;
+  if (!labels || !judged) {
+    return <Callout kind="info" title="هنوز برچسبی روی صف انسانی نیست" />;
+  }
+  const REASON: Record<string, string> = {
+    "judge:suggested": "داور گفت یکی است (زیر آستانه)",
+    "judge:disputed": "داور ادغام قواعد را رد کرد",
+    "judge:unsure": "داور مطمئن نبود",
+  };
+  const source = <SourceChip file={a.file} generatedAt={a.generated_at} />;
+  return (
+    <div className="space-y-4">
+      <MetricGrid className="lg:grid-cols-2">
+        <MetricCard
+          tone="verified"
+          label="پیشنهادهای «یکی است» داور که مالک تأیید کرد"
+          value={faPercent(judged.suggested_match_precision?.estimate)}
+          detail={`بازه‌ی ۹۵٪: ${faRange(judged.suggested_match_precision)}`}
+          source={source}
+        />
+        <MetricCard
+          tone="verified"
+          label="ردهای داور که مالک تأیید کرد"
+          value={faPercent(judged.veto_precision?.estimate)}
+          detail={`بازه‌ی ۹۵٪: ${faRange(judged.veto_precision)}`}
+          source={source}
+        />
+      </MetricGrid>
+      <DataTable caption="برچسب‌های مالک روی صف er-human" minWidth="30rem">
+        <thead>
+          <tr>
+            <th scope="col">چرا در صف آمد</th>
+            <th scope="col">یکی است</th>
+            <th scope="col">یکی نیست</th>
+            <th scope="col">نامطمئن</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(labels).map(([reason, c]) => (
+            <tr key={reason}>
+              <th scope="row" className="font-medium">
+                {REASON[reason] ?? reason}
+              </th>
+              <td>{faInt(c.match ?? 0)}</td>
+              <td>{faInt(c.non_match ?? 0)}</td>
+              <td>{faInt(c.unsure ?? 0)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
+      {source}
+    </div>
+  );
+}

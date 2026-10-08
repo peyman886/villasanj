@@ -72,6 +72,8 @@ export type ErEval = {
   candidates?: { total: number; blocked: number };
   judge_verdicts: Record<string, number>;
   human_queue: Record<string, number>;
+  human_queue_labels?: Record<string, Record<string, number>>;
+  judge_on_human_queue?: Record<string, Interval>;
 };
 
 export type Hypotheses = {
@@ -157,6 +159,16 @@ export type Relevance = {
   }[];
 };
 
+export type Understanding = {
+  cases: number;
+  slot_accuracy: number;
+  exact_match: number;
+  invented: number;
+  failures: number;
+  cost_usd: string;
+  latency: { model: string; uncached: number; p50_ms: number; p95_ms: number }[];
+};
+
 type Kinds = {
   "er-eval": ErEval;
   hypotheses: Hypotheses;
@@ -165,6 +177,7 @@ type Kinds = {
   quality: Quality;
   performance: Performance;
   relevance: Relevance;
+  understanding: Understanding;
 };
 export type Kind = keyof Kinds;
 

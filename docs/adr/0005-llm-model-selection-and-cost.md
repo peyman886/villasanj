@@ -279,3 +279,20 @@ M10 criterion 4 (explanation p95 at most 4 s uncached) was not met: 6.1–10.6 s
 2026-10-02. Because the results never wait for the explanation and every cached path is instant,
 the owner accepted the latency and closed the criterion. gemini-3.8-flash stays the explanation
 model; no faster-model re-run is planned unless the owner asks for one.
+
+
+## Amendment (owner-reviewed query set and a vision check, 2026-10-08)
+
+- **Query understanding on the reviewed set.** The owner reviewed the 50 drafted cases and
+  accepted all of them (`eval/query-understanding/reviewed-v1.jsonl`). A run that skips cache
+  reads (`discovery eval-understanding --fresh`, a new `JobContext.fresh` flag: answers still
+  refresh the cache) measured gpt-5.4-mini uncached: slots 99.3%, exact 98.0%, 0 invented numbers,
+  p50 1.3 s, p95 2.1 s, $0.067 (`reports/understanding-2026-10-08.md`). M8 criterion 1 is met.
+- **Vision check for sea view and fireplace.** gemini-3.1-flash-lite (`vision_tagging`, prompt
+  `photo_vlm_tags` v1, one photo per call) on the owner's 336 labelled photos: sea view 35 of 48
+  positive calls agree with the labels (about 73%, recall 35/35), fireplace 18 of 26 (about 69%,
+  recall 18/20); answers are near-certain, so no threshold reaches 85% and none is stored. Of four
+  "false positives" inspected, all four show the sea or a fireplace the labels missed, so the
+  model's real precision is likely higher; the owner's labels stay the judge of it and the two
+  tags stay unused. About $0.21. The run over the 75 listings that claim one was not made: it
+  would produce scores nothing uses.
