@@ -1,0 +1,26 @@
+{
+  "command": "uv run villasanj discovery eval-understanding ../eval/query-understanding/reviewed-v1.jsonl --fresh",
+  "data": {
+    "cases": 50,
+    "cost_usd": "0.06706275",
+    "exact_match": 0.98,
+    "failures": 0,
+    "invented": 0,
+    "latency": [
+      {
+        "model": "gpt-5.4-mini",
+        "p50_ms": 1345,
+        "p95_ms": 2085,
+        "uncached": 50
+      }
+    ],
+    "slot_accuracy": 0.9928571428571429
+  },
+  "generated_at": "2026-10-08T11:39:10.408663+00:00",
+  "kind": "understanding",
+  "provenance": {
+    "cases": "reviewed-v1.jsonl",
+    "fresh": true
+  },
+  "version": 1
+}

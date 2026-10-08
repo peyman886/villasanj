@@ -33,7 +33,7 @@ from villasanj.entity_resolution.application.villas import (
     JudgementStore,
     describe_policy,
 )
-from villasanj.entity_resolution.domain.evaluation import Interval, Metrics
+from villasanj.entity_resolution.domain.evaluation import Interval, Metrics, wilson
 from villasanj.entity_resolution.domain.labels import LabelRevision
 from villasanj.shared.application.artifacts import envelope
 
@@ -93,6 +93,22 @@ class ErReport:
     blocked: int = 0  # of those, found by the production blocking (the rest: the wide net)
     verdicts: Counter[str] = field(default_factory=Counter)  # "below:match:confident", ...
     queue: Counter[str] = field(default_factory=Counter)  # human queue stratum -> pairs
+    # The owner's labels on the human queue, per reason: "judge:suggested" -> {"match": 70, ...}
+    queue_labels: dict[str, Counter[str]] = field(default_factory=dict)
+
+    def judge_on_queue(self) -> dict[str, Interval]:
+        """How the judge's calls held up against the labels a person gave on its own queue:
+        its suggested matches (merges it would make below the threshold) and its vetoes."""
+        suggested = self.queue_labels.get("judge:suggested", Counter())
+        disputed = self.queue_labels.get("judge:disputed", Counter())
+        return {
+            "suggested_match_precision": wilson(
+                suggested["match"], suggested["match"] + suggested["non_match"]
+            ),
+            "veto_precision": wilson(
+                disputed["non_match"], disputed["match"] + disputed["non_match"]
+            ),
+        }
 
 
 class BuildErReport:
@@ -189,6 +205,11 @@ class BuildErReport:
             report.verdicts[f"{band}:{j.verdict}:{sure}"] += 1
         human = await self._labels.queue(self._config.human_queue)
         report.queue.update(item.stratum for item in human)
+        given = {label.key: label.label for label in await self._labels.labels(labeler)}
+        for item in human:
+            if item.key in given:
+                counts = report.queue_labels.setdefault(item.stratum, Counter())
+                counts[given[item.key].value] += 1
         return report
 
 
@@ -360,6 +381,27 @@ def render_markdown(report: ErReport) -> str:
     queued = sum(report.queue.values())
     parts = ", ".join(f"{k.removeprefix('judge:')} {v}" for k, v in sorted(report.queue.items()))
     lines += ["", f"Human queue `{report.config.human_queue}`: {queued} pairs ({parts}).", ""]
+    if report.queue_labels:
+        judged = report.judge_on_queue()
+        lines += [
+            "## The human queue against the judge",
+            "",
+            "The owner's labels on the queue the judge ordered (its own pairs, not a random "
+            "sample: they measure the judge's calls in the zone, not the matcher's precision).",
+            "",
+            "| Why queued | Same villa | Not the same | Unsure |",
+            "|---|---|---|---|",
+            *(
+                f"| {stratum.removeprefix('judge:')} | {c['match']} | {c['non_match']} | "
+                f"{c['unsure']} |"
+                for stratum, c in sorted(report.queue_labels.items())
+            ),
+            "",
+            "Judge's suggested matches confirmed: "
+            f"{_pct(judged['suggested_match_precision'])}; vetoes confirmed: "
+            f"{_pct(judged['veto_precision'])} (unsure labels left out).",
+            "",
+        ]
     return "\n".join(lines)
 
 
@@ -450,5 +492,9 @@ def to_artifact(report: ErReport) -> dict[str, object]:
             "candidates": {"total": report.candidates, "blocked": report.blocked},
             "judge_verdicts": dict(sorted(report.verdicts.items())),
             "human_queue": dict(sorted(report.queue.items())),
+            "human_queue_labels": {
+                k: dict(sorted(v.items())) for k, v in sorted(report.queue_labels.items())
+            },
+            "judge_on_human_queue": {k: v.as_dict() for k, v in report.judge_on_queue().items()},
         },
     )

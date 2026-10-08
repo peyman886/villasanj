@@ -198,7 +198,7 @@ photo_tag_threshold = Table(
 _SEEN = """
     SELECT DISTINCT p.platform, p.external_id, s.tag
     FROM catalog.photo p
-    JOIN enrichment.photo_tag_score s ON s.sha256 = p.sha256 AND s.model = :model
+    JOIN enrichment.photo_tag_score s ON s.sha256 = p.sha256 AND s.model = ANY(:models)
     JOIN enrichment.photo_tag_threshold t ON t.model = s.model AND t.tag = s.tag
     WHERE s.score >= t.threshold AND p.platform = :platform {listing}
 """
@@ -240,22 +240,25 @@ class PgThresholdStore:
 
 
 class PgPhotoFeatures:
-    def __init__(self, engine: AsyncEngine, model: str) -> None:
+    """Features any of ``models`` sees at its stored threshold (SigLIP, and the vision model for
+    the tags SigLIP could not make reliable)."""
+
+    def __init__(self, engine: AsyncEngine, models: Sequence[str]) -> None:
         self._engine = engine
-        self._model = model
+        self._models = list(models)
 
     async def seen(self, platform: str) -> dict[ListingId, frozenset[Feature]]:
         query = text(_SEEN.format(listing=""))
         found: dict[ListingId, set[Feature]] = defaultdict(set)
         async with self._engine.connect() as conn:
-            for row in await conn.execute(query, {"model": self._model, "platform": platform}):
+            for row in await conn.execute(query, {"models": self._models, "platform": platform}):
                 found[ListingId(row.platform, row.external_id)].add(FEATURE_OF[PhotoTag(row.tag)])
         return {listing: frozenset(features) for listing, features in found.items()}
 
     async def seen_for(self, listing_id: ListingId) -> frozenset[Feature]:
         query = text(_SEEN.format(listing="AND p.external_id = :external_id"))
         params = {
-            "model": self._model,
+            "models": self._models,
             "platform": listing_id.platform,
             "external_id": listing_id.external_id,
         }

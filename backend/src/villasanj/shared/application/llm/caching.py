@@ -77,7 +77,7 @@ class CachingInvoker:
 
     async def invoke[T: BaseModel](self, call: ModelCall[T]) -> Invocation[T]:
         key = cache_key(self._provider, call)
-        hit = await self._load(key, call)
+        hit = None if call.ctx.fresh else await self._load(key, call)
         if hit is not None:
             await self._record_hit(call)
             return hit

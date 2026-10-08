@@ -56,6 +56,8 @@ from villasanj.enrichment.application.photo_tags import (
     PhotoLabeling,
     TagPhotos,
 )
+from villasanj.enrichment.application.photo_vlm import TagPhotosWithVlm
+from villasanj.enrichment.application.photo_vlm import model_id as vlm_model_id
 from villasanj.enrichment.application.places import MeasurePlaceDistances
 from villasanj.enrichment.application.review_summary import SummarizeReviews
 from villasanj.enrichment.application.summary_review import (
@@ -131,6 +133,7 @@ from villasanj.shared.application.llm.ports import LLMCacheStore, LLMLedger, Raw
 from villasanj.shared.application.llm.retrying import RetryingInvoker
 from villasanj.shared.application.llm.routing import LLMRouting, ModelCatalog
 from villasanj.shared.application.llm.structured import StructuredOutputInvoker
+from villasanj.shared.application.llm.types import LLMTask
 from villasanj.shared.domain.stay import StayScenario
 from villasanj.shared.infrastructure.blob_store import LocalFsBlobStore
 from villasanj.shared.infrastructure.clock import SystemClock
@@ -434,8 +437,21 @@ class Container:
     def photo_thresholds(self) -> PgThresholdStore:
         return PgThresholdStore(self.engine)
 
+    def catalog_photos(self) -> PgPhotoRepository:
+        return PgPhotoRepository(self.engine)
+
+    def vlm_model(self) -> str:
+        return self.llm.routing.route(LLMTask.VISION_TAGGING).model
+
+    def vlm_tags(self) -> TagPhotosWithVlm:
+        return TagPhotosWithVlm(
+            self.llm.client, self.blobs, self.photo_tags(), self.clock, self.vlm_model()
+        )
+
     def photo_features(self) -> PgPhotoFeatures:
-        return PgPhotoFeatures(self.engine, self.photo_tagger().model_id)
+        return PgPhotoFeatures(
+            self.engine, [self.photo_tagger().model_id, vlm_model_id(self.vlm_model())]
+        )
 
     def photo_labeling(self) -> PhotoLabeling:
         return PhotoLabeling(self.photo_queues(), self.clock)

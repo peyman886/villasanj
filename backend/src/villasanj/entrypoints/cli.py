@@ -36,7 +36,7 @@ from villasanj.discovery.application.explanation import (
 from villasanj.discovery.application.explanation_eval import EvaluateExplanations
 from villasanj.discovery.application.hypotheses import render_markdown
 from villasanj.discovery.application.hypotheses import to_artifact as hypotheses_artifact
-from villasanj.discovery.application.reviews import ReviewQueueExists
+from villasanj.discovery.application.reviews import ReviewQueueExists, wins
 from villasanj.discovery.application.understanding import UnderstandQuery
 from villasanj.discovery.application.understanding_eval import EvaluateUnderstanding
 from villasanj.discovery.domain.dates import (
@@ -57,6 +57,8 @@ from villasanj.enrichment.application.claims import MeasureClaimParsing
 from villasanj.enrichment.application.consistency import h4_artifact, render_h4_markdown
 from villasanj.enrichment.application.features import MeasureFeatureClaims
 from villasanj.enrichment.application.photo_tags import EvaluatePhotoTags, PhotoQueueExists
+from villasanj.enrichment.application.photo_vlm import VLM_TAGS, claims_a_tag
+from villasanj.enrichment.application.photo_vlm import model_id as vlm_model_id
 from villasanj.enrichment.application.summary_review import SummaryQueueExists
 from villasanj.enrichment.application.truth import CheckSeaClaims
 from villasanj.enrichment.domain.claim_eval import ClaimCounts
@@ -985,6 +987,57 @@ def enrichment_photo_queue(
         raise typer.Exit(code=1)
 
 
+@enrichment_app.command("vlm-tags")
+def enrichment_vlm_tags(
+    scope: Annotated[
+        str,
+        typer.Option(help="labelled: the photos of a labelled queue; claimed: listings that claim"),
+    ] = "labelled",
+    queue: Annotated[str, typer.Option(help="Labelled queue (scope labelled).")] = "photos-v1",
+    dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
+    budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "1.50",
+) -> None:
+    """Sea view and fireplace from a vision model, one photo per call (SigLIP missed 85%)."""
+
+    async def run(container: Container) -> bool:
+        if scope == "labelled":
+            sha256s = [item.sha256 for item in await container.photo_queues().items(queue)]
+        elif scope == "claimed":
+            platforms = sorted(container.crawl.adapters)
+            claimed = {
+                listing.id
+                for platform in platforms
+                for listing in await container.listings.listings(platform)
+                if claims_a_tag(listing)
+            }
+            photos = await container.catalog_photos().photos(platforms)
+            sha256s = [p.sha256 for p in photos if p.listing_id in claimed]
+            typer.echo(f"listings claiming a sea view or a fireplace: {len(claimed)}")
+        else:
+            typer.echo("scope is labelled or claimed")
+            return False
+        tagger = container.vlm_tags()
+        if dry_run:
+            estimate = await container.llm.dry_run.estimate(await tagger.plan(sha256s))
+            typer.echo(
+                f"model={tagger.model} photos={len(set(sha256s))} calls={estimate.calls} "
+                f"cache_hits={estimate.cache_hits} expected=${estimate.expected_usd:.4f} "
+                f"worst_case=${estimate.worst_case_usd:.4f}"
+            )
+            return True
+        ctx = await container.jobs.start("vlm_tags", Decimal(budget_usd), {"scope": scope})
+        report = await tagger.run(sha256s, ctx)
+        await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
+        typer.echo(
+            f"model={report.model} photos={report.photos} already={report.already_scored} "
+            f"scored={report.scored} unreadable={report.unreadable} failed={report.failed}"
+        )
+        return report.failed == 0
+
+    if not asyncio.run(_with_container(run)):
+        raise typer.Exit(code=1)
+
+
 @enrichment_app.command("photo-tags-eval")
 def enrichment_photo_tags_eval(
     queue: Annotated[str, typer.Option(help="Labelled queue.")] = "photos-v1",
@@ -992,13 +1045,21 @@ def enrichment_photo_tags_eval(
     save: Annotated[
         bool, typer.Option(help="Store the thresholds: photo tags become evidence.")
     ] = False,
+    vlm: Annotated[
+        bool, typer.Option(help="Evaluate the vision model's sea view and fireplace instead.")
+    ] = False,
 ) -> None:
     """M9 criterion 2: per tag, the threshold reaching 85% precision, or "not used"."""
 
     async def run(container: Container) -> bool:
+        model = vlm_model_id(container.vlm_model()) if vlm else container.photo_tagger().model_id
         evaluation = await EvaluatePhotoTags(
-            container.photo_tags(), container.photo_queues(), container.photo_tagger().model_id
+            container.photo_tags(), container.photo_queues(), model
         ).run(queue, labeler)
+        if vlm:  # the vision model answers two tags only
+            evaluation = replace(
+                evaluation, thresholds=[t for t in evaluation.thresholds if t.tag in VLM_TAGS]
+            )
         typer.echo(f"model={evaluation.model} labelled_photos={evaluation.labelled_photos}")
         for t in evaluation.thresholds:
             if t.threshold is None or t.precision is None or t.recall is None:
@@ -1177,6 +1238,10 @@ def discovery_eval_understanding(
     path: Annotated[Path, typer.Argument(help="JSON lines of query + expected intent.")],
     dry_run: Annotated[bool, typer.Option(help="Price the calls without making them.")] = False,
     budget_usd: Annotated[str, typer.Option(help="Job budget in USD.")] = "0.10",
+    fresh: Annotated[
+        bool, typer.Option(help="Skip cache reads: measure uncached latency (costs calls).")
+    ] = False,
+    out: Annotated[Path | None, typer.Option(help="Also write a report (and JSON) here.")] = None,
 ) -> None:
     """M8 criterion 1: slot accuracy, invented numbers and latency per model on a case file."""
 
@@ -1184,16 +1249,69 @@ def discovery_eval_understanding(
         cases = load_cases(path)
         understand = UnderstandQuery(container.llm.client, [c.query for c in cases])
         if dry_run:
-            estimate = await container.llm.dry_run.estimate(understand.plan())
+            estimate = await container.llm.dry_run.estimate(understand.plan(), fresh=fresh)
             typer.echo(
                 f"cases={len(cases)} calls={estimate.calls} cache_hits={estimate.cache_hits} "
                 f"expected=${estimate.expected_usd:.6f} "
                 f"worst_case=${estimate.worst_case_usd:.6f}"
             )
             return True
-        ctx = await container.jobs.start("eval_understanding", Decimal(budget_usd), {})
+        job = await container.jobs.start("eval_understanding", Decimal(budget_usd), {})
+        ctx = replace(job, fresh=fresh)
         report = await EvaluateUnderstanding(understand).run(cases, ctx)
         await container.jobs.finish(ctx.job_id, JobStatus.SUCCEEDED)
+        if out is not None:
+            command = f"uv run villasanj discovery eval-understanding {path}" + (
+                " --fresh" if fresh else ""
+            )
+            latency = report.latency_ms()
+            lines = [
+                "# Query understanding evaluation",
+                "",
+                f"`{command}` on {len(report.cases)} cases (`{path.name}`). Slots are compared one "
+                "by one over the union of expected and predicted slots; invented numbers are "
+                "counted on the final intents (target 0); latency uses uncached calls only.",
+                "",
+                "| Measure | Value |",
+                "|---|---|",
+                f"| Slot accuracy | {report.slot_accuracy:.1%} |",
+                f"| Exact match | {report.exact_match:.1%} |",
+                f"| Invented numbers | {report.invented} |",
+                f"| Failed cases | {report.failures} |",
+                f"| Cost | ${report.cost_usd:.4f} |",
+                *(
+                    f"| Latency {model} | {calls} uncached calls, p50 {p50} ms, p95 {p95} ms |"
+                    for model, (calls, p50, p95) in latency.items()
+                ),
+                "",
+                "| Slot | Right / seen |",
+                "|---|---|",
+                *(f"| {n} | {r}/{t} |" for n, (r, t) in sorted(report.per_slot.items())),
+            ]
+            wrong = [c for c in report.cases if c.wrong]
+            if wrong:
+                lines += ["", "Cases with a wrong slot:", ""]
+                lines += [f"- {c.query}: {', '.join(c.wrong)}" for c in wrong]
+            artifact = envelope(
+                "understanding",
+                command,
+                container.clock.now(),
+                {"cases": path.name, "fresh": fresh},
+                {
+                    "cases": len(report.cases),
+                    "slot_accuracy": report.slot_accuracy,
+                    "exact_match": report.exact_match,
+                    "invented": report.invented,
+                    "failures": report.failures,
+                    "cost_usd": str(report.cost_usd),
+                    "latency": [
+                        {"model": m, "uncached": c, "p50_ms": p50, "p95_ms": p95}
+                        for m, (c, p50, p95) in latency.items()
+                    ],
+                },
+            )
+            _write_report(out, "\n".join(lines) + "\n", artifact)
+            typer.echo(f"wrote {out}")
         typer.echo(
             f"cases={len(report.cases)} slot_accuracy={report.slot_accuracy:.1%} "
             f"exact_match={report.exact_match:.1%} invented_numbers={report.invented} "
@@ -1339,6 +1457,28 @@ def discovery_relevance_eval(
             "Systems: `ranking` is the shipped order (confirmed requested features first, then 60% "
             "price per person and night, 40% Bayesian rating); `price` is cheapest first; `rating` "
             "is best rated first, over the same filtered villas.",
+        ]
+        by = {x.system: x for x in r.systems}
+        if "ranking" in by:
+            lines += ["", "Per query, nDCG@10 of the shipped ranking against each baseline:", ""]
+            for other in ("price", "rating"):
+                if other in by:
+                    better, same, worse = wins(by["ranking"], by[other])
+                    lines.append(
+                        f"- vs `{other}`: better on {better}, equal on {same}, worse on {worse}"
+                    )
+        grades = Counter(
+            int(v["grade"])  # type: ignore[call-overload]
+            for v in (await container.reviews().labels(queue, labeler)).values()
+            if "grade" in v
+        )
+        lines += [
+            "",
+            "Caveats: the baselines' places 11-20 were not pooled, so their Recall@20 is a lower "
+            "bound and nDCG@10 is the fair comparison. Grades given: "
+            + ", ".join(f"{g}: {grades[g]}" for g in (2, 1, 0))
+            + "; most pooled villas fit the query, so the grades separate the orders less than "
+            "a stricter scale would.",
         ]
         typer.echo("\n".join(lines))
         if out is not None:
@@ -1578,7 +1718,9 @@ def er_hypotheses(
             recall=metrics.recall if threshold is None else None,
         )
         report = replace(report, notes=tuple(notes))
-        path = out / f"hypotheses-{start.isoformat()}.md" if out.suffix != ".md" else out
+        # Named by when it was generated: a re-run never overwrites an earlier report.
+        today = container.clock.now().date().isoformat()
+        path = out / f"hypotheses-{today}.md" if out.suffix != ".md" else out
         command = "uv run villasanj er hypotheses" + (
             f" --threshold {threshold}" if threshold else ""
         )

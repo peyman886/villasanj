@@ -20,8 +20,10 @@ from villasanj.discovery.application.reviews import (
     RelevanceReviewing,
     ReviewCase,
     ReviewQueueExists,
+    SystemScore,
     ndcg,
     recall,
+    wins,
 )
 from villasanj.discovery.application.search import SearchResult
 
@@ -170,3 +172,9 @@ def test_ndcg_and_recall_by_hand() -> None:
     assert ndcg(["x"], {"x": 0}, 10) is None  # nothing relevant: the query does not count
     assert recall(["a", "b"], grades, 20) == pytest.approx(0.5)
     assert recall(["b", "c", "a"], grades, 1) == 0.0
+
+
+def test_wins_count_queries_where_one_order_beats_the_other() -> None:
+    a = SystemScore("ranking", 0.8, 0.6, 3, (0.9, 0.5, 0.7, None))
+    b = SystemScore("price", 0.6, 0.4, 3, (0.4, 0.5, 0.8, 0.2))
+    assert wins(a, b) == (1, 1, 1)

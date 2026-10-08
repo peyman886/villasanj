@@ -1,0 +1,52 @@
+// Reviewed by owner in queue queries-v1 (discovery query-review-export).
+// accepted=50 corrected=0 rejected=0 unreviewed=0
+{"query": "ویلا برای ۴ نفر آخر هفته زیر ۵ میلیون در رامسر", "expected": {"dates": {"kind": "weekend"}, "budget": {"max_toman": 5000000}, "places": ["رامسر"], "guest_parts": [4]}, "note": "basic; basis unknown: «زیر ۵ میلیون» does not say per night or whole stay"}
+{"query": "امشب یه ویلا برای من و همسرم نزدیک دریا", "expected": {"dates": {"kind": "tonight"}, "party": "couple", "features": ["near_sea"]}, "note": "group size in words only: party, not a number"}
+{"query": "ویلای استخردار دوخوابه برای ۴ بزرگسال و ۲ بچه، آخر هفته‌ی بعد", "expected": {"dates": {"kind": "weekend", "which": "next"}, "features": ["pool"], "guest_parts": [4, 2], "bedrooms_min": 2}, "note": "parts are listed, code sums them; glued «دوخوابه»"}
+{"query": "۱۵ آبان سه شب، حداکثر دو ساعت و نیم از تهران", "expected": {"dates": {"day": 15, "kind": "jalali_day", "month": 8}, "nights": 3, "max_drive": {"unit": "hours", "value": 2.5}}, "note": "«از تهران» is the drive origin, not a destination place"}
+{"query": "تعطیلات بعدی یه ویلای جنگلی تو تنکابن، شبی تا ۳ میلیون", "expected": {"dates": {"kind": "next_holiday"}, "budget": {"basis": "per_night", "max_toman": 3000000}, "places": ["تنکابن"], "features": ["forest"]}, "note": "«شبی» makes the basis per night"}
+{"query": "نوروز ۱۴۰۶ ویلا برای ده نفر", "expected": {"dates": {"kind": "nowruz", "year": 1406}, "guest_parts": [10]}, "note": "number in words («ده»); explicit year"}
+{"query": "ویلا با جکوزی برای ۸ نفر آخر هفته در رامسر", "expected": {"dates": {"kind": "weekend"}, "places": ["رامسر"], "features": ["jacuzzi"], "guest_parts": [8]}, "note": ""}
+{"query": "پنجشنبه هفته بعد دو شب ویلای سه خوابه", "expected": {"dates": {"kind": "weekday", "which": "next", "weekday": "thursday"}, "nights": 2, "bedrooms_min": 3}, "note": "«پنجشنبه» is a weekday, not the number five"}
+{"query": "آبان یه ویلای ساحلی با شومینه", "expected": {"dates": {"kind": "jalali_month", "month": 8}, "features": ["near_sea", "fireplace"]}, "note": "a month is a flexible window"}
+{"query": "فردا تنها میرم، یه سوئیت ارزون نزدیک دریا", "expected": {"dates": {"kind": "tomorrow"}, "party": "solo", "features": ["near_sea"]}, "note": "«ارزون» without a number is not a budget"}
+{"query": "حداکثر ۹۰ دقیقه رانندگی از تهران، آخر هفته، ۶ نفر", "expected": {"dates": {"kind": "weekend"}, "max_drive": {"unit": "minutes", "value": 90.0}, "guest_parts": [6]}, "note": "minutes stay minutes (code converts)"}
+{"query": "ویلا با پارکینگ و باربیکیو برای کل اقامت تا ۱۲ میلیون، پس‌فردا", "expected": {"dates": {"kind": "day_after_tomorrow"}, "budget": {"basis": "whole_stay", "max_toman": 12000000}, "features": ["parking", "barbecue"]}, "note": "«برای کل اقامت» makes the basis whole stay"}
+{"query": "یه ویلا برای دو سه نفر آخر هفته", "expected": {"dates": {"kind": "weekend"}, "guest_parts": [3]}, "note": "«دو سه نفر» means two or three: the capacity must fit three; never five"}
+{"query": "ویلا برای ۱۲ نفر با ۴ خواب در تنکابن", "expected": {"places": ["تنکابن"], "guest_parts": [12], "bedrooms_min": 4}, "note": "no date said"}
+{"query": "سه‌شنبه تا پنجشنبه برای ۴ نفر", "expected": {"dates": {"kind": "weekday", "weekday": "tuesday"}, "guest_parts": [4]}, "note": "the end day is not expressible yet; nights must not be invented (2 is not said)"}
+{"query": "ویلای ارزون تا ۸۰۰ هزار تومن برای هر شب", "expected": {"budget": {"basis": "per_night", "max_toman": 800000}}, "note": "«هزار» scale"}
+{"query": "بودجه‌مون کلاً ۱۰ میلیونه برای سه شب", "expected": {"budget": {"basis": "whole_stay", "max_toman": 10000000}, "nights": 3}, "note": "«کلاً» makes the basis whole stay"}
+{"query": "شبی ۲ تا ۳ میلیون برای ۶ نفر", "expected": {"budget": {"basis": "per_night", "max_toman": 3000000}, "guest_parts": [6]}, "note": "a range: the upper bound is the limit"}
+{"query": "ویلا با ویو دریا برای ماه عسل", "expected": {"party": "couple", "features": ["sea_view"]}, "note": "honeymoon implies a couple (a code, not a number)"}
+{"query": "یک هفته ویلا در رامسر از ۱۵ آبان", "expected": {"dates": {"day": 15, "kind": "jalali_day", "month": 8}, "places": ["رامسر"]}, "note": "«یک هفته» is not expressible; nights=7 would be an invented number"}
+{"query": "شب یلدا ویلا برای ۶ نفر", "expected": {"guest_parts": [6]}, "note": "Yalda is 30 Azar, but 30 is not said: the date must not be invented (ask instead)"}
+{"query": "ویلای جکوزی‌دار با شومینه برای زمستون", "expected": {"features": ["jacuzzi", "fireplace"]}, "note": "a season is not a date expression"}
+{"query": "۱۴ فروردین ۱۴۰۶ برای ۵ نفر", "expected": {"dates": {"day": 14, "kind": "jalali_day", "year": 1406, "month": 1}, "guest_parts": [5]}, "note": "explicit year"}
+{"query": "عید امسال ویلا می‌خوام", "expected": {"dates": {"kind": "nowruz"}}, "note": "«عید» is Nowruz; «امسال» does not state a year number"}
+{"query": "امشب یه سوئیت یه نفره", "expected": {"dates": {"kind": "tonight"}, "guest_parts": [1]}, "note": "«یه نفره» says the number one"}
+{"query": "ویلا با استخر سرپوشیده و پارکینگ برای ۸ نفر", "expected": {"features": ["pool", "parking"], "guest_parts": [8]}, "note": ""}
+{"query": "یه ویلا زیر ۵ تومن برای آخر هفته", "expected": {"dates": {"kind": "weekend"}}, "note": "slang «۵ تومن» is ambiguous; 5000000 is not said, so no budget (ask)"}
+{"query": "۳ خوابه برای ۲ خانواده‌ی ۴ نفره", "expected": {"guest_parts": [4, 4], "bedrooms_min": 3}, "note": "two families of four: parts [4, 4]; 8 is not said, code sums"}
+{"query": "نزدیک ساحل، پیاده تا دریا", "expected": {"features": ["near_sea"]}, "note": ""}
+{"query": "ویلا در جواهرده", "expected": {"places": ["جواهرده"]}, "note": "a village"}
+{"query": "یه جا تو کلاردشت برای آخر هفته", "expected": {"dates": {"kind": "weekend"}, "places": ["کلاردشت"]}, "note": "outside the region: still a place in the intent (the gazetteer reports it unresolved)"}
+{"query": "حداکثر یک ساعت و نیم از رشت", "expected": {}, "note": "drive limits are from Tehran only: a limit from Rasht is not expressible; Rasht is not a destination"}
+{"query": "سه شب از پنجشنبه هفته بعد برای ۶ نفر زیر ۱۵ میلیون", "expected": {"dates": {"kind": "weekday", "which": "next", "weekday": "thursday"}, "budget": {"max_toman": 15000000}, "nights": 3, "guest_parts": [6]}, "note": ""}
+{"query": "۱۰ نفریم، ۶ بزرگسال و ۴ بچه", "expected": {"guest_parts": [6, 4]}, "note": "the slot compares the total (10), whichever parts are listed"}
+{"query": "ویلای دوبلکس با باربیکیو و حیاط", "expected": {"features": ["barbecue"]}, "note": "duplex and yard are not in the feature vocabulary"}
+{"query": "سلام، کمک می‌خوام", "expected": {}, "note": "nothing to search for"}
+{"query": "ویلا برای سه شب", "expected": {"nights": 3}, "note": ""}
+{"query": "ویلای ۲۰۰ متری", "expected": {}, "note": "area is not in the schema"}
+{"query": "پس‌فردا ۲ شب جنگلی", "expected": {"dates": {"kind": "day_after_tomorrow"}, "nights": 2, "features": ["forest"]}, "note": ""}
+{"query": "دی ماه یه ویلا با شومینه", "expected": {"dates": {"kind": "jalali_month", "month": 10}, "features": ["fireplace"]}, "note": ""}
+{"query": "۱۵ مهر", "expected": {"dates": {"day": 15, "kind": "jalali_day", "month": 7}}, "note": "may be in the past: the resolver moves it to next year with a caveat"}
+{"query": "آخر هفته‌ی بعد از بعد برای ۴ نفر", "expected": {"dates": {"kind": "weekend", "which": "after_next"}, "guest_parts": [4]}, "note": ""}
+{"query": "جمعه شب برای ۴ نفر", "expected": {"dates": {"kind": "weekday", "weekday": "friday"}, "guest_parts": [4]}, "note": ""}
+{"query": "ویلای سه خوابه نزدیک مرکز شهر رامسر", "expected": {"places": ["رامسر"], "bedrooms_min": 3}, "note": "city centre is not a feature"}
+{"query": "تعطیلات نوروز ۱۴۰۶ برای ۲۰ نفر با استخر", "expected": {"dates": {"kind": "nowruz", "year": 1406}, "features": ["pool"], "guest_parts": [20]}, "note": ""}
+{"query": "زیر ۱ میلیون و ۵۰۰ هزار تومن هر شب", "expected": {"budget": {"basis": "per_night", "max_toman": 1500000}}, "note": "a compound amount"}
+{"query": "حداکثر ۴۵ دقیقه تا ساحل با ماشین", "expected": {}, "note": "a time to the beach is not a drive limit from Tehran and not «near the sea»; not expressible"}
+{"query": "ویلا برای ۴ نفر و یه سگ", "expected": {"guest_parts": [4]}, "note": "pets are not in the schema; the dog is not a guest"}
+{"query": "خونه‌ی روستایی ارزون، دو شب، تنکابن", "expected": {"nights": 2, "places": ["تنکابن"]}, "note": ""}
+{"query": "ویلای لوکس با استخر آبگرم، جکوزی، سونا و ویو دریا برای ۶ نفر آخر هفته، تا ۴۰ میلیون", "expected": {"dates": {"kind": "weekend"}, "budget": {"max_toman": 40000000}, "features": ["pool", "jacuzzi", "sea_view"], "guest_parts": [6]}, "note": "sauna is not in the vocabulary"}

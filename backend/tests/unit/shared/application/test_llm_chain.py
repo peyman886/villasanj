@@ -1,6 +1,7 @@
 """The LLM decorator chain, end to end with a scripted provider (zero network)."""
 
 import asyncio
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -64,6 +65,17 @@ async def test_identical_request_hits_cache_and_costs_nothing() -> None:
     assert second.cost_usd == 0
     assert statuses(chain.ledger)[-1] == (PRIMARY, CallStatus.CACHE_HIT)
     assert chain.ledger.entries[-1].cost_usd == 0
+
+
+async def test_a_fresh_job_skips_cache_reads_and_refreshes_the_cache() -> None:
+    provider = FakeLLMProvider([VALID, VALID], usage=USAGE)
+    chain = build_chain(provider)
+    await chain.client.generate(request(), job())
+    measured = await chain.client.generate(request(), replace(job(), fresh=True))
+    assert len(provider.calls) == 2  # measured again, not served from the cache
+    assert not measured.cache_hit
+    again = await chain.client.generate(request(), job())
+    assert again.cache_hit  # an ordinary job still reads the cache
 
 
 async def test_prompt_version_change_misses_cache() -> None:

@@ -70,7 +70,10 @@ class DryRunEstimator:
         self._cache = cache
         self._provider = provider_name
 
-    async def estimate(self, requests: Sequence[LLMRequest[Any]]) -> DryRunReport:
+    async def estimate(
+        self, requests: Sequence[LLMRequest[Any]], fresh: bool = False
+    ) -> DryRunReport:
+        """``fresh``: price the calls as if nothing were cached (a measurement run)."""
         totals: defaultdict[tuple[LLMTask, str], _Accumulator] = defaultdict(_Accumulator)
         planned: set[str] = set()  # a request repeated in the job is answered by the first one
         for request in requests:
@@ -79,7 +82,7 @@ class DryRunEstimator:
             acc = totals[(request.task, route.model)]
             acc.calls += 1
             key = cache_key(self._provider, call)
-            if key in planned or await self._cache.get(key) is not None:
+            if key in planned or (not fresh and await self._cache.get(key) is not None):
                 acc.cache_hits += 1
                 continue
             planned.add(key)

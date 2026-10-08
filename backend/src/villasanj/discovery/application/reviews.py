@@ -436,6 +436,7 @@ class SystemScore:
     ndcg_at_10: float | None
     recall_at_20: float | None
     queries: int  # queries with at least one relevant villa (the ones that count)
+    per_query: tuple[float | None, ...] = ()  # nDCG@10 per fully judged query, in queue order
 
 
 @dataclass(frozen=True, slots=True)
@@ -460,11 +461,13 @@ class EvaluateRelevance:
         for system in SYSTEMS:
             ndcgs: list[float] = []
             recalls: list[float] = []
+            per_query: list[float | None] = []
             for case, grades in judged:
                 orders = case.payload.get("orders")
                 order = orders.get(system, []) if isinstance(orders, dict) else []
                 n = ndcg([str(k) for k in order], grades, 10)
                 r = recall([str(k) for k in order], grades, 20)
+                per_query.append(n)
                 if n is not None:
                     ndcgs.append(n)
                 if r is not None:
@@ -475,6 +478,7 @@ class EvaluateRelevance:
                     sum(ndcgs) / len(ndcgs) if ndcgs else None,
                     sum(recalls) / len(recalls) if recalls else None,
                     len(ndcgs),
+                    tuple(per_query),
                 )
             )
         return RelevanceReport(
@@ -484,3 +488,18 @@ class EvaluateRelevance:
             sum(len(g) for _, g in judged),
             scores,
         )
+
+
+def wins(a: SystemScore, b: SystemScore) -> tuple[int, int, int]:
+    """Queries where ``a``'s nDCG@10 is higher, equal (within 0.001) and lower than ``b``'s."""
+    better = same = worse = 0
+    for x, y in zip(a.per_query, b.per_query, strict=True):
+        if x is None or y is None:
+            continue
+        if abs(x - y) <= 0.001:  # noqa: PLR2004 - rounding noise, not a difference
+            same += 1
+        elif x > y:
+            better += 1
+        else:
+            worse += 1
+    return better, same, worse

@@ -105,10 +105,15 @@ class TokenUsage:
 
 @dataclass(frozen=True, slots=True)
 class JobContext:
-    """The job an LLM call is charged to."""
+    """The job an LLM call is charged to.
+
+    ``fresh``: a measurement run (e.g. uncached latency) that skips reading the cache; its
+    answers still refresh it. Every other job reads the cache first.
+    """
 
     job_id: str
     budget_usd: Decimal
+    fresh: bool = False
 
 
 @dataclass(frozen=True, slots=True)

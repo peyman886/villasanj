@@ -57,3 +57,27 @@ async def test_the_report_scores_each_policy_before_and_after_the_revisions() ->
     assert candidates == {"total": report.candidates, "blocked": report.blocked}
     assert report.candidates >= report.blocked > 0
     assert f"Candidate pairs: {report.candidates}" in text
+
+
+async def test_the_owner_labels_on_the_human_queue_score_the_judge_calls() -> None:
+    build, labels, _ = setup()
+    await labels.save_queue("gold", [QueueItem(1, A, "s", 3)])
+    await labels.save_queue(
+        "human", [QueueItem(1, B, "judge:suggested", 1), QueueItem(2, C, "judge:disputed", 1)]
+    )
+    await labels.save_label(PairLabel(B, Label.MATCH, "owner", NOW))
+    await labels.save_label(PairLabel(C, Label.NON_MATCH, "owner", NOW))
+    config = ErConfig(replace(ZONE, judge_high=4.0, judge_merges=False), "human")
+    report = await BuildErReport(build._candidates, labels, Judgements(), build, config).run(
+        "gold", "owner", NOW
+    )
+    assert report.queue_labels == {
+        "judge:suggested": {"match": 1},
+        "judge:disputed": {"non_match": 1},
+    }
+    judged = report.judge_on_queue()
+    assert judged["suggested_match_precision"].estimate == 1.0
+    assert judged["veto_precision"].estimate == 1.0
+    assert "## The human queue against the judge" in render_markdown(report)
+    data = to_artifact(report)["data"]
+    assert data["human_queue_labels"]["judge:suggested"] == {"match": 1}  # type: ignore[index]

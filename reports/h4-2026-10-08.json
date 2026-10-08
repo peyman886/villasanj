@@ -1,0 +1,62 @@
+{
+  "command": "uv run villasanj enrichment h4 --out ../reports/h4-2026-10-08.md",
+  "data": {
+    "platforms": [
+      {
+        "compared": 373,
+        "contradicted": 197,
+        "either": 216,
+        "in_multi_platform_villas": 377,
+        "inconsistent": 22,
+        "inconsistent_share": {
+          "estimate": 0.058981233243967826,
+          "high": 0.08768421219768024,
+          "low": 0.03926959742404105
+        },
+        "judged": 2228,
+        "kinds": {
+          "feature:parking": 12,
+          "feature:pool": 10
+        },
+        "listings": 2987,
+        "platform": "jabama",
+        "share": {
+          "estimate": 0.09694793536804308,
+          "high": 0.10993684023174063,
+          "low": 0.08534650173601405
+        }
+      },
+      {
+        "compared": 373,
+        "contradicted": 11,
+        "either": 32,
+        "in_multi_platform_villas": 377,
+        "inconsistent": 22,
+        "inconsistent_share": {
+          "estimate": 0.058981233243967826,
+          "high": 0.08768421219768024,
+          "low": 0.03926959742404105
+        },
+        "judged": 584,
+        "kinds": {
+          "feature:parking": 12,
+          "feature:pool": 10
+        },
+        "listings": 601,
+        "platform": "shab",
+        "share": {
+          "estimate": 0.0547945205479452,
+          "high": 0.07632961113642614,
+          "low": 0.039078136654611184
+        }
+      }
+    ]
+  },
+  "generated_at": "2026-10-08T11:36:01.847042+00:00",
+  "kind": "h4",
+  "provenance": {
+    "evidence": "OSM map, listing text",
+    "villas": "er.villa (the production clustering)"
+  },
+  "version": 1
+}
