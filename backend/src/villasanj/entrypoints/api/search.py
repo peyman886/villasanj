@@ -13,21 +13,23 @@ from typing import Literal
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
+from villasanj.catalog.domain.listing import Listing
 from villasanj.discovery.application.explanation import ExplainChoice, Explanation, explain_first
 from villasanj.discovery.application.routing import Origin
 from villasanj.discovery.application.search import SearchResult
 from villasanj.discovery.domain.dates import describe_fa
 from villasanj.discovery.domain.ranking import WEIGHTS, Ranked
-from villasanj.enrichment.domain.features import NEAR_SEA_M
+from villasanj.enrichment.domain.features import NEAR_SEA_M, Feature, FeatureEvidence
 from villasanj.enrichment.domain.geo import UNKNOWN_RADIUS_M
 from villasanj.enrichment.domain.places import CENTRE_EXTENT_M
-from villasanj.entrypoints.api.listings import GeoOut, MoneyOut, ProvenanceOut, geo_out
+from villasanj.entrypoints.api.listings import GeoOut, LocationOut, MoneyOut, ProvenanceOut, geo_out
 from villasanj.entrypoints.container import Container
 from villasanj.shared.application.jobs import JobStatus
 from villasanj.shared.application.llm.types import JobContext
 from villasanj.shared.domain.slots import SLOT
 
 MAX_RESULTS = 20
+CARD_PHOTOS = 5
 SEARCH_BUDGET_USD = Decimal("0.02")
 
 router = APIRouter(tags=["search"])
@@ -68,6 +70,15 @@ class AlsoOnOut(BaseModel):
     status: str
     total: MoneyOut | None
     total_provenance: ProvenanceOut
+    stale: bool  # the offer rests on an observation older than the stale limit (24 h)
+    area_m2: int | None
+
+
+class ConfirmedOut(BaseModel):
+    """A requested feature with independent or listed evidence (never the description alone)."""
+
+    feature: str
+    source: Literal["photo", "map", "amenities"]
 
 
 class ResultOut(BaseModel):
@@ -77,6 +88,15 @@ class ResultOut(BaseModel):
     platform_name: str
     title: str
     photo: str | None
+    photos: list[str]  # the listing's first photos (the card's carousel)
+    location: LocationOut | None  # the published point and blur radius, never more precise
+    bedrooms: int | None
+    max_capacity: int | None
+    area_m2: int | None
+    rating: float | None  # the platform's own average
+    rating_count: int | None
+    stale: bool
+    confirmed: list[ConfirmedOut]
     total: MoneyOut | None
     per_person: MoneyOut | None  # the total shared by the group, rounded outwards
     total_provenance: ProvenanceOut
@@ -134,6 +154,15 @@ def _result_out(
         platform_name=adapter.profile.display_name if adapter else listing.id.platform,
         title=listing.title_norm,
         photo=listing.photos[0] if listing.photos else None,
+        photos=list(listing.photos[:CARD_PHOTOS]),
+        location=_location(listing),
+        bedrooms=listing.bedrooms,
+        max_capacity=listing.max_capacity,
+        area_m2=listing.area_m2,
+        rating=listing.rating_avg,
+        rating_count=listing.rating_count,
+        stale=offer.stale,
+        confirmed=_confirmed(ranked, result),
         total=MoneyOut.of(total) if total else None,
         per_person=MoneyOut.of(total.shared_by(offer.quote.request.guests.value))
         if total
@@ -172,7 +201,34 @@ def _also_on(container: Container, result: SearchResult, key: str) -> AlsoOnOut:
         status=offer.quote.status.value,
         total=MoneyOut.of(total) if total else None,
         total_provenance=ProvenanceOut.of(offer.quote.provenance),
+        stale=offer.stale,
+        area_m2=listing.area_m2,
     )
+
+
+_CONFIRMING: dict[FeatureEvidence, Literal["photo", "map", "amenities"]] = {
+    FeatureEvidence.PHOTO: "photo",
+    FeatureEvidence.MEASURED: "map",
+    FeatureEvidence.LISTED: "amenities",
+}
+
+
+def _confirmed(ranked: Ranked, result: SearchResult) -> list[ConfirmedOut]:
+    """The requested features this listing's evidence backs, strongest source first."""
+    found = []
+    for code in result.understanding.intent.features:
+        evidence = ranked.candidate.features.get(Feature(code))
+        if evidence in _CONFIRMING:
+            found.append(ConfirmedOut(feature=code, source=_CONFIRMING[evidence]))
+    order = {"photo": 0, "map": 1, "amenities": 2}
+    return sorted(found, key=lambda c: order[c.source])
+
+
+def _location(listing: Listing) -> LocationOut | None:
+    where = listing.location
+    if where is None:
+        return None
+    return LocationOut(lat=where.point.lat, lon=where.point.lon, radius_m=where.radius_m)
 
 
 def _geo(result: SearchResult, key: str, origin: Origin | None) -> GeoOut | None:

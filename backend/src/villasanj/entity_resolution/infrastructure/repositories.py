@@ -361,14 +361,24 @@ class PgJudgementStore:
     async def all(self) -> list[StoredJudgement]:
         async with self._engine.connect() as conn:
             rows = (await conn.execute(select(judgement))).all()
-        return [
-            StoredJudgement(
-                PairKey.of(
-                    ListingId(r.left_platform, r.left_id), ListingId(r.right_platform, r.right_id)
-                ),
-                r.verdict,
-                r.confidence,
-                r.model,
-            )
-            for r in rows
-        ]
+        return [self._stored(r) for r in rows]
+
+    async def of_pair(self, key: PairKey) -> StoredJudgement | None:
+        query = select(judgement).where(
+            *(judgement.c[k] == v for k, v in _pair_columns(key).items())
+        )
+        async with self._engine.connect() as conn:
+            row = (await conn.execute(query)).first()
+        return self._stored(row) if row else None
+
+    @staticmethod
+    def _stored(r: Any) -> StoredJudgement:
+        return StoredJudgement(
+            PairKey.of(
+                ListingId(r.left_platform, r.left_id), ListingId(r.right_platform, r.right_id)
+            ),
+            r.verdict,
+            r.confidence,
+            r.model,
+            tuple(r.evidence),
+        )

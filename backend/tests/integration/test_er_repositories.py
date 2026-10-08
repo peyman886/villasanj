@@ -33,6 +33,7 @@ async def test_embeddings_are_stored_once_per_image_and_model(engine: AsyncEngin
     assert await store.embedded(model) == {"a" * 64, "b" * 64}
     vectors = await store.vectors(model)
     assert vectors["a" * 64] == pytest.approx((0.6, 0.8))
+    assert set(await store.vectors(model, ["b" * 64, "c" * 64])) == {"b" * 64}
     assert await store.embedded("other-model") == set()
 
 
@@ -54,6 +55,9 @@ async def test_photos_read_back_in_listing_order(engine: AsyncEngine) -> None:
     photos = await repo.photos([platform])
     assert [p.position for p in photos] == [0, 1]
     assert photos[0].fingerprint == PerceptualFingerprint(-5, 7, 640, 480)
+    mine = await repo.photos_of([ListingId(platform, "7"), ListingId(platform, "8")])
+    assert [p.url for p in mine] == ["https://c.test/0.jpg", "https://c.test/1.jpg"]
+    assert await repo.photos_of([]) == []
 
 
 def candidate(key: PairKey, value: float | None) -> ScoredCandidate:

@@ -232,8 +232,16 @@ DROP_FIELDS: dict[str, dict[str, object]] = {
 }
 
 
+BASES = ("per_night", "whole_stay")
+
+
 def without(intent: SearchIntent, drops: Sequence[str]) -> SearchIntent:
-    """The intent without the dropped constraints: "budget", "place:<name>", "feature:<code>"."""
+    """The intent without the dropped constraints: "budget", "place:<name>", "feature:<code>".
+
+    "basis:per_night" or "basis:whole_stay" says which reading of an unstated budget basis the
+    user chose (the budget chip, M12). It changes no number the query said, only how its budget
+    is read, and it applies only while the query itself leaves the basis unknown.
+    """
     update: dict[str, object] = {}
     places, features = list(intent.places), list(intent.features)
     for drop in drops:
@@ -244,5 +252,13 @@ def without(intent: SearchIntent, drops: Sequence[str]) -> SearchIntent:
             places = [p for p in places if p != value]
         elif kind == "feature":
             features = [f for f in features if f != value]
+        elif (
+            kind == "basis"
+            and value in BASES
+            and intent.budget is not None
+            and intent.budget.basis == "unknown"
+            and "budget" not in drops
+        ):
+            update["budget"] = intent.budget.model_copy(update={"basis": value})
     update["places"], update["features"] = places, features
     return intent.model_copy(update=update)

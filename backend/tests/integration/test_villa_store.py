@@ -87,3 +87,8 @@ async def test_judgements_keep_the_latest_verdict_per_pair(engine: AsyncEngine) 
     await store.save([judged("match", 0.9)])
     mine = [j for j in await store.all() if j.key == key]
     assert [(j.verdict, j.confidence, j.model) for j in mine] == [("match", 0.9, "model-a")]
+    found = await store.of_pair(key)
+    assert found is not None
+    assert (found.verdict, found.evidence) == ("match", ("same_interior",))
+    other = PairKey.of(ListingId("jabama", "none"), ListingId("shab", "none"))
+    assert await store.of_pair(other) is None

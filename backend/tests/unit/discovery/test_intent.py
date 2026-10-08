@@ -130,6 +130,17 @@ def test_dropping_constraints_never_adds_a_number() -> None:
     assert without(intent, []) == intent
 
 
+def test_choosing_a_budget_basis_reads_an_unstated_one_and_nothing_else() -> None:
+    unstated = SearchIntent(budget=Budget(max_toman=5_000_000))
+    chosen = without(unstated, ["basis:per_night"])
+    assert chosen.budget == Budget(max_toman=5_000_000, basis="per_night")
+    stated = SearchIntent(budget=Budget(max_toman=5_000_000, basis="whole_stay"))
+    assert without(stated, ["basis:per_night"]) == stated  # the query's own words win
+    assert without(unstated, ["basis:monthly"]) == unstated
+    assert without(unstated, ["budget", "basis:per_night"]).budget is None
+    assert without(SearchIntent(), ["basis:whole_stay"]) == SearchIntent()
+
+
 @pytest.mark.parametrize(
     ("query", "basis", "kept"),
     [

@@ -4,6 +4,17 @@
       "AlsoOnOut": {
         "description": "The same villa on another platform: its own offer, never merged (rule 3).",
         "properties": {
+          "area_m2": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area M2"
+          },
           "external_id": {
             "title": "External Id",
             "type": "string"
@@ -19,6 +30,10 @@
           "platform_name": {
             "title": "Platform Name",
             "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
           },
           "status": {
             "title": "Status",
@@ -45,7 +60,9 @@
           "external_id",
           "status",
           "total",
-          "total_provenance"
+          "total_provenance",
+          "stale",
+          "area_m2"
         ],
         "title": "AlsoOnOut",
         "type": "object"
@@ -274,6 +291,30 @@
           "features"
         ],
         "title": "ClaimsOut",
+        "type": "object"
+      },
+      "ConfirmedOut": {
+        "description": "A requested feature with independent or listed evidence (never the description alone).",
+        "properties": {
+          "feature": {
+            "title": "Feature",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "photo",
+              "map",
+              "amenities"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "feature",
+          "source"
+        ],
+        "title": "ConfirmedOut",
         "type": "object"
       },
       "ConflictOut": {
@@ -530,6 +571,36 @@
         "title": "FeatureClaimOut",
         "type": "object"
       },
+      "GalleryPhotoOut": {
+        "properties": {
+          "phash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phash"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "platform",
+          "phash"
+        ],
+        "title": "GalleryPhotoOut",
+        "type": "object"
+      },
       "GeoOut": {
         "properties": {
           "coast_m": {
@@ -719,6 +790,32 @@
           "statements"
         ],
         "title": "InconsistencyOut",
+        "type": "object"
+      },
+      "JudgeOut": {
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verdict",
+          "confidence",
+          "evidence"
+        ],
+        "title": "JudgeOut",
         "type": "object"
       },
       "Label": {
@@ -1077,6 +1174,173 @@
         "title": "LocationOut",
         "type": "object"
       },
+      "MatchPairOut": {
+        "description": "Why two member listings are one villa: only what the pipeline recorded for the pair.",
+        "properties": {
+          "area_m2": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Area M2",
+            "type": "array"
+          },
+          "bedrooms": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Bedrooms",
+            "type": "array"
+          },
+          "contributions": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Contributions",
+            "type": "object"
+          },
+          "distance_min_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance Min M"
+          },
+          "human": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Human"
+          },
+          "judge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JudgeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "left": {
+            "title": "Left",
+            "type": "string"
+          },
+          "max_capacity": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Max Capacity",
+            "type": "array"
+          },
+          "photo_pairs": {
+            "items": {
+              "$ref": "#/components/schemas/PhotoPairOut"
+            },
+            "title": "Photo Pairs",
+            "type": "array"
+          },
+          "photos_compared": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Photos Compared",
+            "type": "array"
+          },
+          "right": {
+            "title": "Right",
+            "type": "string"
+          },
+          "rule_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Score"
+          },
+          "rules_match": {
+            "title": "Rules Match",
+            "type": "boolean"
+          },
+          "strong_photo_matches": {
+            "title": "Strong Photo Matches",
+            "type": "integer"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          },
+          "title_similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Similarity"
+          },
+          "weak_photo_matches": {
+            "title": "Weak Photo Matches",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "left",
+          "right",
+          "photo_pairs",
+          "photos_compared",
+          "strong_photo_matches",
+          "weak_photo_matches",
+          "distance_min_m",
+          "bedrooms",
+          "max_capacity",
+          "area_m2",
+          "title_similarity",
+          "rule_score",
+          "threshold",
+          "rules_match",
+          "contributions",
+          "judge",
+          "human"
+        ],
+        "title": "MatchPairOut",
+        "type": "object"
+      },
       "MetricsOut": {
         "properties": {
           "computed_at": {
@@ -1408,6 +1672,29 @@
           "present"
         ],
         "title": "PhotoLabelIn",
+        "type": "object"
+      },
+      "PhotoPairOut": {
+        "properties": {
+          "left_url": {
+            "title": "Left Url",
+            "type": "string"
+          },
+          "right_url": {
+            "title": "Right Url",
+            "type": "string"
+          },
+          "strong": {
+            "title": "Strong",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "left_url",
+          "right_url",
+          "strong"
+        ],
+        "title": "PhotoPairOut",
         "type": "object"
       },
       "PhotoTag": {
@@ -2186,11 +2473,40 @@
             "title": "Also On",
             "type": "array"
           },
+          "area_m2": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area M2"
+          },
+          "bedrooms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bedrooms"
+          },
           "cautions": {
             "items": {
               "type": "string"
             },
             "title": "Cautions",
+            "type": "array"
+          },
+          "confirmed": {
+            "items": {
+              "$ref": "#/components/schemas/ConfirmedOut"
+            },
+            "title": "Confirmed",
             "type": "array"
           },
           "confirmed_features": {
@@ -2225,6 +2541,27 @@
           "listing_provenance": {
             "$ref": "#/components/schemas/ProvenanceOut"
           },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max_capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Capacity"
+          },
           "mentions": {
             "items": {
               "type": "string"
@@ -2253,6 +2590,13 @@
             ],
             "title": "Photo"
           },
+          "photos": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Photos",
+            "type": "array"
+          },
           "platform": {
             "title": "Platform",
             "type": "string"
@@ -2272,9 +2616,35 @@
             ],
             "title": "Price Per Person Night Toman"
           },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "rating_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating Count"
+          },
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
           },
           "title": {
             "title": "Title",
@@ -2312,6 +2682,15 @@
           "platform_name",
           "title",
           "photo",
+          "photos",
+          "location",
+          "bedrooms",
+          "max_capacity",
+          "area_m2",
+          "rating",
+          "rating_count",
+          "stale",
+          "confirmed",
           "total",
           "per_person",
           "total_provenance",
@@ -3025,6 +3404,13 @@
             "title": "Conflicts",
             "type": "array"
           },
+          "gallery": {
+            "items": {
+              "$ref": "#/components/schemas/GalleryPhotoOut"
+            },
+            "title": "Gallery",
+            "type": "array"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -3062,6 +3448,7 @@
         "required": [
           "id",
           "members",
+          "gallery",
           "conflicts",
           "inconsistencies",
           "rating",
@@ -4768,6 +5155,53 @@
           }
         },
         "summary": "Get Calendar",
+        "tags": [
+          "villas"
+        ]
+      }
+    },
+    "/villas/{villa_id}/match": {
+      "get": {
+        "description": "The recorded evidence for each pair of member listings (empty for a one-listing villa).",
+        "operationId": "get_match_villas__villa_id__match_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "villa_id",
+            "required": true,
+            "schema": {
+              "title": "Villa Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MatchPairOut"
+                  },
+                  "title": "Response Get Match Villas  Villa Id  Match Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Match",
         "tags": [
           "villas"
         ]

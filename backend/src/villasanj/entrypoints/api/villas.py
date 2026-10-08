@@ -45,6 +45,7 @@ from villasanj.shared.domain.stay import DateRange, GuestCount
 router = APIRouter(prefix="/villas", tags=["villas"])
 
 HIDDEN_NIGHT_GAP = timedelta(hours=6)  # observations further apart are not compared (H3)
+_MASK64 = (1 << 64) - 1  # hashes are stored as signed 64-bit integers
 
 
 class ConflictOut(BaseModel):
@@ -67,9 +68,16 @@ class InconsistencyOut(BaseModel):
     statements: list[StatementOut]
 
 
+class GalleryPhotoOut(BaseModel):
+    url: str
+    platform: str
+    phash: str | None  # 64-bit perceptual hash as 16 hex digits; None: not fingerprinted
+
+
 class VillaOut(BaseModel):
     id: str
     members: list[ListingOut]  # at most one per platform
+    gallery: list[GalleryPhotoOut]  # every member's photos in order, with the matcher's hashes
     conflicts: list[ConflictOut]
     inconsistencies: list[InconsistencyOut]  # location and amenity claims stated differently
     rating: float | None  # every platform's ratings together, weighted by their counts
@@ -174,9 +182,22 @@ async def get_villa(villa_id: str, request: Request) -> VillaOut:
     villa, members = await _villa(container, villa_id)
     rating, count = _combined_rating(members)
     found = await container.villa_consistency().run(members)
+    hashes = {
+        p.url: p.fingerprint.phash
+        for p in await container.catalog_photos().photos_of([m.id for m in members])
+    }
     return VillaOut(
         id=villa.id,
         members=[_listing_out(container, x) for x in members],
+        gallery=[
+            GalleryPhotoOut(
+                url=url,
+                platform=m.id.platform,
+                phash=f"{hashes[url] & _MASK64:016x}" if url in hashes else None,
+            )
+            for m in members
+            for url in m.photos
+        ],
         conflicts=[
             ConflictOut(
                 field=c.field,
@@ -313,3 +334,86 @@ async def villa_of(platform: str, external_id: str, request: Request) -> VillaRe
     if villa is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no villa for this listing")
     return VillaRefOut(villa_id=villa.id, members=len(villa.members))
+
+
+class PhotoPairOut(BaseModel):
+    left_url: str
+    right_url: str
+    strong: bool  # near-identical; otherwise a close match (half weight in the score)
+
+
+class JudgeOut(BaseModel):
+    verdict: str  # match / non_match / unsure
+    confidence: float
+    evidence: list[str]  # the judge's cited codes, e.g. "same_interior"
+
+
+class MatchPairOut(BaseModel):
+    """Why two member listings are one villa: only what the pipeline recorded for the pair."""
+
+    left: str
+    right: str
+    photo_pairs: list[PhotoPairOut]
+    photos_compared: list[int]  # fingerprinted photos of each listing
+    strong_photo_matches: int
+    weak_photo_matches: int
+    distance_min_m: float | None  # smallest possible distance between the published areas
+    bedrooms: list[int | None]  # each listing's own value, in the pair's order
+    max_capacity: list[int | None]
+    area_m2: list[int | None]
+    title_similarity: float | None
+    rule_score: float | None
+    threshold: float
+    rules_match: bool
+    contributions: dict[str, float]
+    judge: JudgeOut | None
+    human: str | None  # the owner's label for the pair, if any
+
+
+@router.get("/{villa_id}/match")
+async def get_match(villa_id: str, request: Request) -> list[MatchPairOut]:
+    """The recorded evidence for each pair of member listings (empty for a one-listing villa)."""
+    container = _container(request)
+    _, members = await _villa(container, villa_id)
+    explain = container.explain_match()
+    by_id = {m.id: m for m in members}
+    out = []
+    for i, a in enumerate(members):
+        for b in members[i + 1 :]:
+            found = await explain.run(a.id, b.id)
+            left, right = by_id[found.key.left], by_id[found.key.right]
+            evidence = found.evidence
+            out.append(
+                MatchPairOut(
+                    left=str(left.id),
+                    right=str(right.id),
+                    photo_pairs=[
+                        PhotoPairOut(left_url=p.left_url, right_url=p.right_url, strong=p.strong)
+                        for p in found.photo_pairs
+                    ],
+                    photos_compared=[
+                        evidence.photos.compared_left if evidence else 0,
+                        evidence.photos.compared_right if evidence else 0,
+                    ],
+                    strong_photo_matches=evidence.photos.strong_matches if evidence else 0,
+                    weak_photo_matches=evidence.photos.weak_matches if evidence else 0,
+                    distance_min_m=evidence.distance_min_m if evidence else None,
+                    bedrooms=[left.bedrooms, right.bedrooms],
+                    max_capacity=[left.max_capacity, right.max_capacity],
+                    area_m2=[left.area_m2, right.area_m2],
+                    title_similarity=evidence.title_similarity if evidence else None,
+                    rule_score=found.rule_score,
+                    threshold=found.threshold,
+                    rules_match=found.rules_match,
+                    contributions=dict(found.contributions),
+                    judge=JudgeOut(
+                        verdict=found.judge.verdict,
+                        confidence=found.judge.confidence,
+                        evidence=list(found.judge.evidence),
+                    )
+                    if found.judge
+                    else None,
+                    human=found.human,
+                )
+            )
+    return out

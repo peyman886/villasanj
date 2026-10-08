@@ -85,6 +85,18 @@ def test_search_returns_ranked_results_with_provenance(client: TestClient) -> No
     assert first["geo"]["coast_m"]["text"] == "۰ تا ۷۰۰ متر تا ساحل در خط مستقیم"
     assert first["geo"]["drive_s"]["text"].endswith("از تهران، بدون ترافیک")
     assert client.stub.jobs.finished == [JobStatus.SUCCEEDED]  # type: ignore[attr-defined]
+    # What the card and the map need, no more precise than the listing published it.
+    assert first["location"] == {"lat": 36.9, "lon": 50.66, "radius_m": 400}
+    assert first["stale"] is False
+    assert first["confirmed"] == [{"feature": "pool", "source": "amenities"}]
+    assert first["rating_count"] == 12
+
+
+def test_choosing_the_budget_basis_keeps_every_other_chip(client: TestClient) -> None:
+    body = client.post("/search", json={"query": QUERY, "drop": ["basis:per_night"]}).json()
+    assert body["intent"]["budget"]["basis"] == "per_night"
+    assert body["places"] == ["رامسر"]
+    assert body["budget_readings"] is None
 
 
 def test_the_explanation_comes_as_linkable_segments(client: TestClient) -> None:

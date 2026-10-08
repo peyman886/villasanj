@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 
@@ -84,6 +85,7 @@ from villasanj.enrichment.infrastructure.places import PgPlaceDistanceStore, PgP
 from villasanj.enrichment.infrastructure.siglip import SigLip2Tagger
 from villasanj.enrichment.infrastructure.summary_review import PgSummaryReviewStore
 from villasanj.entity_resolution.application.evaluation import EvaluateMatcher
+from villasanj.entity_resolution.application.explain import ExplainMatch
 from villasanj.entity_resolution.application.judge import JudgePairs
 from villasanj.entity_resolution.application.judge_eval import EvaluateJudge
 from villasanj.entity_resolution.application.labeling import BuildLabelQueue, LabelingSession
@@ -96,6 +98,7 @@ from villasanj.entity_resolution.application.villas import (
     VillaReport,
 )
 from villasanj.entity_resolution.infrastructure.grid import PillowGridRenderer
+from villasanj.entity_resolution.infrastructure.pair_photos import IndexedPairPhotos
 from villasanj.entity_resolution.infrastructure.photo_index import NumpyPhotoIndex
 from villasanj.entity_resolution.infrastructure.policy_file import load_er_config
 from villasanj.entity_resolution.infrastructure.repositories import (
@@ -244,6 +247,22 @@ class Container:
 
     def evaluate_matcher(self) -> EvaluateMatcher:
         return EvaluateMatcher(self.candidates(), self.labels())
+
+    def explain_match(self) -> ExplainMatch:
+        photos = PgPhotoRepository(self.engine)
+        embeddings = PgEmbeddingStore(self.engine, self.clock)
+        model_id = self.image_embedder().model_id
+
+        async def vectors_of(sha256s: Sequence[str]) -> Mapping[str, tuple[float, ...]]:
+            return await embeddings.vectors(model_id, sha256s)
+
+        return ExplainMatch(
+            self.candidates(),
+            self.judgements(),
+            self.labels(),
+            IndexedPairPhotos(photos.photos_of, vectors_of, model_id),
+            self.er_config().policy,
+        )
 
     def judgements(self) -> PgJudgementStore:
         return PgJudgementStore(self.engine, self.clock)

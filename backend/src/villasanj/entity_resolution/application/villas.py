@@ -47,6 +47,7 @@ class StoredJudgement:
     verdict: str  # match / non_match / unsure
     confidence: float
     model: str
+    evidence: tuple[str, ...] = ()  # the judge's cited evidence codes (e.g. "same_interior")
 
 
 class JudgementStore(Protocol):

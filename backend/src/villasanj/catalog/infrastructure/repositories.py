@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from datetime import date
 from typing import Any
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
@@ -441,9 +441,22 @@ class PgPhotoRepository:
         return {str(row.snapshot_id) for row in rows}
 
     async def photos(self, platforms: Sequence[str]) -> list[ListingPhoto]:
+        return await self._photos(photo.c.platform.in_(list(platforms)))
+
+    async def photos_of(self, listings: Sequence[ListingId]) -> list[ListingPhoto]:
+        """The fingerprinted photos of these listings only (one villa page, one pair)."""
+        if not listings:
+            return []
+        return await self._photos(
+            tuple_(photo.c.platform, photo.c.external_id).in_(
+                [(x.platform, x.external_id) for x in listings]
+            )
+        )
+
+    async def _photos(self, where: Any) -> list[ListingPhoto]:
         query = (
             select(photo)
-            .where(photo.c.platform.in_(list(platforms)))
+            .where(where)
             .order_by(photo.c.platform, photo.c.external_id, photo.c.position)
         )
         async with self._engine.connect() as conn:
@@ -488,10 +501,15 @@ class PgEmbeddingStore:
         async with self._engine.begin() as conn:
             await conn.execute(insert(photo_embedding).values(rows).on_conflict_do_nothing())
 
-    async def vectors(self, model_id: str) -> dict[str, tuple[float, ...]]:
+    async def vectors(
+        self, model_id: str, sha256s: Sequence[str] | None = None
+    ) -> dict[str, tuple[float, ...]]:
+        """Every vector of the model, or only those of ``sha256s``."""
         query = select(photo_embedding.c.sha256, photo_embedding.c.vector).where(
             photo_embedding.c.model_id == model_id
         )
+        if sha256s is not None:
+            query = query.where(photo_embedding.c.sha256.in_(list(sha256s)))
         async with self._engine.connect() as conn:
             return {row.sha256: tuple(row.vector) for row in (await conn.execute(query)).all()}
 

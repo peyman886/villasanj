@@ -598,6 +598,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/villas/{villa_id}/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Match
+         * @description The recorded evidence for each pair of member listings (empty for a one-listing villa).
+         */
+        get: operations["get_match_villas__villa_id__match_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/villas/{villa_id}/offers": {
         parameters: {
             query?: never;
@@ -669,6 +689,8 @@ export interface components {
          * @description The same villa on another platform: its own offer, never merged (rule 3).
          */
         AlsoOnOut: {
+            /** Area M2 */
+            area_m2: number | null;
             /** External Id */
             external_id: string;
             /** Listing Id */
@@ -677,6 +699,8 @@ export interface components {
             platform: string;
             /** Platform Name */
             platform_name: string;
+            /** Stale */
+            stale: boolean;
             /** Status */
             status: string;
             total: components["schemas"]["MoneyOut"] | null;
@@ -750,6 +774,19 @@ export interface components {
             distances: components["schemas"]["DistanceClaimOut"][];
             /** Features */
             features: components["schemas"]["FeatureClaimOut"][];
+        };
+        /**
+         * ConfirmedOut
+         * @description A requested feature with independent or listed evidence (never the description alone).
+         */
+        ConfirmedOut: {
+            /** Feature */
+            feature: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "photo" | "map" | "amenities";
         };
         /** ConflictOut */
         ConflictOut: {
@@ -840,6 +877,15 @@ export interface components {
              */
             verdict: "supported" | "consistent" | "not_confirmed" | "inconsistent" | "contradicted" | "shared" | "not_checked";
         };
+        /** GalleryPhotoOut */
+        GalleryPhotoOut: {
+            /** Phash */
+            phash: string | null;
+            /** Platform */
+            platform: string;
+            /** Url */
+            url: string;
+        };
         /** GeoOut */
         GeoOut: {
             coast_m: components["schemas"]["GeoRangeOut"] | null;
@@ -902,6 +948,15 @@ export interface components {
             statements: components["schemas"]["StatementOut"][];
             /** Subject */
             subject: string;
+        };
+        /** JudgeOut */
+        JudgeOut: {
+            /** Confidence */
+            confidence: number;
+            /** Evidence */
+            evidence: string[];
+            /** Verdict */
+            verdict: string;
         };
         /**
          * Label
@@ -998,6 +1053,47 @@ export interface components {
             lon: number;
             /** Radius M */
             radius_m: number | null;
+        };
+        /**
+         * MatchPairOut
+         * @description Why two member listings are one villa: only what the pipeline recorded for the pair.
+         */
+        MatchPairOut: {
+            /** Area M2 */
+            area_m2: (number | null)[];
+            /** Bedrooms */
+            bedrooms: (number | null)[];
+            /** Contributions */
+            contributions: {
+                [key: string]: number;
+            };
+            /** Distance Min M */
+            distance_min_m: number | null;
+            /** Human */
+            human: string | null;
+            judge: components["schemas"]["JudgeOut"] | null;
+            /** Left */
+            left: string;
+            /** Max Capacity */
+            max_capacity: (number | null)[];
+            /** Photo Pairs */
+            photo_pairs: components["schemas"]["PhotoPairOut"][];
+            /** Photos Compared */
+            photos_compared: number[];
+            /** Right */
+            right: string;
+            /** Rule Score */
+            rule_score: number | null;
+            /** Rules Match */
+            rules_match: boolean;
+            /** Strong Photo Matches */
+            strong_photo_matches: number;
+            /** Threshold */
+            threshold: number;
+            /** Title Similarity */
+            title_similarity: number | null;
+            /** Weak Photo Matches */
+            weak_photo_matches: number;
         };
         /** MetricsOut */
         MetricsOut: {
@@ -1115,6 +1211,15 @@ export interface components {
             queue: string;
             /** Sha256 */
             sha256: string;
+        };
+        /** PhotoPairOut */
+        PhotoPairOut: {
+            /** Left Url */
+            left_url: string;
+            /** Right Url */
+            right_url: string;
+            /** Strong */
+            strong: boolean;
         };
         /**
          * PhotoTag
@@ -1385,8 +1490,14 @@ export interface components {
         ResultOut: {
             /** Also On */
             also_on: components["schemas"]["AlsoOnOut"][];
+            /** Area M2 */
+            area_m2: number | null;
+            /** Bedrooms */
+            bedrooms: number | null;
             /** Cautions */
             cautions: string[];
+            /** Confirmed */
+            confirmed: components["schemas"]["ConfirmedOut"][];
             /** Confirmed Features */
             confirmed_features: number;
             /** Contributions */
@@ -1397,19 +1508,30 @@ export interface components {
             /** Listing Id */
             listing_id: string;
             listing_provenance: components["schemas"]["ProvenanceOut"];
+            location: components["schemas"]["LocationOut"] | null;
+            /** Max Capacity */
+            max_capacity: number | null;
             /** Mentions */
             mentions: string[];
             per_person: components["schemas"]["MoneyOut"] | null;
             /** Photo */
             photo: string | null;
+            /** Photos */
+            photos: string[];
             /** Platform */
             platform: string;
             /** Platform Name */
             platform_name: string;
             /** Price Per Person Night Toman */
             price_per_person_night_toman: number | null;
+            /** Rating */
+            rating: number | null;
+            /** Rating Count */
+            rating_count: number | null;
             /** Score */
             score: number;
+            /** Stale */
+            stale: boolean;
             /** Title */
             title: string;
             total: components["schemas"]["MoneyOut"] | null;
@@ -1648,6 +1770,8 @@ export interface components {
         VillaOut: {
             /** Conflicts */
             conflicts: components["schemas"]["ConflictOut"][];
+            /** Gallery */
+            gallery: components["schemas"]["GalleryPhotoOut"][];
             /** Id */
             id: string;
             /** Inconsistencies */
@@ -2661,6 +2785,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VillaNightOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_match_villas__villa_id__match_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                villa_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchPairOut"][];
                 };
             };
             /** @description Validation Error */

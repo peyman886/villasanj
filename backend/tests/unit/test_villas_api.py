@@ -10,18 +10,27 @@ from typing import cast
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.fakes.er import CandidateStoreFake, LabelStoreFake
 from tests.fakes.ingestion import SteppingClock
 from tests.fakes.llm import NOW
 from tests.unit.catalog.test_listing import parsed
 from tests.unit.pricing.test_quote import night
 from tests.unit.test_search_api import Jobs
 from villasanj.catalog.domain.listing import CalendarObservation, Listing, ListingId
+from villasanj.catalog.domain.photo import ListingPhoto, PerceptualFingerprint
 from villasanj.catalog.domain.review import ListingReview
 from villasanj.enrichment.application.consistency import CheckVillaConsistency
 from villasanj.enrichment.application.features import AmenityMap
 from villasanj.enrichment.application.review_summary import CitedPoint, ReviewSummary
 from villasanj.enrichment.domain.features import Feature
+from villasanj.entity_resolution.application.explain import ExplainMatch
+from villasanj.entity_resolution.application.ports import ScoredCandidate
+from villasanj.entity_resolution.application.villas import DecisionPolicy, StoredJudgement
 from villasanj.entity_resolution.domain.clustering import CanonicalVilla
+from villasanj.entity_resolution.domain.evidence import PhotoSimilarity
+from villasanj.entity_resolution.domain.labels import Label, PairLabel
+from villasanj.entity_resolution.domain.pairs import BlockingSource, PairKey
+from villasanj.entity_resolution.domain.scoring import Contribution, Score
 from villasanj.entrypoints.api.app import create_app
 from villasanj.entrypoints.container import Container
 from villasanj.ingestion.domain.parsed import (
@@ -37,7 +46,15 @@ from villasanj.shared.domain.stay import DateRange
 SNAPSHOT = "00000000-0000-0000-0000-000000000a12"
 POOL = (ParsedAmenity("swim", "استخر", True),)
 J = Listing.from_parsed(
-    parsed(platform="jabama", external_id="1", bedrooms=2, amenities=POOL), SNAPSHOT, NOW
+    parsed(
+        platform="jabama",
+        external_id="1",
+        bedrooms=2,
+        amenities=POOL,
+        photos=("https://j.test/0.jpg", "https://j.test/1.jpg"),
+    ),
+    SNAPSHOT,
+    NOW,
 )
 S = Listing.from_parsed(
     parsed(platform="shab", external_id="1", bedrooms=3, description="ویلا بدون استخر است"),
@@ -102,8 +119,49 @@ class Stub:
     def offers(self) -> OfferBook:
         return OfferBook(self.listings, {}, SteppingClock(NOW + timedelta(hours=1)))
 
+    def catalog_photos(self) -> "Photos":
+        return Photos()
+
+    def explain_match(self) -> ExplainMatch:
+        key = PairKey.of(J.id, S.id)
+        candidate = ScoredCandidate(
+            key,
+            frozenset({BlockingSource.GEO_ROOMS}),
+            True,
+            None,
+            Score(1.5, (Contribution("location_overlaps", 1.0),)),
+        )
+        labels = LabelStoreFake()
+        labels.decisions[(key, "owner")] = PairLabel(key, Label.MATCH, "owner", NOW)
+        return ExplainMatch(
+            CandidateStoreFake([candidate]),
+            NoJudge(),
+            labels,
+            NoPhotos(),
+            DecisionPolicy(threshold=-0.25),
+        )
+
     async def aclose(self) -> None:
         return None
+
+
+class Photos:
+    async def photos_of(self, listings: Sequence[ListingId]) -> list[ListingPhoto]:
+        fingerprint = PerceptualFingerprint(-1, 0, 800, 600)  # stored signed: all 64 bits set
+        return [ListingPhoto(J.id, 0, "https://j.test/0.jpg", SNAPSHOT, "a" * 64, fingerprint, NOW)]
+
+
+class NoJudge:
+    async def of_pair(self, key: PairKey) -> StoredJudgement | None:
+        return None
+
+
+class NoPhotos:
+    async def similarities(self, key: PairKey) -> list[PhotoSimilarity]:
+        return []
+
+    async def urls(self, listing: ListingId) -> dict[int, str]:
+        return {}
 
 
 class Summaries:
@@ -144,6 +202,23 @@ def test_a_villa_shows_its_members_and_where_they_disagree(client: TestClient) -
     assert all(x["provenance"]["snapshot_id"] == SNAPSHOT for x in pool["statements"])
     assert client.get("/villas/v-none").status_code == 404
     assert client.get("/villas/of/jabama/1").json() == {"villa_id": "v-test", "members": 2}
+    assert body["gallery"] == [
+        {"url": "https://j.test/0.jpg", "platform": "jabama", "phash": "ffffffffffffffff"},
+        {"url": "https://j.test/1.jpg", "platform": "jabama", "phash": None},  # not fingerprinted
+    ]
+
+
+def test_the_match_shows_what_was_recorded_for_the_pair(client: TestClient) -> None:
+    (pair,) = client.get("/villas/v-test/match").json()
+    assert (pair["left"], pair["right"]) == ("jabama:1", "shab:1")
+    assert pair["photo_pairs"] == []
+    assert pair["bedrooms"] == [2, 3]
+    assert pair["rule_score"] == 1.5
+    assert pair["rules_match"] is True
+    assert pair["contributions"] == {"location_overlaps": 1.0}
+    assert pair["distance_min_m"] is None  # no stored evidence: nothing is made up
+    assert pair["judge"] is None
+    assert pair["human"] == "match"
 
 
 def test_offers_stay_per_listing_and_nights_keep_each_platform(client: TestClient) -> None:
