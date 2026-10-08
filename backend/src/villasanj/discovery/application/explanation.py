@@ -195,7 +195,7 @@ def build_slots(
         parts.append(f"{{{free}}}")
     per_person = top.price_per_person_night_toman
     if per_person is not None and guests and offer.quote.total is not None:
-        at_least = "" if offer.quote.total.is_exact else "حداقل "
+        at_least = "" if offer.quote.total.is_exact else f"دست{ZWNJ}کم "
         per = fact(
             "the price per person and night",
             f"{at_least}{fa_int(int(per_person))} تومان برای هر نفر در هر شب",
@@ -228,7 +228,7 @@ def build_slots(
     if listing.rating_avg is not None and listing.rating_count:
         rating = fact(
             "the guests' rating on the platform",
-            f"{fa_decimal(listing.rating_avg)} از ۵ با {fa_int(listing.rating_count)} رأی",
+            f"{fa_decimal(listing.rating_avg)} از ۵ با {fa_int(listing.rating_count)} امتیاز",
             listing.provenance,
         )
         parts.append(f"امتیاز مهمان{ZWNJ}ها {{{rating}}} است")

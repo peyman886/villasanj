@@ -6,7 +6,7 @@ Only code formats numbers (ADR-0007): these strings fill the fact slots of LLM-w
 from __future__ import annotations
 
 from villasanj.shared.domain.money import MoneyRange
-from villasanj.shared.domain.persian_text import to_persian_digits
+from villasanj.shared.domain.persian_text import ZWNJ, to_persian_digits
 
 THOUSANDS = "\N{ARABIC THOUSANDS SEPARATOR}"
 DECIMAL = "\N{ARABIC DECIMAL SEPARATOR}"
@@ -25,7 +25,7 @@ def fa_toman(amount: MoneyRange) -> str:
     """Exact, a range, or "at least" when part of the cost is unknown (product rule 1)."""
     low = fa_int(int(amount.low.toman))
     if amount.high is None:
-        return f"حداقل {low} تومان"
+        return f"دست{ZWNJ}کم {low} تومان"  # a running sentence; a price label says «از» (ADR-0015)
     if amount.is_exact:
         return f"{low} تومان"
     return f"{low} تا {fa_int(int(amount.high.toman))} تومان"

@@ -15,7 +15,7 @@ def test_money_ranges_never_invent_an_upper_bound() -> None:
     low, high = Money.from_toman(2_000_000), Money.from_toman(3_000_000)
     assert fa_toman(MoneyRange.exact(low)) == "۲٬۰۰۰٬۰۰۰ تومان"
     assert fa_toman(MoneyRange.between(low, high)) == "۲٬۰۰۰٬۰۰۰ تا ۳٬۰۰۰٬۰۰۰ تومان"
-    assert fa_toman(MoneyRange.at_least(low)) == "حداقل ۲٬۰۰۰٬۰۰۰ تومان"
+    assert fa_toman(MoneyRange.at_least(low)) == "دست\N{ZERO WIDTH NON-JOINER}کم ۲٬۰۰۰٬۰۰۰ تومان"
 
 
 def test_time_and_distance_ranges_widen_to_round_values() -> None:

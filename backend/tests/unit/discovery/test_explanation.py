@@ -92,7 +92,7 @@ def test_facts_are_formatted_by_code_and_the_template_passes_the_verifier() -> N
     built = slots()
     texts = [f.text for f in built.facts.values()]
     assert any(t.endswith("تومان") for t in texts)
-    assert "۴٫۸ از ۵ با ۱۲۰ رأی" in texts
+    assert "۴٫۸ از ۵ با ۱۲۰ امتیاز" in texts
     assert any("در آخرین مشاهده آزاد بود (کمتر از یک ساعت پیش)" in t for t in texts)
     assert any(t.startswith("استخر در فهرست امکانات") for t in texts)
     assert built.comparisons["C1"].relation == "cheaper"
