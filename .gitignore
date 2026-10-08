@@ -46,3 +46,7 @@ frontend/next-env.d.ts
 frontend/test-results/
 frontend/playwright-report/
 frontend/public/maplibre/
+
+# --- Third-party screenshots for the UX work (listing photos, review text, other sites) ---
+/docs/ux/screenshots/
+/docs/ux/references/

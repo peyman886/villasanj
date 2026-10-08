@@ -48,6 +48,10 @@ Context files (local):
 - Work **milestone by milestone**. Before coding a milestone, give a short plan (files, classes,
   interfaces, tests, estimated LLM cost). At the end, **stop**, report (what was built, how to run it,
   decisions + why, LLM spend from the ledger, tech debt, next step) and wait for approval.
+- **M12 exception (owner, 2026-10-08):** run M12 (UX redesign, then the public release of the
+  repository) from start to finish. Ask the owner no questions and do not wait for approval between
+  waves. Every decision is in `docs/ux/decisions.md`; for anything new, decide yourself and record it
+  in the wave report. Every other rule in this file still applies.
 - A milestone is done only when `make lint` and `make test` are green.
 - Small coherent commits, Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`).
 - Run tests + lint after every change; fix failures first.

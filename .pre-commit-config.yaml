@@ -10,9 +10,9 @@ repos:
       - id: check-yaml
       - id: detect-private-key
       - id: end-of-file-fixer
-        exclude: ^(docs/reference/|research-)
+        exclude: ^(docs/reference/|research-|docs/ux/research-)
       - id: trailing-whitespace
-        exclude: ^(docs/reference/|research-)
+        exclude: ^(docs/reference/|research-|docs/ux/research-)
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0
