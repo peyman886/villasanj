@@ -37,7 +37,7 @@ const dayOfMonthFormat = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
 
 export const STATUS_TEXT: Record<string, string> = {
   bookable: "آزاد در آخرین مشاهده",
-  unavailable: "دست‌کم یک شب پر یا بسته بود",
+  unavailable: "دست‌کم یک شب ناموجود بود",
   too_many_guests: "ظرفیت برای این تعداد کافی نیست",
   below_min_nights: "کمتر از حداقل شب‌های اقامت",
   unknown: "برای همه‌ی شب‌ها مشاهده‌ی قابل‌استفاده نداریم",
@@ -54,10 +54,10 @@ export const CAVEAT_TEXT: Record<string, string> = {
 
 export const AVAILABILITY_TEXT: Record<string, string> = {
   available: "آزاد",
-  unavailable: "پر یا بسته",
-  booked: "رزروشده",
-  blocked: "بسته",
-  unknown: "نامعلوم",
+  unavailable: "ناموجود", // jabama does not say booked or closed (CLAUDE.md gotcha)
+  booked: "ناموجود",
+  blocked: "ناموجود",
+  unknown: "هنوز این روز را ندیده‌ایم",
 };
 
 /** Truth-check verdicts (product rule 5: «تأیید نشد», never an accusation). */
@@ -85,10 +85,10 @@ export function faNumber(value: number | null | undefined): string {
   return value === null || value === undefined ? "نامشخص" : numberFormat.format(value);
 }
 
-/** "۲٬۵۰۰٬۰۰۰ تومان", a range, or an open upper bound ("حداقل …") when costs are unknown. */
+/** "۲٬۵۰۰٬۰۰۰ تومان", a range, or an open upper bound ("از …") when costs are unknown. */
 export function faToman(money: Money): string {
   const low = numberFormat.format(money.low_toman);
-  if (money.high_toman === null) return `حداقل ${low} تومان`;
+  if (money.high_toman === null) return `از ${low} تومان`;
   if (money.high_toman === money.low_toman) return `${low} تومان`;
   return `${low} تا ${numberFormat.format(money.high_toman)} تومان`;
 }
@@ -104,7 +104,7 @@ export function faShare(share: Money): string {
   const fmt = (toman: number) => numberFormat.format(toman);
   const step = SHARE_STEP * 10; // in rial: rial fields are exact, toman ones are rounded down
   const down = (Math.floor(share.low_rial / step) * step) / 10;
-  if (share.high_rial === null) return `نفری دست‌کم ${fmt(down)} تومان`;
+  if (share.high_rial === null) return `نفری از ${fmt(down)} تومان`;
   if (share.high_rial - share.low_rial <= 1) {
     // an exact total, or one that does not divide evenly (its share is a one-rial range)
     const nearest = (Math.round(share.low_rial / step) * step) / 10;

@@ -34,6 +34,7 @@ import {
 import { readBasemap } from "@/lib/basemap";
 import { faPropertyType } from "@/lib/labeling";
 import { addDays, faDay, faNumber, iranToday } from "@/lib/listing";
+import { faDigits } from "@/lib/numbers";
 
 export const metadata: Metadata = { title: "آگهی" };
 
@@ -211,7 +212,9 @@ export default async function ListingPage(props: {
           <Badge tone="muted">{listing.platform_name}</Badge>
           <Badge tone="neutral">{faPropertyType(listing.property_type)}</Badge>
         </div>
-        <h1 className="mt-2 text-2xl font-bold text-balance sm:text-3xl">{listing.title}</h1>
+        <h1 className="mt-2 text-2xl font-bold text-balance sm:text-3xl">
+          {faDigits(listing.title)}
+        </h1>
         <p className="mt-2 flex items-center gap-1.5 text-fg-muted">
           <MapPin aria-hidden="true" className="size-4 shrink-0" />
           {place || "محل منتشر نشده"}

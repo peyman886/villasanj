@@ -1,4 +1,4 @@
-import { ArrowUpLeft, EyeOff, Layers, MapPin, Star } from "lucide-react";
+import { ChevronDown, MapPin, Star } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -6,7 +6,6 @@ import { Suspense } from "react";
 
 import { ListingMap } from "@/components/listing-map";
 import { ClaimsSection } from "@/components/listing/claims";
-import { Gallery } from "@/components/listing/gallery";
 import { OfferCell } from "@/components/listing/offers";
 import {
   ReviewItem,
@@ -18,8 +17,12 @@ import {
 import { Sourced } from "@/components/sourced";
 import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/ui/callout";
-import { Section } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/table";
+import { BookingCard, type Stay } from "@/components/villa/booking-card";
+import { VillaGallery } from "@/components/villa/gallery";
+import { MatchEvidence, type MatchPair } from "@/components/villa/match-evidence";
+import { Specs } from "@/components/villa/specs";
+import { SplitCalendar } from "@/components/villa/split-calendar";
 import {
   apiClient,
   type Claims,
@@ -27,57 +30,79 @@ import {
   type Offer,
   type Scenario,
   type Villa,
-  type VillaNight,
   type VillaReview,
 } from "@/lib/api/client";
 import { readBasemap } from "@/lib/basemap";
-import { cn } from "@/lib/cn";
-import { faPropertyType } from "@/lib/labeling";
-import {
-  AVAILABILITY_TEXT,
-  CLAIM_TARGET_TEXT,
-  addDays,
-  faDay,
-  faMillions,
-  faNumber,
-  faToman,
-  iranToday,
-} from "@/lib/listing";
+import { addDays, daysBetween } from "@/lib/calendar";
+import { COPY, oneVillaIn } from "@/lib/copy";
+import { CLAIM_TARGET_TEXT, faDay, iranToday } from "@/lib/listing";
+import { faDigits, faNum, rating } from "@/lib/numbers";
+import { platformRank } from "@/lib/platforms";
 import { FEATURE_TEXT } from "@/lib/search";
 
 export const metadata: Metadata = { title: "ویلا" };
 
 const NO_STORE = { cache: "no-store" } as const;
-const CALENDAR_DAYS = 30;
+const CALENDAR_DAYS = 60;
 const ASSUMED_RADIUS_M = 500;
 const MAX_REVIEWS = 40; // as many as a summary reads, so every citation has its review
+const MAX_STAY_NIGHTS = 30;
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-const FIELDS: { key: keyof Listing & string; label: string; suffix?: string }[] = [
-  { key: "property_type", label: "نوع" },
-  { key: "bedrooms", label: "اتاق خواب" },
-  { key: "bathrooms", label: "سرویس بهداشتی" },
-  { key: "area_m2", label: "متراژ", suffix: " متر" },
-  { key: "base_capacity", label: "ظرفیت پایه", suffix: " نفر" },
-  { key: "max_capacity", label: "حداکثر ظرفیت", suffix: " نفر" },
-];
-
+type SearchParams = Record<string, string | string[] | undefined>;
 type ScenarioOffers = { scenario: Scenario; byGuests: { guests: number; offers: Offer[] }[] };
 
-async function load(id: string, now: Date) {
+const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+
+/** The stay from the URL (inherited from the search), else the first sample scenario. */
+function stayFrom(params: SearchParams, scenarios: Scenario[], maxGuests: number): Stay {
+  const first = scenarios[0];
+  const fallback: Stay = {
+    checkIn: first?.check_in ?? "",
+    checkOut: first?.check_out ?? "",
+    guests: first?.guests[0] ?? 4,
+  };
+  const checkIn = one(params.in);
+  const checkOut = one(params.out);
+  const guests = Number(one(params.guests));
+  const datesOk =
+    checkIn !== undefined &&
+    checkOut !== undefined &&
+    ISO_DAY.test(checkIn) &&
+    ISO_DAY.test(checkOut) &&
+    daysBetween(checkIn, checkOut) > 0 &&
+    daysBetween(checkIn, checkOut) <= MAX_STAY_NIGHTS;
+  return {
+    checkIn: datesOk ? checkIn : fallback.checkIn,
+    checkOut: datesOk ? checkOut : fallback.checkOut,
+    guests:
+      Number.isInteger(guests) && guests >= 1
+        ? Math.min(guests, Math.max(maxGuests, 1))
+        : fallback.guests,
+  };
+}
+
+async function load(id: string, params: SearchParams, now: Date) {
   const api = apiClient();
   const path = { villa_id: id };
   const villa = await api.GET("/villas/{villa_id}", { params: { path }, ...NO_STORE });
   if (!villa.data) return null;
   const start = iranToday(now);
-  const [scenarios, calendar, reviews, claims] = await Promise.all([
-    api.GET("/scenarios", NO_STORE),
+  const members = [...villa.data.members].sort(
+    (a, b) => platformRank(a.platform) - platformRank(b.platform),
+  );
+  const maxGuests = Math.max(...members.map((m) => m.max_capacity ?? m.base_capacity ?? 0), 1);
+  const scenarios = (await api.GET("/scenarios", NO_STORE)).data ?? [];
+  const stay = stayFrom(params, scenarios, Math.max(maxGuests, 20));
+  const [match, calendar, reviews, claims, offers, samples] = await Promise.all([
+    api.GET("/villas/{villa_id}/match", { params: { path }, ...NO_STORE }),
     api.GET("/villas/{villa_id}/calendar", {
       params: { path, query: { start, end: addDays(start, CALENDAR_DAYS) } },
       ...NO_STORE,
     }),
     api.GET("/villas/{villa_id}/reviews", { params: { path }, ...NO_STORE }),
     Promise.all(
-      villa.data.members.map(async (m) => {
+      members.map(async (m) => {
         const { data } = await api.GET("/listings/{platform}/{external_id}/claims", {
           params: { path: { platform: m.platform, external_id: m.id.split(":")[1] ?? "" } },
           ...NO_STORE,
@@ -85,101 +110,83 @@ async function load(id: string, now: Date) {
         return [m, data ?? null] as const;
       }),
     ),
+    stay.checkIn
+      ? api.GET("/villas/{villa_id}/offers", {
+          params: {
+            path,
+            query: { check_in: stay.checkIn, check_out: stay.checkOut, guests: stay.guests },
+          },
+          ...NO_STORE,
+        })
+      : Promise.resolve({ data: [] as Offer[] }),
+    Promise.all(
+      scenarios.map(async (scenario) => ({
+        scenario,
+        byGuests: await Promise.all(
+          scenario.guests.map(async (guests) => {
+            const { data } = await api.GET("/villas/{villa_id}/offers", {
+              params: {
+                path,
+                query: { check_in: scenario.check_in, check_out: scenario.check_out, guests },
+              },
+              ...NO_STORE,
+            });
+            return { guests, offers: data ?? [] };
+          }),
+        ),
+      })),
+    ),
   ]);
-  const offers: ScenarioOffers[] = await Promise.all(
-    (scenarios.data ?? []).map(async (scenario) => ({
-      scenario,
-      byGuests: await Promise.all(
-        scenario.guests.map(async (guests) => {
-          const { data } = await api.GET("/villas/{villa_id}/offers", {
-            params: {
-              path,
-              query: { check_in: scenario.check_in, check_out: scenario.check_out, guests },
-            },
-            ...NO_STORE,
-          });
-          return { guests, offers: data ?? [] };
-        }),
-      ),
-    })),
-  );
   return {
-    villa: villa.data,
-    offers,
+    villa: { ...villa.data, members },
+    match: (match.data ?? []) as MatchPair[],
     calendar: calendar.data ?? [],
+    calendarStart: start,
     reviews: reviews.data ?? [],
     claims: claims as (readonly [Listing, Claims | null])[],
+    offers: offers.data ?? [],
+    samples: samples as ScenarioOffers[],
+    stay,
+    maxGuests: Math.max(maxGuests, stay.guests),
   };
 }
 
-function memberOf(villa: Villa, platform: string): Listing | undefined {
-  return villa.members.find((m) => m.platform === platform);
-}
+const SECTIONS = [
+  ["stay", "اقامت"],
+  ["location", "مکان"],
+  ["calendar", "تقویم"],
+  ["prices", "قیمت‌ها"],
+  ["reviews", "نظرها"],
+  ["truth", "حقیقت‌سنجی"],
+] as const;
 
-function fieldText(key: string, value: unknown, suffix = ""): string {
-  if (value === null || value === undefined) return "—";
-  if (key === "property_type") return faPropertyType(String(value));
-  return `${faNumber(Number(value))}${suffix}`;
-}
-
-/** Each platform's own facts side by side; a row the listings disagree on is marked. */
-function Specs({ villa, now }: { villa: Villa; now: Date }) {
-  const conflicting = new Set(villa.conflicts.map((c) => c.field));
+function AnchorNav() {
   return (
-    <Section
-      id="specs"
-      title="مشخصات به گفته‌ی هر پلتفرم"
-      description="هیچ مقداری میانگین یا ترکیب نمی‌شود؛ جایی که آگهی‌ها فرق دارند علامت خورده است."
+    <nav
+      aria-label="بخش‌های صفحه"
+      className="sticky top-16 z-20 -mx-4 border-b border-line bg-canvas/95 px-4 backdrop-blur sm:-mx-6 sm:px-6"
     >
-      <DataTable caption="مشخصات ویلا در هر پلتفرم" minWidth="28rem">
-        <thead>
-          <tr>
-            <th scope="col">مشخصه</th>
-            {villa.members.map((m) => (
-              <th key={m.id} scope="col">
-                {m.platform_name}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {FIELDS.map((field) => {
-            const conflict = conflicting.has(field.key);
-            return (
-              <tr key={field.key} className={cn(conflict && "bg-amber-50/60")}>
-                <th scope="row" className="font-medium">
-                  <span className="flex items-center gap-2">
-                    {field.label}
-                    {conflict ? <Badge tone="caution">ناهمخوان</Badge> : null}
-                  </span>
-                </th>
-                {villa.members.map((m) => {
-                  const value = m[field.key];
-                  const text = fieldText(field.key, value, field.suffix);
-                  return (
-                    <td key={m.id}>
-                      {value === null || value === undefined ? (
-                        <span className="text-fg-subtle">منتشر نشده</span>
-                      ) : (
-                        <Sourced
-                          id={`conflict-${field.key}-${m.platform}`}
-                          label={`${field.label} در ${m.platform_name}`}
-                          provenance={m.provenance}
-                          sourceName={m.platform_name}
-                          now={now}
-                        >
-                          {text}
-                        </Sourced>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </DataTable>
-    </Section>
+      <ul className="flex gap-1 overflow-x-auto py-1 text-sm">
+        {SECTIONS.map(([id, label]) => (
+          <li key={id}>
+            <a
+              href={`#${id}`}
+              className="focus-ring block rounded-control px-3 py-2 whitespace-nowrap text-fg-muted hover:bg-sunken hover:text-fg"
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <h2 id={`${id}-title`} className="text-xl font-bold text-balance">
+      {children}
+    </h2>
   );
 }
 
@@ -191,86 +198,91 @@ const STATEMENT_SOURCE_TEXT: Record<string, string> = {
 
 function Inconsistencies({ villa, now }: { villa: Villa; now: Date }) {
   if (villa.inconsistencies.length === 0) return null;
+  const nameOf = (p: string) => villa.members.find((m) => m.platform === p)?.platform_name ?? p;
   return (
-    <section aria-labelledby="inconsistencies-title">
-      <Callout
-        kind="caution"
-        title={<span id="inconsistencies-title">ادعاهایی که آگهی‌ها یکسان نمی‌گویند</span>}
-      >
-        <p>
-          هر آگهی گفته‌ی خودش را دارد و از اینجا معلوم نیست کدام درست است؛ پیش از رزرو از میزبان
-          بپرسید.
-        </p>
-        <ul className="space-y-1.5">
-          {villa.inconsistencies.map((x) => {
-            const subject =
-              x.kind === "feature"
-                ? (FEATURE_TEXT[x.subject] ?? x.subject)
-                : `فاصله تا ${CLAIM_TARGET_TEXT[x.subject] ?? x.subject}`;
-            return (
-              <li key={`${x.kind}-${x.subject}`} className="flex flex-wrap gap-x-3 gap-y-1">
-                <span className="font-semibold">{subject}:</span>
-                {x.statements.map((said) => {
-                  const member = memberOf(villa, said.platform);
-                  const name = member?.platform_name ?? said.platform;
-                  const text =
-                    said.says === null
-                      ? (said.published ?? "")
-                      : said.says === "has"
-                        ? "دارد"
-                        : "ندارد";
-                  const where = STATEMENT_SOURCE_TEXT[said.source] ?? said.source;
-                  return (
-                    <span key={said.platform}>
-                      {name}{" "}
-                      <Sourced
-                        id={`inconsistency-${x.kind}-${x.subject}-${said.platform}`}
-                        label={`${subject} در ${name}`}
-                        provenance={said.provenance}
-                        sourceName={name}
-                        now={now}
-                      >
-                        {text}
-                      </Sourced>{" "}
-                      <span className="text-amber-900/80">
-                        ({where}
-                        {said.span && said.source === "description" ? `: «${said.span}»` : ""})
-                      </span>
+    <Callout kind="caution" title="آنچه دو آگهی یکسان نمی‌گویند">
+      <p>هر آگهی گفته‌ی خودش را دارد؛ پیش از رزرو از میزبان بپرسید.</p>
+      <ul className="space-y-1.5">
+        {villa.inconsistencies.map((x) => {
+          const subject =
+            x.kind === "feature"
+              ? (FEATURE_TEXT[x.subject] ?? x.subject)
+              : `فاصله تا ${CLAIM_TARGET_TEXT[x.subject] ?? x.subject}`;
+          return (
+            <li key={`${x.kind}-${x.subject}`} className="flex flex-wrap gap-x-3 gap-y-1">
+              <span className="font-semibold">{subject}:</span>
+              {x.statements.map((said) => {
+                const name = nameOf(said.platform);
+                const text =
+                  said.says === null
+                    ? (said.published ?? "")
+                    : said.says === "has"
+                      ? "دارد"
+                      : "ندارد";
+                return (
+                  <span key={said.platform}>
+                    {name}{" "}
+                    <Sourced
+                      id={`inconsistency-${x.kind}-${x.subject}-${said.platform}`}
+                      label={`${subject} در ${name}`}
+                      provenance={said.provenance}
+                      sourceName={name}
+                      now={now}
+                    >
+                      {text}
+                    </Sourced>{" "}
+                    <span className="text-fg-muted">
+                      ({STATEMENT_SOURCE_TEXT[said.source] ?? said.source}
+                      {said.span && said.source === "description" ? `: «${said.span}»` : ""})
                     </span>
-                  );
-                })}
-              </li>
-            );
-          })}
-        </ul>
-      </Callout>
-    </section>
+                  </span>
+                );
+              })}
+            </li>
+          );
+        })}
+      </ul>
+    </Callout>
   );
 }
 
-function Offers({ villa, offers, now }: { villa: Villa; offers: ScenarioOffers[]; now: Date }) {
+/** «قیمت‌های نمونه»: the sample stays for 4 and 8 people, closed on load (V7, V8). */
+function SamplePrices({
+  villa,
+  samples,
+  now,
+}: {
+  villa: Villa;
+  samples: ScenarioOffers[];
+  now: Date;
+}) {
+  if (samples.length === 0) return null;
+  const fees = new Set(["fees_unknown"]); // said once, in the booking card
   return (
-    <Section
-      id="offers"
-      title="قیمت نهایی در هر پلتفرم"
-      description="قیمت هر پلتفرم جدا حساب می‌شود و هیچ‌وقت با دیگری ترکیب نمی‌شود؛ هر عدد منبع و زمان مشاهده‌اش را دارد."
-    >
-      <div className="space-y-6">
-        {offers.map(({ scenario, byGuests }) => (
+    <details className="group rounded-card border border-line bg-surface" data-drawer="samples">
+      <summary className="focus-ring flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 font-semibold [&::-webkit-details-marker]:hidden">
+        {COPY.samplePrices}
+        <ChevronDown
+          aria-hidden="true"
+          className="size-4 text-fg-muted transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <div className="space-y-5 px-4 pb-4">
+        {samples.map(({ scenario, byGuests }) => (
           <div key={scenario.slug}>
-            <h3 className="font-semibold">
+            <h3 className="text-sm font-semibold">
               {scenario.name}{" "}
-              <span className="text-sm font-normal text-fg-muted tabular-nums">
+              <span className="font-normal text-fg-muted">
                 ({faDay(scenario.check_in)} تا {faDay(scenario.check_out)})
               </span>
             </h3>
-            <DataTable className="mt-2" caption={`قیمت ${scenario.name} در هر پلتفرم`}>
+            <DataTable className="mt-2" caption={`${COPY.samplePrices}: ${scenario.name}`}>
               <thead>
                 <tr>
                   <th scope="col">پلتفرم</th>
                   {byGuests.map((g) => (
                     <th key={g.guests} scope="col">
-                      {faNumber(g.guests)} نفر
+                      {faNum(g.guests)} نفر
                     </th>
                   ))}
                 </tr>
@@ -281,21 +293,18 @@ function Offers({ villa, offers, now }: { villa: Villa; offers: ScenarioOffers[]
                     <th scope="row" className="font-medium">
                       {member.platform_name}
                     </th>
-                    {byGuests.map((g) => {
-                      const offer = g.offers.find((o) => o.listing_id === member.id) ?? null;
-                      return (
-                        <td key={g.guests}>
-                          <OfferCell
-                            offer={offer}
-                            id={`offer-${scenario.slug}-${g.guests}-${member.platform}`}
-                            label={`قیمت ${scenario.name} برای ${faNumber(g.guests)} نفر در ${member.platform_name}`}
-                            common={new Set()}
-                            listing={member}
-                            now={now}
-                          />
-                        </td>
-                      );
-                    })}
+                    {byGuests.map((g) => (
+                      <td key={g.guests}>
+                        <OfferCell
+                          offer={g.offers.find((o) => o.listing_id === member.id) ?? null}
+                          id={`sample-${scenario.slug}-${g.guests}-${member.platform}`}
+                          label={`${scenario.name} برای ${faNum(g.guests)} نفر در ${member.platform_name}`}
+                          common={fees}
+                          listing={member}
+                          now={now}
+                        />
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
@@ -303,94 +312,7 @@ function Offers({ villa, offers, now }: { villa: Villa; offers: ScenarioOffers[]
           </div>
         ))}
       </div>
-    </Section>
-  );
-}
-
-function Calendar({ villa, nights, now }: { villa: Villa; nights: VillaNight[]; now: Date }) {
-  const hidden = nights.filter((n) => n.hidden).length;
-  return (
-    <Section
-      id="calendar"
-      title="تقویم هر دو پلتفرم"
-      description={
-        <>
-          هر شب همان‌طور که هر پلتفرم نشان داده بود. «پنهان» یعنی شبی که در یک پلتفرم آزاد و در
-          دیگری پر بود (با کمتر از ۶ ساعت فاصله‌ی مشاهده):{" "}
-          <strong className="font-semibold text-fg">
-            {faNumber(hidden)} شب از {faNumber(nights.length)}
-          </strong>{" "}
-          شب پیش رو.
-        </>
-      }
-    >
-      <DataTable caption="تقویم شب به شب در هر پلتفرم" minWidth="26rem">
-        <thead>
-          <tr>
-            <th scope="col">شب</th>
-            {villa.members.map((m) => (
-              <th key={m.platform} scope="col">
-                {m.platform_name}
-              </th>
-            ))}
-            <th scope="col">
-              <span className="sr-only">شب پنهان</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {nights.map((n) => (
-            <tr key={n.night} className={n.hidden ? "bg-brand-50" : undefined}>
-              <th scope="row" className="font-normal whitespace-nowrap">
-                {faDay(n.night)}
-              </th>
-              {villa.members.map((m) => {
-                const seen = n.by_platform[m.platform];
-                if (!seen)
-                  return (
-                    <td key={m.platform} className="text-fg-subtle">
-                      —
-                    </td>
-                  );
-                const free = seen.availability === "available";
-                return (
-                  <td key={m.platform}>
-                    <span className="flex items-center gap-2">
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          "size-2 shrink-0 rounded-full",
-                          free ? "bg-brand-500" : "bg-sand-400",
-                        )}
-                      />
-                      <Sourced
-                        id={`night-${n.night}-${m.platform}`}
-                        label={`شب ${faDay(n.night)} در ${m.platform_name}`}
-                        {...(seen.price ? { value: faToman(seen.price) } : {})}
-                        provenance={seen.provenance}
-                        sourceName={m.platform_name}
-                        now={now}
-                      >
-                        {AVAILABILITY_TEXT[seen.availability] ?? seen.availability}
-                        {seen.price ? ` · ${faMillions(seen.price.low_toman)} م` : ""}
-                      </Sourced>
-                    </span>
-                  </td>
-                );
-              })}
-              <td>
-                {n.hidden ? (
-                  <Badge tone="brand" icon={<EyeOff aria-hidden="true" className="size-3" />}>
-                    پنهان
-                  </Badge>
-                ) : null}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </DataTable>
-      <p className="mt-2 text-xs text-fg-muted">«م» یعنی میلیون تومان برای یک شب.</p>
-    </Section>
+    </details>
   );
 }
 
@@ -408,7 +330,6 @@ async function fetchVillaSummary(villaId: string): Promise<SummaryOutcome> {
   }
 }
 
-/** Pros and cons over every platform's reviews, streamed in (one cached LLM call). */
 async function VillaReviewSummary({
   villaId,
   order,
@@ -423,7 +344,7 @@ async function VillaReviewSummary({
       summary={summary}
       order={order}
       {...(summary
-        ? { title: `خلاصه‌ی ${faNumber(summary.reviews_given)} نظر اخیر از همه‌ی پلتفرم‌ها` }
+        ? { title: `خلاصه‌ی ${faNum(summary.reviews_given)} نظر اخیر از همه‌ی پلتفرم‌ها` }
         : {})}
     />
   );
@@ -433,22 +354,24 @@ function Reviews({ villa, reviews, now }: { villa: Villa; reviews: VillaReview[]
   const shown = reviews.slice(0, MAX_REVIEWS);
   const order = Object.fromEntries(shown.map((r, index) => [villaReviewKey(r), index + 1]));
   return (
-    <Section
-      id="reviews"
-      title="نظرهای مهمان‌ها در همه‌ی پلتفرم‌ها"
-      description={villa.members
-        .map(
-          (m) =>
-            `${m.platform_name}: ${faNumber(reviews.filter((r) => r.platform === m.platform).length)} نظر`,
-        )
-        .join(" · ")}
-    >
+    <section id="reviews" aria-labelledby="reviews-title" className="scroll-mt-28 space-y-4">
+      <div>
+        <SectionTitle id="reviews">نظرها</SectionTitle>
+        <p className="mt-1 text-sm text-fg-muted">
+          {villa.members
+            .map(
+              (m) =>
+                `${m.platform_name}: ${faNum(reviews.filter((r) => r.platform === m.platform).length)} نظر`,
+            )
+            .join(" · ")}
+        </p>
+      </div>
       <Suspense fallback={<ReviewSummarySkeleton />}>
         <VillaReviewSummary villaId={villa.id} order={order} />
       </Suspense>
-      <ol className="mt-4 divide-y divide-line rounded-card border border-line bg-surface">
+      <ol className="divide-y divide-line rounded-card border border-line bg-surface">
         {shown.map((review, index) => {
-          const member = memberOf(villa, review.platform);
+          const member = villa.members.find((m) => m.platform === review.platform);
           return (
             <ReviewItem
               key={villaReviewKey(review)}
@@ -462,72 +385,25 @@ function Reviews({ villa, reviews, now }: { villa: Villa; reviews: VillaReview[]
           );
         })}
       </ol>
-    </Section>
+    </section>
   );
 }
 
-function PriceCard({ villa, offers, now }: { villa: Villa; offers: ScenarioOffers[]; now: Date }) {
-  const first = offers[0];
-  const group = first?.byGuests[0];
-  return (
-    <div className="rounded-card border border-line bg-surface p-5 shadow-float">
-      {villa.rating !== null ? (
-        <p className="flex items-center gap-1.5 text-sm">
-          <Star aria-hidden="true" className="size-4 fill-amber-400 text-amber-500" />
-          <span className="font-semibold tabular-nums">{faNumber(villa.rating)}</span>
-          <span className="text-fg-muted">
-            ({faNumber(villa.rating_count)} رأی در همه‌ی پلتفرم‌ها)
-          </span>
-        </p>
-      ) : null}
-      {first && group ? (
-        <>
-          <p className="mt-4 text-sm text-fg-muted">
-            {first.scenario.name} برای {faNumber(group.guests)} نفر
-          </p>
-          <ul className="mt-3 space-y-4">
-            {villa.members.map((m) => (
-              <li key={m.id} className="border-t border-line pt-3 first:border-0 first:pt-0">
-                <p className="mb-1 text-xs font-medium text-fg-muted">{m.platform_name}</p>
-                <OfferCell
-                  offer={group.offers.find((o) => o.listing_id === m.id) ?? null}
-                  id={`aside-${first.scenario.slug}-${group.guests}-${m.platform}`}
-                  label={`قیمت ${first.scenario.name} برای ${faNumber(group.guests)} نفر در ${m.platform_name}`}
-                  common={new Set()}
-                  listing={m}
-                  now={now}
-                />
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : null}
-      <div className="mt-5 space-y-2 border-t border-line pt-4">
-        {villa.members.map((m) => (
-          <Link
-            key={m.id}
-            href={`/listings/${m.platform}/${m.id.split(":")[1]}`}
-            className="focus-ring flex items-center justify-between rounded-control px-2 py-1.5 text-sm hover:bg-sunken"
-          >
-            آگهی در {m.platform_name}
-            <ArrowUpLeft aria-hidden="true" className="size-4 text-fg-muted" />
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export default async function VillaPage(props: { params: Promise<{ id: string }> }) {
-  const { id } = await props.params;
+export default async function VillaPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<SearchParams>;
+}) {
+  const [{ id }, params] = await Promise.all([props.params, props.searchParams]);
   const now = new Date();
-  const [data, basemap] = await Promise.all([load(id, now), readBasemap()]);
+  const [data, basemap] = await Promise.all([load(id, params, now), readBasemap()]);
   if (!data) notFound();
   const { villa } = data;
   const first = villa.members[0];
   const mapped = villa.members.find((m) => m.location);
-  const photos = [...new Set(villa.members.flatMap((m) => m.photos))];
   const place = first ? [first.locality, first.city].filter(Boolean).join("، ") : "";
+  const names = Object.fromEntries(villa.members.map((m) => [m.platform, m.platform_name]));
+  const textReviews = data.reviews.filter((r) => r.text).length;
+  const multi = villa.members.length > 1;
   return (
     <div className="mx-auto max-w-6xl px-4 pt-6 pb-16 sm:px-6">
       <nav aria-label="مسیر" className="text-sm text-fg-muted">
@@ -545,77 +421,116 @@ export default async function VillaPage(props: { params: Promise<{ id: string }>
         </span>
         <span>ویلا</span>
       </nav>
-      <header className="mt-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone="brand" icon={<Layers aria-hidden="true" className="size-3.5" />}>
-            یک ویلا در {faNumber(villa.members.length)} آگهی
-          </Badge>
-          {villa.members.map((m) => (
-            <Badge key={m.id} tone="muted">
-              {m.platform_name}
-            </Badge>
-          ))}
-        </div>
-        <h1 className="mt-2 text-2xl font-bold text-balance sm:text-3xl">
-          {first?.title ?? "ویلا"}
+      <header className="mt-3">
+        <h1 className="text-2xl font-bold text-balance sm:text-3xl">
+          {first ? faDigits(first.title) : "ویلا"}
         </h1>
-        <p className="mt-2 flex items-center gap-1.5 text-fg-muted">
-          <MapPin aria-hidden="true" className="size-4 shrink-0" />
-          {place || "محل منتشر نشده"}
-        </p>
-        <p className="mt-3 max-w-3xl text-sm text-pretty text-fg-muted">
-          آگهی‌های این ویلا:{" "}
-          {villa.members.map((m, index) => (
-            <span key={m.id}>
-              {index > 0 ? "، " : ""}
-              <Link
-                href={`/listings/${m.platform}/${m.id.split(":")[1]}`}
-                className="focus-ring rounded-sm text-accent underline underline-offset-4"
-              >
-                {m.platform_name}
-              </Link>
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          <span className="flex items-center gap-1.5 text-fg-muted">
+            <MapPin aria-hidden="true" className="size-4 shrink-0" />
+            {place || "محل منتشر نشده"}
+          </span>
+          {villa.rating !== null ? (
+            <span className="flex items-center gap-1.5 tabular-nums">
+              <Star aria-hidden="true" className="size-4 fill-amber-400 text-amber-500" />
+              <span className="font-semibold">{rating(villa.rating)}</span>
+              <span className="text-fg-muted">
+                · {faNum(villa.rating_count)} امتیاز · {faNum(textReviews)} نظر
+              </span>
             </span>
-          ))}
-          . اینکه این آگهی‌ها یک ویلا هستند را قواعد تطبیق، داور مدل‌زبانی (فقط برای رد) و برچسب‌های
-          انسانی تعیین کرده‌اند.
-        </p>
+          ) : null}
+          {multi ? (
+            <a
+              href="#match"
+              data-match-badge=""
+              className="focus-ring inline-flex items-center gap-1.5 rounded-full bg-brand-gradient px-3 py-1 font-semibold text-white shadow-raised hover:opacity-95"
+            >
+              {oneVillaIn(faNum(villa.members.length))}
+              <span aria-hidden="true">·</span>
+              <span className="underline underline-offset-4">{COPY.whySure}</span>
+            </a>
+          ) : null}
+        </div>
       </header>
-      <div className="mt-6">
-        <Gallery
-          photos={photos}
-          platformName={villa.members.map((m) => m.platform_name).join(" و ")}
-        />
+      <div className="mt-5">
+        <VillaGallery gallery={villa.gallery} />
       </div>
-      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="mt-6 grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-12">
+          <AnchorNav />
           <Specs villa={villa} now={now} />
+          {multi && data.match.length > 0 ? (
+            <MatchEvidence pairs={data.match} members={villa.members} />
+          ) : null}
           <Inconsistencies villa={villa} now={now} />
           {mapped?.location ? (
-            <Section id="map" title="موقعیت">
-              <ListingMap
-                lat={mapped.location.lat}
-                lon={mapped.location.lon}
-                radiusM={mapped.location.radius_m ?? ASSUMED_RADIUS_M}
-                assumed={mapped.location.radius_m === null}
-                basemap={basemap?.pmtiles ?? null}
-              />
-            </Section>
+            <section id="location" aria-labelledby="location-title" className="scroll-mt-28">
+              <SectionTitle id="location">مکان</SectionTitle>
+              <div className="mt-3">
+                <ListingMap
+                  lat={mapped.location.lat}
+                  lon={mapped.location.lon}
+                  radiusM={mapped.location.radius_m ?? ASSUMED_RADIUS_M}
+                  assumed={mapped.location.radius_m === null}
+                  basemap={basemap?.pmtiles ?? null}
+                />
+              </div>
+            </section>
           ) : null}
-          <Offers villa={villa} offers={data.offers} now={now} />
-          <Calendar villa={villa} nights={data.calendar} now={now} />
-          {data.claims.map(([member, claims]) => (
-            <ClaimsSection
-              key={member.id}
-              listing={member}
-              claims={claims}
-              now={now}
-              idPrefix={`${member.platform}-`}
-            />
-          ))}
+          <section id="calendar" aria-labelledby="calendar-title" className="scroll-mt-28">
+            <SectionTitle id="calendar">
+              تقویم {multi ? "هر دو پلتفرم" : first?.platform_name}
+            </SectionTitle>
+            <p className="mt-1 text-sm text-fg-muted">
+              هر روز آخرین مشاهده‌ی هر پلتفرم است. روز ورود و روز خروج را بزنید تا قیمت‌ها برای همان
+              سفر حساب شود.
+            </p>
+            <div className="mt-3 rounded-card border border-line bg-surface p-4">
+              <SplitCalendar
+                nights={data.calendar}
+                names={names}
+                start={data.calendarStart}
+                days={CALENDAR_DAYS}
+                checkIn={data.stay.checkIn}
+                checkOut={data.stay.checkOut}
+                guests={data.stay.guests}
+                nowIso={now.toISOString()}
+              />
+            </div>
+          </section>
+          <section id="prices" aria-labelledby="prices-title" className="scroll-mt-28 space-y-3">
+            <SectionTitle id="prices">قیمت‌ها</SectionTitle>
+            <p className="text-sm text-fg-muted">
+              قیمت سفر شما در کارت «{COPY.platforms}» آمده؛ قیمت چند سفر نمونه برای مقایسه:
+            </p>
+            <SamplePrices villa={villa} samples={data.samples} now={now} />
+          </section>
           <Reviews villa={villa} reviews={data.reviews} now={now} />
+          <section id="truth" aria-labelledby="truth-title" className="scroll-mt-28 space-y-6">
+            <SectionTitle id="truth">حقیقت‌سنجی</SectionTitle>
+            {data.claims.map(([member, claims]) => (
+              <ClaimsSection
+                key={member.id}
+                listing={member}
+                claims={claims}
+                now={now}
+                idPrefix={`${member.platform}-`}
+              />
+            ))}
+          </section>
         </div>
-        <aside aria-label="قیمت در یک نگاه" className="lg:sticky lg:top-24 lg:self-start">
-          <PriceCard villa={villa} offers={data.offers} now={now} />
+        <aside aria-label={COPY.platforms} className="lg:sticky lg:top-24 lg:self-start">
+          {data.stay.checkIn ? (
+            <BookingCard
+              members={villa.members}
+              offers={data.offers}
+              stay={data.stay}
+              maxGuests={data.maxGuests}
+              nights={data.calendar}
+              calendar={{ start: data.calendarStart, days: CALENDAR_DAYS }}
+              now={now}
+            />
+          ) : null}
         </aside>
       </div>
     </div>

@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   budgetChoices,
   displaySegments,
-  driveCoverageText,
-  exclusionSummary,
+  driveBuckets,
+  excludedTotal,
   intentChips,
   type SearchOut,
 } from "./search";
@@ -50,7 +50,7 @@ describe("search texts", () => {
     expect(chips.map((c) => c.text)).toEqual([
       "پنجشنبه ۱۶ مهر تا شنبه ۱۸ مهر",
       "۶ نفر",
-      "تا ۵٬۰۰۰٬۰۰۰ تومان (شبی یا کل اقامت؟)",
+      "تا ۵ میلیون تومان",
       "رامسر",
       "استخر",
     ]);
@@ -76,18 +76,28 @@ describe("search texts", () => {
     expect(choices[0]?.query).toBe("ویلا زیر ۵ میلیون شبی");
   });
 
-  it("says how many results each drive limit would give", () => {
-    expect(driveCoverageText(result())).toBeNull();
-    expect(driveCoverageText(result({ drive_coverage: { "5": 40, "4": 12 } }))).toBe(
-      "با سقف رانندگی از تهران (بدون ترافیک) — ۴ ساعت: ۱۲ آگهی · ۵ ساعت: ۴۰ آگهی",
-    );
+  it("reads an unstated budget as the whole stay until the user flips it", () => {
+    const unstated = result({ intent: { budget: { max_toman: 5_000_000, basis: "unknown" } } });
+    expect(intentChips(unstated)[0]?.basis).toEqual({
+      current: "whole_stay",
+      stated: false,
+      chosen: false,
+    });
+    const flipped = result({ intent: { budget: { max_toman: 5_000_000, basis: "per_night" } } });
+    expect(intentChips(flipped, ["basis:per_night"])[0]?.basis).toEqual({
+      current: "per_night",
+      stated: false,
+      chosen: true,
+    });
+    expect(intentChips(flipped)[0]?.basis?.stated).toBe(true); // the query said «شبی»
   });
 
-  it("summarises exclusions, largest first", () => {
-    expect(exclusionSummary({ over_budget: 3, not_bookable: 10 })).toEqual([
-      "۱۰ مورد: همه‌ی شب‌ها آزاد نبود",
-      "۳ مورد: بالاتر از بودجه",
+  it("shows only drive limits that have results", () => {
+    expect(driveBuckets(result({ drive_coverage: { "5": 40, "3": 0, "4": 12 } }))).toEqual([
+      { hours: 4, count: 12 },
+      { hours: 5, count: 40 },
     ]);
+    expect(excludedTotal(result({ excluded: { over_budget: 3, not_bookable: 10 } }))).toBe(13);
   });
 });
 

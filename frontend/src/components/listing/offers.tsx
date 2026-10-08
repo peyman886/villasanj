@@ -1,10 +1,11 @@
 import { ChevronDown, Clock } from "lucide-react";
 
 import { Sourced } from "@/components/sourced";
-import { Badge } from "@/components/ui/badge";
 import { Section } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/table";
 import type { Listing, Offer, Scenario } from "@/lib/api/client";
+import { cn } from "@/lib/cn";
+import { priceAge } from "@/lib/copy";
 import {
   CAVEAT_TEXT,
   STATUS_TEXT,
@@ -71,16 +72,16 @@ export function OfferCell({
         </p>
       ) : null}
       {offer.total && !bookable ? (
-        <Badge tone="caution">{STATUS_TEXT[offer.status] ?? offer.status}</Badge>
+        <p className="text-xs text-fg-muted">{STATUS_TEXT[offer.status] ?? offer.status}</p>
       ) : null}
-      <p className="flex items-center gap-1 text-xs text-fg-subtle">
+      <p
+        className={cn(
+          "flex items-center gap-1 text-xs",
+          offer.stale ? "text-caution" : "text-fg-subtle",
+        )}
+      >
         <Clock aria-hidden="true" className="size-3" />
-        مشاهده {faAge(offer.provenance.oldest_input_at, now)}
-        {offer.stale ? (
-          <Badge tone="caution" className="ms-1">
-            قدیمی
-          </Badge>
-        ) : null}
+        {priceAge(faAge(offer.provenance.oldest_input_at, now))}
       </p>
       {own.length > 0 ? (
         <ul className="list-disc ps-4 text-xs text-fg-muted">
@@ -159,13 +160,13 @@ export function OffersSection({
   return (
     <Section
       id="offers"
-      title="قیمت نهایی برای هر سناریو"
-      description="جمع قیمت شب‌ها و هزینه‌ی نفر اضافه برای همین آگهی، از آخرین مشاهده‌ی تقویم. روی هر مبلغ بزنید تا منبع و زمان مشاهده‌اش را ببینید."
+      title="قیمت‌های نمونه"
+      description="جمع قیمت شب‌ها و هزینه‌ی نفر اضافه برای همین آگهی، از آخرین مشاهده‌ی تقویم."
     >
       {scenarios.length === 0 ? (
         <p className="text-sm text-fg-muted">سناریویی تعریف نشده است.</p>
       ) : (
-        <DataTable caption="قیمت نهایی این آگهی برای هر سناریو و تعداد نفر">
+        <DataTable caption="قیمت‌های نمونه‌ی این آگهی برای هر سناریو و تعداد نفر">
           <thead>
             <tr>
               <th scope="col">سناریو</th>

@@ -167,7 +167,7 @@ class VillaSampleOut(BaseModel):
 @router.get("/sample")
 async def sample_villas(
     request: Request,
-    n: Annotated[int, Query(ge=1, le=200)] = 50,
+    n: Annotated[int, Query(ge=1, le=1000)] = 50,
     seed: str = "7",
 ) -> list[VillaSampleOut]:
     """A deterministic sample of villas listed on more than one platform (smoke tests)."""

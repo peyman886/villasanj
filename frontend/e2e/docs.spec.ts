@@ -66,6 +66,7 @@ test.describe("documentation portal", () => {
   });
 
   test("every link on every docs page leads somewhere", async ({ page, request }) => {
+    test.setTimeout(240_000); // ~40 pages, each compiled on first visit by the dev server
     const seen = new Set<string>();
     for (const route of ROUTES) {
       await page.goto(route);
@@ -99,7 +100,7 @@ test.describe("documentation portal", () => {
 
   test("the milestones page shows every criterion with a status", async ({ page }) => {
     await open(page, "/docs/milestones");
-    for (let m = 0; m <= 11; m++) await expect(page.locator(`h2#m${m}`)).toHaveCount(1);
+    for (let m = 0; m <= 12; m++) await expect(page.locator(`h2#m${m}`)).toHaveCount(1);
     // Every criterion row carries a status badge (icon + words, never colour alone).
     const rows = page.locator("section[aria-labelledby^=m] ol > li");
     expect(await rows.count()).toBeGreaterThan(60);

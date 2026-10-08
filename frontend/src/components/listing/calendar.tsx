@@ -30,7 +30,7 @@ export function CalendarLegend() {
       </li>
       <li className="flex items-center gap-1.5">
         <span aria-hidden="true" className="size-3 rounded-sm border border-line bg-sunken" />
-        پر یا بسته
+        ناموجود
       </li>
       <li className="flex items-center gap-1.5">
         <span
@@ -53,7 +53,7 @@ function NightCell({ night, listing, now }: { night: CalendarNight; listing: Lis
       value={[
         AVAILABILITY_TEXT[night.availability] ?? night.availability,
         price ? faToman(price) : "قیمت منتشر نشده",
-        night.min_nights ? `حداقل ${faNumber(night.min_nights)} شب` : null,
+        night.min_nights ? `دست‌کم ${faNumber(night.min_nights)} شب اقامت` : null,
       ]
         .filter(Boolean)
         .join("، ")}
@@ -101,7 +101,7 @@ export function CalendarSection({
     <Section
       id="calendar"
       title={`تقویم ${faNumber(days)} شب آینده`}
-      description="هر خانه آخرین مشاهده‌ی همان شب است، نه وضعیت قطعی؛ مبلغ دقیق در منبع هر خانه آمده. «پر یا بسته» یعنی پلتفرم نگفته رزرو شده یا میزبان بسته است."
+      description="هر خانه آخرین مشاهده‌ی همان شب است، نه وضعیت قطعی؛ مبلغ دقیق در منبع هر خانه آمده. «ناموجود» یعنی این شب در پلتفرم قابل رزرو نبود؛ پلتفرم نمی‌گوید مهمانی آن را گرفته یا میزبان بسته است."
     >
       {nights.length === 0 ? (
         <p className="text-sm text-fg-muted">برای این بازه مشاهده‌ای از تقویم نداریم.</p>

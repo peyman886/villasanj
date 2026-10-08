@@ -61,8 +61,8 @@ test.describe("villa pages smoke", () => {
       const visit = await page.goto(`/villas/${villa_id}`);
       expect(visit?.status(), villa_id).toBe(200);
       await expect(page.locator("h1")).toBeVisible();
-      await expect(page.locator("#offers-title")).toBeAttached();
-      await expect(page.locator("[aria-labelledby=calendar-title] thead th")).toHaveCount(4);
+      await expect(page.locator("#booking [data-booking-rows] > li").first()).toBeAttached();
+      await expect(page.locator("#calendar [data-day]").first()).toBeAttached();
     }
     expect(failures).toEqual([]);
   });

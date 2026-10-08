@@ -12,8 +12,8 @@ export function SiteFooter() {
             <span className="font-bold">ویلاسنج</span>
           </div>
           <p className="mt-3 max-w-sm text-pretty text-fg-muted">
-            یک ویلا، همه‌ی حقیقت. هر عدد منبع و زمان مشاهده دارد؛ چیزی که نمی‌دانیم را بازه یا
-            «حداقل» نشان می‌دهیم، نه حدس.
+            یک ویلا، همه‌ی حقیقت. هر عدد منبع و زمان مشاهده دارد؛ چیزی که نمی‌دانیم را بازه یا «از»
+            نشان می‌دهیم، نه حدس.
           </p>
         </div>
         <nav aria-label="محصول" className="space-y-2">

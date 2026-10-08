@@ -8,6 +8,7 @@ import { Section } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/states";
 import { apiClient, type Listing, type Review } from "@/lib/api/client";
 import { faNumber, faStayed } from "@/lib/listing";
+import { faDigits } from "@/lib/numbers";
 
 const MAX_REVIEWS = 20;
 
@@ -76,7 +77,7 @@ export function ReviewItem({
         ) : null}
       </div>
       {review.text ? (
-        <p className="mt-2 text-pretty">{review.text}</p>
+        <p className="mt-2 text-pretty">{faDigits(review.text)}</p>
       ) : (
         <p className="mt-2 text-sm text-fg-subtle">بدون متن</p>
       )}

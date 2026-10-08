@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { Listing } from "@/lib/api/client";
 import { faNumber } from "@/lib/listing";
+import { faDigits } from "@/lib/numbers";
 
 /** A canonical villa as a card: its best photo, where it is, and every platform it is on. */
 export function VillaCard({ id, members }: { id: string; members: Listing[] }) {
@@ -42,7 +43,9 @@ export function VillaCard({ id, members }: { id: string; members: Listing[] }) {
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-2 p-4">
-        <p className="line-clamp-1 font-semibold text-fg group-hover:text-accent">{first.title}</p>
+        <p className="line-clamp-1 font-semibold text-fg group-hover:text-accent">
+          {faDigits(first.title)}
+        </p>
         <p className="flex items-center gap-1 text-sm text-fg-muted">
           <MapPin aria-hidden="true" className="size-4 shrink-0" />
           {[first.locality, first.city].filter(Boolean).join("، ") || "بدون نشانی"}

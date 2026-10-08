@@ -73,6 +73,120 @@ const suite = (e: Evidence, prefix: string) =>
   e.quality?.suites.find((s) => s.name.startsWith(prefix));
 const perf = (e: Evidence, name: string) => e.perf?.measurements.find((m) => m.name === name);
 
+type Step = [string, string, string, string?, string?]; // number, fa, en, evidence fa, evidence en
+
+function wave(steps: Step[], first: number, status: Status): Criterion[] {
+  return steps.map(([id, fa, en, efa, een], i) => ({
+    n: first + i,
+    title_fa: `${id}: ${fa}`,
+    title_en: `${id}: ${en}`,
+    status,
+    evidence_fa: efa ?? "در حال انجام.",
+    evidence_en: een ?? "In progress.",
+  }));
+}
+
+// M12 (docs/ux/M12-plan.md): one criterion per planned change, numbered as in the plan.
+const WAVE_1 = wave(
+  [
+    [
+      "1.1",
+      "ماژول قالب‌بندی عدد و واژه‌نامه",
+      "Number formatting module and vocabulary",
+      "۶۰ آزمون جدولی (lib/numbers.test.ts)؛ E2E بدون رقم لاتین و واژه‌ی ممنوع روی جستجو و ویلای نمونه.",
+      "60 table-driven tests (lib/numbers.test.ts); E2E: no Latin digit or forbidden word on search and the demo villa.",
+    ],
+    [
+      "1.2",
+      "جستجوی دوستونی با نقشه و pin قیمت",
+      "Split-view search with price pins",
+      "E2E: نقشه و اولین کارت کامل در ۱۴۴۰×۹۰۰ و ۱۵۳۶×۸۶۴؛ hover کارت ↔ pin زیر ۱۰۰ میلی‌ثانیه.",
+      "E2E: map and first full card above the fold at 1440×900 and 1536×864; card ↔ pin hover under 100 ms.",
+    ],
+    [
+      "1.3",
+      "chipهای برداشت و chip دوحالته‌ی بودجه",
+      "Intent chips and the two-state budget chip",
+      "E2E: هیچ بلوکی بین chipها و کارت اول بلندتر از ۸۰ پیکسل نیست؛ تغییر بودجه بدون بارگذاری کامل.",
+      "E2E: nothing between chips and the first card is taller than 80 px; the flip needs no full reload.",
+    ],
+    [
+      "1.4",
+      "کارت نتیجه‌ی ترب‌وار",
+      "Torob-style result card",
+      "E2E: «از» و «در ۲ پلتفرم» و ردیف پیشنهادها؛ «کارمزد» یک بار در صفحه؛ «بهترین تطابق» فقط روی کارت اول.",
+      "E2E: «از», «در ۲ پلتفرم» and the offer row; «کارمزد» once per page; «بهترین تطابق» on the first card only.",
+    ],
+    [
+      "1.5",
+      "توضیح مدل زبانی داخل کارت اول",
+      "LLM explanation inside the first card",
+      "E2E: فقط یک «چرا این گزینه اول است؟» و داخل کارت اول؛ verifier و fallback بدون تغییر.",
+      "E2E: a single explanation, inside the first card; verifier and fallback unchanged.",
+    ],
+    [
+      "1.6",
+      "کارت رزرو با تاریخ و نفر",
+      "Booking card with dates and guests",
+      "E2E: ارزان‌تر بالا، سن قیمت، «دیدن در … ↗»، کارمزد یک بار؛ حالت‌های دوپلتفرمی، تک‌پلتفرمی، کهنه و ناموجود.",
+      "E2E: cheaper first, price age, «دیدن در … ↗», fee once; two-platform, one-platform, stale and unavailable states.",
+    ],
+    [
+      "1.7",
+      "گالری بدون عکس تکراری",
+      "Gallery without duplicates",
+      "آزمون واحد با ویلای ساختگی دارای عکس تکراری؛ E2E روی ویلای نمونه (فاصله‌ی hash بیش از ۱۰ بیت).",
+      "Unit test on a fixture villa with a known duplicate; E2E on the demo villa (hash distance over 10 bits).",
+    ],
+    [
+      "1.8",
+      "تقویم جلالی دونیمه",
+      "Two-platform Jalali calendar",
+      "E2E: هفته از شنبه، دو نیمه، وضعیت‌ها با هاشور و خط‌چین، صفحه‌کلید و انتخاب بازه، برچسب صفحه‌خوان.",
+      "E2E: Saturday first, two halves, states by hatch and outline, keyboard range picking, screen-reader labels.",
+    ],
+    [
+      "1.9",
+      "«چرا مطمئنیم؟»",
+      "Match evidence («چرا مطمئنیم؟»)",
+      "آزمون واحد نگاشت هر سطر به فیلد ثبت‌شده؛ E2E: جفت عکس‌ها برابر با پاسخ API، ۲ تا ۳ سطر شاهد، سه گام تصمیم.",
+      "Unit test maps each line to a stored field; E2E: photo pairs equal the API's, 2 to 3 lines, three decision steps.",
+    ],
+  ],
+  1,
+  "done",
+);
+
+const WAVE_2 = wave(
+  [
+    [
+      "2.1",
+      "برجسته‌های مستند و حقیقت‌سنجی گروه‌بندی‌شده",
+      "Evidence-backed highlights; grouped truth check",
+    ],
+    ["2.2", "ناوبری لنگری چسبان", "Sticky anchor navigation"],
+    ["2.3", "مشخصات: خط توافق و جدول تفاوت‌ها", "Specs: agreed line, differences table"],
+    ["2.4", "شمارنده‌ی ارجاع نظرها", "Review citation chips"],
+    ["2.5", "صفحه‌ی خانه", "Home page"],
+    ["2.6", "کشوها", "Drawers"],
+    ["2.7", "توکن‌ها و کنتراست", "Tokens and contrast"],
+    ["2.8", "سناریوی دمو", "Demo script"],
+  ],
+  10,
+  "not_met",
+);
+
+const WAVE_3 = wave(
+  [
+    ["3.1", "جستجوی موبایل با دکمه‌ی نقشه", "Mobile search with a map button"],
+    ["3.2", "«جست‌وجو در همین محدوده»", "Search this area"],
+    ["3.3", "صفحه‌ی ویلا در موبایل", "Mobile villa page"],
+    ["3.4", "صیقل متن و حرکت", "Copy and motion polish"],
+  ],
+  18,
+  "not_met",
+);
+
 export const MILESTONES: Milestone[] = [
   {
     id: "M0",
@@ -896,6 +1010,27 @@ export const MILESTONES: Milestone[] = [
       },
     ],
   },
+  {
+    id: "M12",
+    name_fa: "بازطراحی تجربه‌ی کاربری و انتشار عمومی",
+    name_en: "UX redesign & public release",
+    status: "partial",
+    summary_fa:
+      "«حقیقت در دسترس، نه بلند»: جستجو با نقشه و کارت ترب‌وار، کارت رزرو دوپلتفرمی، تقویم دونیمه، «چرا مطمئنیم؟»؛ و در پایان انتشار عمومی مخزن.",
+    criteria: [
+      ...WAVE_1,
+      ...WAVE_2,
+      ...WAVE_3,
+      {
+        n: 22,
+        title_fa: "مخزن عمومی و امن منتشر شد",
+        title_en: "Repository published publicly after the audit (docs/release/public-release.md)",
+        status: "not_met",
+        evidence_fa: "آخرین گام M12.",
+        evidence_en: "The last step of M12.",
+      },
+    ],
+  },
 ];
 
 export function text(value: Text, evidence: Evidence): string {
@@ -916,4 +1051,16 @@ export const STATUS_EN: Record<Status, string> = {
 /** What is still open, and why: the honest list for /docs/limitations and the ROADMAP. */
 export type OpenItem = { kind: "owner" | "avalai" | "blocked" | "not_met"; fa: string; en: string };
 
-export const OPEN_ITEMS: OpenItem[] = [];
+const m12Open = MILESTONES.flatMap((m) =>
+  m.id === "M12" ? m.criteria.filter((c) => c.status !== "done").map((c) => c.n) : [],
+);
+
+export const OPEN_ITEMS: OpenItem[] = m12Open.length
+  ? [
+      {
+        kind: "not_met",
+        fa: "M12 در حال اجراست (بدون توقف بین موج‌ها): موج‌های ۲ و ۳ و انتشار عمومی مخزن.",
+        en: `M12 runs end to end without stops: ${m12Open.map((n) => `M12 crit. ${n}`).join(", ")} (waves 2 and 3, then the public release).`,
+      },
+    ]
+  : [];

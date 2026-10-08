@@ -48,14 +48,46 @@
   --color-fg-subtle: var(--color-sand-500);
   --color-accent: var(--color-brand-700);
 
-  --radius-control: 0.5rem;
-  --radius-card: 0.75rem;
+  /*
+   * M12 (docs/ux/decisions.md D8.3, copy-and-numbers.md §4). Platform colours are ours, never the
+   * platforms' brand colours, and always appear next to the platform's name (jabama before shab).
+   * Amber is only for «دو عدد متفاوت» and a price's age; red only for «با نقشه نمی‌خواند»; the
+   * gold outline marks a hidden night and is never a text colour.
+   */
+  --color-jabama: #2563eb;
+  --color-jabama-soft: #dbe7fd;
+  --color-shab: #7c3aed;
+  --color-shab-soft: #ebe2fc;
+  --color-verified: #1f7a3e;
+  --color-caution: #8a5a00;
+  --color-contradicted: #b42318;
+  --color-hidden: #c99a2e;
+
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+  --radius-modal: 1.25rem;
 
   --shadow-raised: 0 1px 2px oklch(0.3 0.02 75 / 0.06), 0 1px 3px oklch(0.3 0.02 75 / 0.08);
   --shadow-float: 0 4px 6px oklch(0.3 0.02 75 / 0.06), 0 10px 24px oklch(0.3 0.02 75 / 0.1);
   --shadow-overlay: 0 10px 20px oklch(0.3 0.02 75 / 0.1), 0 20px 48px oklch(0.3 0.02 75 / 0.16);
 
   --animate-fade-in: fade-in 160ms ease-out both;
+  --animate-lock-start: lock-start 400ms ease-out both;
+  --animate-lock-end: lock-end 400ms ease-out both;
+
+  /* «چرا مطمئنیم؟»: the two copies of a photo slide together from either side. */
+  @keyframes lock-start {
+    from {
+      opacity: 0.3;
+      transform: translateX(1.5rem);
+    }
+  }
+  @keyframes lock-end {
+    from {
+      opacity: 0.3;
+      transform: translateX(-1.5rem);
+    }
+  }
 
   @keyframes fade-in {
     from {
@@ -72,6 +104,21 @@
     outline: 2px solid var(--color-brand-600);
     outline-offset: 2px;
   }
+}
+
+/* The one gradient: the primary CTA and the «یک ویلا در ۲ آگهی» badge only. */
+@utility bg-brand-gradient {
+  background-image: linear-gradient(135deg, var(--color-brand-800), var(--color-brand-600));
+}
+
+/* Unavailable night: a grey hatch, readable in grayscale (decisions.md D4). */
+@utility bg-hatch {
+  background-color: var(--color-sand-100);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-sand-300) 0 2px,
+    transparent 2px 6px
+  );
 }
 
 @utility ltr {
@@ -105,6 +152,7 @@ h4 {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;

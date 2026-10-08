@@ -2,7 +2,10 @@
 
 import type { components } from "@/lib/api/schema";
 
+import type { Provenance } from "@/lib/api/client";
 import { faNumber } from "@/lib/listing";
+import { faNum, shortToman, type Money } from "@/lib/numbers";
+import { platformRank } from "@/lib/platforms";
 
 export type SearchOut = components["schemas"]["SearchOut"];
 export type SearchResultOut = components["schemas"]["ResultOut"];
@@ -58,11 +61,7 @@ export const COMPONENT_TEXT: Record<string, string> = {
   rating: "امتیاز مهمان‌ها",
 };
 
-const BASIS_TEXT: Record<string, string> = {
-  per_night: "هر شب",
-  whole_stay: "کل اقامت",
-  unknown: "شبی یا کل اقامت؟",
-};
+export const BASIS_TEXT = { whole_stay: "کل سفر", per_night: "هر شب" } as const;
 
 type Intent = {
   guest_parts?: number[];
@@ -74,14 +73,16 @@ type Intent = {
   features?: string[];
 };
 
-export type Chip = { key: string; text: string };
+export type Chip = { key: string; text: string; basis?: Basis };
+/** How the budget chip reads the budget: stated by the query, or chosen (or defaulted) by us. */
+export type Basis = { current: "per_night" | "whole_stay"; stated: boolean; chosen: boolean };
 
 /**
  * The query as understood, one chip per constraint (the numbers are the user's own). The key
  * names what removing the chip drops ("budget", "place:رامسر", ...); removing the dates makes the
  * page ask for them again.
  */
-export function intentChips(result: SearchOut): Chip[] {
+export function intentChips(result: SearchOut, drop: string[] = []): Chip[] {
   const intent = result.intent as Intent;
   const chips: Chip[] = [];
   if (result.dates) chips.push({ key: "dates", text: result.dates.text });
@@ -101,8 +102,18 @@ export function intentChips(result: SearchOut): Chip[] {
     chips.push({ key: "bedrooms", text: `دست‌کم ${faNumber(intent.bedrooms_min)} خواب` });
   }
   if (intent.budget) {
-    const basis = BASIS_TEXT[intent.budget.basis] ?? "";
-    chips.push({ key: "budget", text: `تا ${faNumber(intent.budget.max_toman)} تومان (${basis})` });
+    const { basis: said, max_toman: max } = intent.budget;
+    const chosen = drop.some((d) => d.startsWith("basis:"));
+    chips.push({
+      key: "budget",
+      text: `تا ${shortToman(max, "point")}`,
+      basis: {
+        // An unstated basis is read as the whole stay until the user flips it (D5).
+        current: said === "per_night" ? "per_night" : "whole_stay",
+        stated: said !== "unknown" && !chosen,
+        chosen,
+      },
+    });
   }
   if (intent.max_drive) {
     const unit = intent.max_drive.unit === "hours" ? "ساعت" : "دقیقه";
@@ -138,22 +149,6 @@ export function budgetChoices(result: SearchOut): BudgetChoice[] {
   ];
 }
 
-/** «با سقف ۴ ساعت: ۱۲۰ آگهی · ۵ ساعت: ۴۰۰ آگهی»: results per free-flow drive limit. */
-export function driveCoverageText(result: SearchOut): string | null {
-  const entries = Object.entries(result.drive_coverage).sort(([a], [b]) => Number(a) - Number(b));
-  if (entries.length === 0) return null;
-  const parts = entries.map(
-    ([hours, count]) => `${faNumber(Number(hours))} ساعت: ${faNumber(count)} آگهی`,
-  );
-  return `با سقف رانندگی از تهران (بدون ترافیک) — ${parts.join(" · ")}`;
-}
-
-export function exclusionSummary(excluded: Record<string, number>): string[] {
-  return Object.entries(excluded)
-    .sort(([, a], [, b]) => b - a)
-    .map(([reason, count]) => `${faNumber(count)} مورد: ${EXCLUSION_TEXT[reason] ?? reason}`);
-}
-
 export const EXAMPLE_QUERIES = [
   "ویلای استخردار در رامسر برای ۶ نفر آخر هفته‌ی بعد زیر ۲۰ میلیون",
   "تعطیلات بعدی یه ویلای جنگلی تو تنکابن برای ۴ نفر، شبی تا ۳ میلیون",
@@ -187,4 +182,87 @@ export function displaySegments(segments: Segment[]): DisplaySegment[] {
     out.push({ ...segment, tail: "" });
   }
   return out;
+}
+
+/** One platform's own offer on a result card (prices are never merged, rule 3). */
+export type CardOffer = {
+  listingId: string;
+  platform: string;
+  platformName: string;
+  total: Money | null;
+  provenance: Provenance;
+  bookable: boolean;
+  stale: boolean;
+  cheaper: boolean; // the strictly cheaper of two bookable, priced offers
+};
+
+/** The result's own offer and its other platforms', jabama first. */
+export function cardOffers(result: SearchResultOut): CardOffer[] {
+  const offers: CardOffer[] = [
+    {
+      listingId: result.listing_id,
+      platform: result.platform,
+      platformName: result.platform_name,
+      total: result.total,
+      provenance: result.total_provenance,
+      bookable: true, // a result is bookable by construction (the ranking excludes the rest)
+      stale: result.stale,
+      cheaper: false,
+    },
+    ...result.also_on.map((o) => ({
+      listingId: o.listing_id,
+      platform: o.platform,
+      platformName: o.platform_name,
+      total: o.total,
+      provenance: o.total_provenance,
+      bookable: o.status === "bookable",
+      stale: o.stale,
+      cheaper: false,
+    })),
+  ].sort((a, b) => platformRank(a.platform) - platformRank(b.platform));
+  const priced = offers.filter((o) => o.bookable && o.total !== null);
+  const lows = priced.map((o) => o.total?.low_toman ?? Infinity);
+  const min = Math.min(...lows);
+  if (priced.length > 1 && lows.filter((l) => l === min).length === 1) {
+    for (const o of priced) o.cheaper = o.total?.low_toman === min;
+  }
+  return offers;
+}
+
+/** The card's headline: the cheaper platform's own offer (jabama first on a tie). */
+export function headline(offers: CardOffer[]): CardOffer | null {
+  const priced = offers.filter((o) => o.bookable && o.total !== null);
+  return priced.find((o) => o.cheaper) ?? priced[0] ?? null;
+}
+
+/** «از ۸٫۵ میلیون برای ۲ شب»: the lowest lower bound among the shown results. */
+export function cheapestShown(result: SearchOut): number | null {
+  const lows = result.results.flatMap((r) =>
+    cardOffers(r)
+      .filter((o) => o.bookable && o.total)
+      .map((o) => o.total?.low_toman ?? Infinity),
+  );
+  return lows.length ? Math.min(...lows) : null;
+}
+
+/** «۲ شب، ۶ نفر»: what the card's price is for. */
+export function stayText(result: SearchOut): string | null {
+  if (!result.dates) return null;
+  const nights = Math.round(
+    (Date.parse(result.dates.check_out) - Date.parse(result.dates.check_in)) / 86_400_000,
+  );
+  const guests = ((result.intent as Intent).guest_parts ?? []).reduce((a, b) => a + b, 0);
+  return guests ? `${faNum(nights)} شب، ${faNum(guests)} نفر` : `${faNum(nights)} شب`;
+}
+
+/** Drive limits with at least one result (empty buckets are never shown, S5). */
+export function driveBuckets(result: SearchOut): { hours: number; count: number }[] {
+  return Object.entries(result.drive_coverage)
+    .map(([hours, count]) => ({ hours: Number(hours), count }))
+    .filter((b) => b.count > 0)
+    .sort((a, b) => a.hours - b.hours);
+}
+
+export function excludedTotal(result: SearchOut): number {
+  return Object.values(result.excluded).reduce((a, b) => a + b, 0);
 }

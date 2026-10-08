@@ -15,7 +15,7 @@ import { faNumber } from "@/lib/listing";
  * needs no network and labels places in Persian; otherwise it uses OSM's raster tiles with
  * attribution (ADR-0003 decision 6).
  */
-const OSM_RASTER = {
+export const OSM_RASTER = {
   version: 8 as const,
   sources: {
     osm: {
@@ -30,6 +30,17 @@ const OSM_RASTER = {
 };
 
 let pmtilesRegistered = false;
+
+/** Load MapLibre with its worker and, for the local basemap, the pmtiles protocol (once). */
+export async function loadMaplibre(basemap: string | null) {
+  const [maplibre, pmtiles] = await Promise.all([import("maplibre-gl"), import("pmtiles")]);
+  maplibre.setWorkerUrl(WORKER_URL);
+  if (basemap && !pmtilesRegistered) {
+    maplibre.addProtocol("pmtiles", new pmtiles.Protocol().tile);
+    pmtilesRegistered = true;
+  }
+  return maplibre;
+}
 
 /** The local Protomaps style (absolute URLs: MapLibre fetches glyphs from its workers). */
 export function localStyle(origin: string, pmtiles: string): StyleSpecification {
@@ -91,14 +102,8 @@ export function ListingMap({
   useEffect(() => {
     let removed = false;
     let map: { remove: () => void } | null = null;
-    void Promise.all([import("maplibre-gl"), import("pmtiles")]).then(([maplibre, pmtiles]) => {
-      const { Map, setWorkerUrl, addProtocol } = maplibre;
+    void loadMaplibre(basemap).then(({ Map }) => {
       if (removed || !container.current) return;
-      setWorkerUrl(WORKER_URL);
-      if (basemap && !pmtilesRegistered) {
-        addProtocol("pmtiles", new pmtiles.Protocol().tile);
-        pmtilesRegistered = true;
-      }
       const instance = new Map({
         container: container.current,
         style: basemap ? localStyle(window.location.origin, basemap) : OSM_RASTER,

@@ -33,7 +33,7 @@ describe("money", () => {
   it("shows exact amounts, ranges and open upper bounds", () => {
     expect(faToman(money(2_500_000, 2_500_000))).toBe("۲٬۵۰۰٬۰۰۰ تومان");
     expect(faToman(money(2_000_000, 3_000_000))).toBe("۲٬۰۰۰٬۰۰۰ تا ۳٬۰۰۰٬۰۰۰ تومان");
-    expect(faToman(money(2_000_000, null))).toBe("حداقل ۲٬۰۰۰٬۰۰۰ تومان");
+    expect(faToman(money(2_000_000, null))).toBe("از ۲٬۰۰۰٬۰۰۰ تومان");
     expect(faMillions(4_300_000)).toBe("۴٫۳");
     expect(faMillions(850_000)).toBe("۰٫۸۵");
   });
@@ -47,7 +47,7 @@ describe("money", () => {
     });
     expect(faShare(rial(12_500_000, 12_500_000))).toBe("نفری ۱٬۲۵۰٬۰۰۰ تومان");
     expect(faShare(rial(12_343_333, 12_343_334))).toBe("نفری حدود ۱٬۲۳۴٬۰۰۰ تومان");
-    expect(faShare(rial(12_345_678, null))).toBe("نفری دست‌کم ۱٬۲۳۴٬۰۰۰ تومان");
+    expect(faShare(rial(12_345_678, null))).toBe("نفری از ۱٬۲۳۴٬۰۰۰ تومان");
     expect(faShare(rial(10_005_000, 20_001_000))).toBe("نفری ۱٬۰۰۰٬۰۰۰ تا ۲٬۰۰۱٬۰۰۰ تومان");
   });
 
@@ -67,10 +67,8 @@ describe("money", () => {
       provenance: PROVENANCE,
       nights: [],
     };
-    expect(offerText(offer)).toBe("دست‌کم یک شب پر یا بسته بود");
-    expect(offerText({ ...offer, status: "bookable", total: money(5, null) })).toBe(
-      "حداقل ۵ تومان",
-    );
+    expect(offerText(offer)).toBe("دست‌کم یک شب ناموجود بود");
+    expect(offerText({ ...offer, status: "bookable", total: money(5, null) })).toBe("از ۵ تومان");
   });
 });
 

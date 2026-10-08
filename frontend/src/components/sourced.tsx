@@ -21,6 +21,7 @@ export function Sourced({
   sourceName,
   children,
   className,
+  quiet = false,
 }: {
   id: string;
   provenance: Provenance;
@@ -30,6 +31,7 @@ export function Sourced({
   sourceName?: string; // the platform's display name (provenance carries its slug)
   children: ReactNode;
   className?: string;
+  quiet?: boolean; // no permanent underline: it shows on hover and focus only (M12, X2)
 }) {
   const source = provenance.source;
   const rows: [string, ReactNode][] = [];
@@ -79,7 +81,10 @@ export function Sourced({
         popoverTarget={id}
         data-sourced=""
         className={cn(
-          "cursor-help rounded-sm underline decoration-stone-400 decoration-dotted underline-offset-4 hover:decoration-stone-700",
+          "cursor-help rounded-sm underline decoration-dotted underline-offset-4",
+          quiet
+            ? "decoration-transparent hover:decoration-stone-500 focus-visible:decoration-stone-500"
+            : "decoration-stone-400 hover:decoration-stone-700",
           FOCUS,
           className,
         )}
