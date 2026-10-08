@@ -20,7 +20,8 @@ ADR supersedes it. Measured evidence (dates, numbers, sources) goes inline.
 | [0012](0012-image-matching-evidence.md) | Image matching evidence: local DINOv2 + pHash, chosen by measurement | Accepted |
 | [0013](0013-geo-evidence-osm-coastline-and-osrm.md) | Geo evidence: OSM coastline in PostGIS and free-flow OSRM drive times | Accepted |
 | [0014](0014-er-decisions-rules-and-llm-judge.md) | ER decisions: rule score, an LLM judge in a score zone, the owner's labels (no Splink) | Accepted |
+| [0015](0015-presenting-uncertainty-in-the-ui.md) | Presenting uncertainty in the UI («از», ranges, each caveat once) | Accepted |
 
-ADRs 0001–0011 were accepted with the Milestone 0 approval (2026-10-01); 0012–0014 when their
+ADRs 0001–0011 were accepted with the Milestone 0 approval (2026-10-01); 0012–0015 when their
 milestones delivered them. Later refinements are appended as dated *Amendment* sections inside the
 ADR.

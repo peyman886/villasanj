@@ -53,6 +53,7 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M9 | Enrichment & truth check | ✅ done | 5/5 |
 | M10 | Reviews & “why this villa?” | ✅ done (2026-10-05) | 3/4 (+1 closed by the owner) |
 | M11 | Demo polish | ✅ done (2026-10-05) | 4/4 |
+| M12 | UX redesign & public release | ◐ partly done | 9/22 |
 <!-- generated:summary:end -->
 
 ### The owner's decisions of 2026-10-05
@@ -144,12 +145,35 @@ from `/review`.
 | M11 | 2 | Every number in the demo script in a generated report | ✅ done | docs/demo-script.md and the demo guide page. |
 | M11 | 3 | LLM spend ≤ $30 and reconciled with the dashboard | ✅ done | The ledger is under the $30 cap and the owner confirmed it against the AvalAI dashboard (2026-10-05). |
 | M11 | 4 | E2E green for the storyboard paths | ✅ done | 51 E2E tests, 0 failed. |
+| M12 | 1 | 1.1: Number formatting module and vocabulary | ✅ done | 60 table-driven tests (lib/numbers.test.ts); E2E: no Latin digit or forbidden word on search and the demo villa. |
+| M12 | 2 | 1.2: Split-view search with price pins | ✅ done | E2E: map and first full card above the fold at 1440×900 and 1536×864; card ↔ pin hover under 100 ms. |
+| M12 | 3 | 1.3: Intent chips and the two-state budget chip | ✅ done | E2E: nothing between chips and the first card is taller than 80 px; the flip needs no full reload. |
+| M12 | 4 | 1.4: Torob-style result card | ✅ done | E2E: «از», «در ۲ پلتفرم» and the offer row; «کارمزد» once per page; «بهترین تطابق» on the first card only. |
+| M12 | 5 | 1.5: LLM explanation inside the first card | ✅ done | E2E: a single explanation, inside the first card; verifier and fallback unchanged. |
+| M12 | 6 | 1.6: Booking card with dates and guests | ✅ done | E2E: cheaper first, price age, «دیدن در … ↗», fee once; two-platform, one-platform, stale and unavailable states. |
+| M12 | 7 | 1.7: Gallery without duplicates | ✅ done | Unit test on a fixture villa with a known duplicate; E2E on the demo villa (hash distance over 10 bits). |
+| M12 | 8 | 1.8: Two-platform Jalali calendar | ✅ done | E2E: Saturday first, two halves, states by hatch and outline, keyboard range picking, screen-reader labels. |
+| M12 | 9 | 1.9: Match evidence («چرا مطمئنیم؟») | ✅ done | Unit test maps each line to a stored field; E2E: photo pairs equal the API's, 2 to 3 lines, three decision steps. |
+| M12 | 10 | 2.1: Evidence-backed highlights; grouped truth check | ❌ not met | In progress. |
+| M12 | 11 | 2.2: Sticky anchor navigation | ❌ not met | In progress. |
+| M12 | 12 | 2.3: Specs: agreed line, differences table | ❌ not met | In progress. |
+| M12 | 13 | 2.4: Review citation chips | ❌ not met | In progress. |
+| M12 | 14 | 2.5: Home page | ❌ not met | In progress. |
+| M12 | 15 | 2.6: Drawers | ❌ not met | In progress. |
+| M12 | 16 | 2.7: Tokens and contrast | ❌ not met | In progress. |
+| M12 | 17 | 2.8: Demo script | ❌ not met | In progress. |
+| M12 | 18 | 3.1: Mobile search with a map button | ❌ not met | In progress. |
+| M12 | 19 | 3.2: Search this area | ❌ not met | In progress. |
+| M12 | 20 | 3.3: Mobile villa page | ❌ not met | In progress. |
+| M12 | 21 | 3.4: Copy and motion polish | ❌ not met | In progress. |
+| M12 | 22 | Repository published publicly after the audit (docs/release/public-release.md) | ❌ not met | The last step of M12. |
 <!-- generated:criteria:end -->
 
 ### Still open
 
 <!-- generated:open:begin -->
-Nothing is open: every criterion is done or closed by the owner.
+- **Not met:**
+  - M12 runs end to end without stops: M12 crit. 10, M12 crit. 11, M12 crit. 12, M12 crit. 13, M12 crit. 14, M12 crit. 15, M12 crit. 16, M12 crit. 17, M12 crit. 18, M12 crit. 19, M12 crit. 20, M12 crit. 21, M12 crit. 22 (waves 2 and 3, then the public release).
 <!-- generated:open:end -->
 
 ---|---|---|---|
@@ -698,6 +722,16 @@ Acceptance criteria:
 Before recording: raise the key's monthly limit, open the script's paths once online so their model
 answers are cached, then `make demo-bundle`. The final same-window crawl is the capture of
 2026-10-03 (M4 crit. 3).
+
+---
+
+## M12 — UX redesign and public release
+
+Scope and acceptance criteria: `docs/ux/M12-plan.md` (waves 1–3, then `docs/release/public-release.md`);
+decisions in `docs/ux/decisions.md`; presentation rules in ADR-0015. The owner asked for M12 to run
+end to end without questions or waits between waves (CLAUDE.md); each wave ends with a report in
+`reports/m12-wave-<n>-<date>.md`, green lint and tests, and a commit. Criterion status is in the
+generated table at the top of this file.
 
 ---
 
