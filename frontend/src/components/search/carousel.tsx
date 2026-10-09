@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight, House } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { smoothScroll } from "@/lib/motion";
 import { faNum } from "@/lib/numbers";
 
 /**
@@ -20,7 +21,7 @@ export function PhotoCarousel({ photos, label }: { photos: string[]; label: stri
     if (!el) return;
     const next = Math.max(0, Math.min(shown.length - 1, index + delta));
     // RTL scroll offsets are negative in every current engine.
-    el.scrollTo({ left: -next * el.clientWidth, behavior: "smooth" });
+    el.scrollTo({ left: -next * el.clientWidth, behavior: smoothScroll() });
     setIndex(next);
   };
 

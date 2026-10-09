@@ -222,13 +222,60 @@ const WAVE_2 = wave(
 
 const WAVE_3 = wave(
   [
-    ["3.1", "جستجوی موبایل با دکمه‌ی نقشه", "Mobile search with a map button"],
-    ["3.2", "«جست‌وجو در همین محدوده»", "Search this area"],
-    ["3.3", "صفحه‌ی ویلا در موبایل", "Mobile villa page"],
-    ["3.4", "صیقل متن و حرکت", "Copy and motion polish"],
+    [
+      "3.1",
+      "جستجوی موبایل با دکمه‌ی نقشه",
+      "Mobile search with a map button",
+      "در ۳۹۰×۸۴۴ دکمه‌ی «نقشه» همیشه دیده می‌شود؛ برگشت با «فهرست» جای اسکرول و فیلترها را نگه می‌دارد؛ بدون اسکرول افقی (E2E).",
+      "At 390×844 the «نقشه» button is always visible; «فهرست» returns to the same scroll position and filters; no horizontal scroll (E2E).",
+    ],
+    [
+      "3.2",
+      "«جست‌وجو در همین محدوده»",
+      "Search this area",
+      "جابه‌جا کردن نقشه دکمه را نشان می‌دهد و کلیک آن chip «محدوده‌ی نقشه» می‌سازد که مثل بقیه حذف می‌شود؛ فیلتر روی سرور (E2E و آزمون واحد).",
+      "Moving the map shows the button; it adds a removable «محدوده‌ی نقشه» chip; filtered on the server (E2E and unit tests).",
+    ],
+    [
+      "3.3",
+      "صفحه‌ی ویلا در موبایل",
+      "Mobile villa page",
+      "نوار پایین با قیمت ارزان‌ترین پلتفرم و «مقایسه‌ی پیشنهادها» که به کارت پلتفرم‌ها می‌رود (E2E).",
+      "A bottom bar with the cheaper platform's price and «مقایسه‌ی پیشنهادها», which jumps to the platform rows (E2E).",
+    ],
+    [
+      "3.4",
+      "صیقل متن و حرکت",
+      "Copy and motion polish",
+      "هیچ «می » یا « ها» جداشده در خانه، جستجو و ویلا؛ با reduced-motion هیچ انیمیشنی بیش از ۲۰۰ میلی‌ثانیه نیست و اسکرول‌های JS هم آنی می‌شوند (E2E).",
+      "No detached «می » or « ها» on home, search and villa; with reduced motion no animation is longer than 200 ms and JS scrolling is instant (E2E).",
+    ],
   ],
   18,
-  "not_met",
+  "done",
+);
+
+// Added during M12 by the owner (2026-10-09): search filters after HomeToGo and jabama, and the
+// taste-skill design pass (which requires a dark mode for consumer pages).
+const ADDED = wave(
+  [
+    [
+      "3.5",
+      "فیلترهای جستجو",
+      "Search filters",
+      "پنل فیلتر با فیلترهای سریع، نمودار قیمت، اتاق و ظرفیت، امکانات، نوع اقامتگاه، پلتفرم، امتیاز و فاصله تا دریا؛ شمارش زنده با همان قواعد سرور (موارد مشترک در filter_cases.json)؛ chipهای حذف‌شدنی (E2E و آزمون واحد).",
+      "A filter panel with quick tiles, a price histogram, rooms and capacity, amenities, property type, platform, rating and distance to the sea; a live count by the server's own rules (shared cases in filter_cases.json); removable chips (E2E and unit tests).",
+    ],
+    [
+      "3.6",
+      "حالت تاریک",
+      "Dark mode",
+      "توکن‌های تاریک برای کل برنامه و نقشه‌ی تیره؛ axe بدون خطای جدی روی خانه، جستجو، ویلا و مستندات در حالت تاریک (E2E).",
+      "Dark tokens for the whole app and a dark map; axe: no serious violation on home, search, villa and docs in dark mode (E2E).",
+    ],
+  ],
+  22,
+  "done",
 );
 
 export const MILESTONES: Milestone[] = [
@@ -1065,8 +1112,9 @@ export const MILESTONES: Milestone[] = [
       ...WAVE_1,
       ...WAVE_2,
       ...WAVE_3,
+      ...ADDED,
       {
-        n: 22,
+        n: 24,
         title_fa: "مخزن عمومی و امن منتشر شد",
         title_en: "Repository published publicly after the audit (docs/release/public-release.md)",
         status: "not_met",
@@ -1103,8 +1151,8 @@ export const OPEN_ITEMS: OpenItem[] = m12Open.length
   ? [
       {
         kind: "not_met",
-        fa: "M12 در حال اجراست (بدون توقف بین موج‌ها): موج‌های ۲ و ۳ و انتشار عمومی مخزن.",
-        en: `M12 runs end to end without stops: ${m12Open.map((n) => `M12 crit. ${n}`).join(", ")} (waves 2 and 3, then the public release).`,
+        fa: "M12 در حال اجراست (بدون توقف بین موج‌ها): فقط انتشار عمومی مخزن مانده است.",
+        en: `M12 runs end to end without stops: ${m12Open.map((n) => `M12 crit. ${n}`).join(", ")} (the public release of the repository).`,
       },
     ]
   : [];

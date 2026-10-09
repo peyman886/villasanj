@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/cn";
+import { smoothScroll } from "@/lib/motion";
 
 const LINE_PX = 210; // where a section lands after a jump: scroll-padding (80 px) + scroll-mt-28 (112 px)
 
@@ -13,18 +14,21 @@ const LINE_PX = 210; // where a section lands after a jump: scroll-padding (80 p
 export function AnchorNav({ sections }: { sections: readonly (readonly [string, string])[] }) {
   const [active, setActive] = useState<string | null>(null);
   useEffect(() => {
-    // The section in view is the last one whose top has passed the sticky header and this bar.
-    const update = () => {
-      let current: string | null = null;
-      for (const [id] of sections) {
-        const el = document.getElementById(id);
-        if (el && el.getBoundingClientRect().top <= LINE_PX) current = id;
-      }
-      setActive(current);
-    };
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
+    // A one-pixel band at the line under the sticky bars: the section covering it is the one in
+    // view. In the gap between two sections nothing covers it and the last one stays marked.
+    const elements = sections
+      .map(([id]) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
+    const below = Math.max(0, window.innerHeight - LINE_PX - 1);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const hit = entries.filter((e) => e.isIntersecting).at(-1);
+        if (hit) setActive(hit.target.id);
+      },
+      { rootMargin: `-${LINE_PX}px 0px -${below}px 0px` },
+    );
+    for (const el of elements) observer.observe(el);
+    return () => observer.disconnect();
   }, [sections]);
   return (
     <nav
@@ -41,7 +45,9 @@ export function AnchorNav({ sections }: { sections: readonly (readonly [string, 
                 const heading = document.getElementById(`${id}-title`);
                 if (!heading) return;
                 event.preventDefault();
-                heading.closest("section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                heading
+                  .closest("section")
+                  ?.scrollIntoView({ behavior: smoothScroll(), block: "start" });
                 heading.focus({ preventScroll: true });
                 history.replaceState(null, "", `#${id}`);
                 setActive(id);

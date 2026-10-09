@@ -152,7 +152,7 @@ test.describe("documentation portal on a phone", () => {
     await open(page, "/docs/overview");
     await page.locator("main details > summary").first().click();
     await page.locator("main details nav").getByRole("link", { name: "حقیقت‌سنجی" }).click();
-    await expect(page).toHaveURL(/\/docs\/truth-check$/);
+    await expect(page).toHaveURL(/\/docs\/truth-check$/, { timeout: 30_000 }); // first compile
     await expect(page.locator("h1")).toHaveText(/حقیقت‌سنجی/);
   });
 });

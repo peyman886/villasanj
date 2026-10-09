@@ -224,7 +224,7 @@ function BudgetChip({
                 className={cn(
                   "focus-ring rounded-full px-2.5 py-0.5 text-xs transition-colors",
                   current
-                    ? "bg-brand-800 font-semibold text-white"
+                    ? "bg-accent-solid font-semibold text-white"
                     : "text-brand-800 hover:bg-brand-50",
                 )}
               >
@@ -313,7 +313,7 @@ function Results({
   return (
     <>
       <section aria-label="برداشت ما از جستجو" className="mt-3">
-        <ul className="flex flex-wrap items-center gap-2">
+        <ul className="relative -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>li]:shrink-0">
           <li>
             <FilterPanel query={result.query} drop={drop} area={area} current={filters} />
           </li>
@@ -485,7 +485,7 @@ function ExcludedDrawer({ result, total }: { result: SearchOut; total: number })
           className="size-4 transition-transform group-open:rotate-180"
         />
       </summary>
-      <div className="absolute end-0 z-20 mt-2 w-80 rounded-card border border-line bg-surface p-4 text-sm shadow-float">
+      <div className="mt-2 hidden rounded-card border border-line bg-surface p-4 text-sm shadow-float group-open:block sm:absolute sm:end-0 sm:z-20 sm:w-80">
         <ul className="space-y-1 tabular-nums">
           {reasons.map(([reason, count]) => (
             <li key={reason} className="flex justify-between gap-3">

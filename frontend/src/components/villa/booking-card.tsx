@@ -9,7 +9,7 @@ import { faDay, daysBetween, type VillaNight } from "@/lib/calendar";
 import { cn } from "@/lib/cn";
 import { COPY, priceAge, seeOn } from "@/lib/copy";
 import { faAge } from "@/lib/listing";
-import { faNum, perPerson, priceFull } from "@/lib/numbers";
+import { faNum, perPerson, priceFrom, priceFull } from "@/lib/numbers";
 import { toneOf } from "@/lib/platforms";
 
 export type Stay = { checkIn: string; checkOut: string; guests: number };
@@ -117,7 +117,7 @@ export function BookingCard({
         popover="auto"
         role="dialog"
         aria-label="انتخاب تاریخ ورود و خروج"
-        className="m-auto w-[min(40rem,calc(100vw-2rem))] rounded-modal border border-line bg-surface p-4 shadow-overlay backdrop:bg-sand-950/30"
+        className="m-auto w-[min(40rem,calc(100vw-2rem))] rounded-modal border border-line bg-surface p-4 shadow-overlay backdrop:bg-scrim/30"
       >
         <p className="mb-2 text-sm text-fg-muted">روز ورود و سپس روز خروج را انتخاب کنید.</p>
         <SplitCalendar
@@ -229,6 +229,47 @@ export function BookingCard({
       <p className="mt-3 border-t border-line pt-3 text-xs text-pretty text-fg-muted">
         {COPY.feeVilla}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Phones (M12 3.3): the booking card lives at the end of the page, so a bar at the bottom keeps
+ * the cheaper platform's own price in view and jumps to «پلتفرم‌ها».
+ */
+export function MobileBookingBar({
+  members,
+  offers,
+  stay,
+}: {
+  members: Listing[];
+  offers: Offer[];
+  stay: Stay;
+}) {
+  const top = bookingRows(members, offers).find((r) => r.bookable);
+  const total = top?.offer?.total;
+  return (
+    <div
+      data-mobile-booking=""
+      className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-3 border-t border-line bg-surface/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
+    >
+      <div className="min-w-0">
+        {total ? (
+          <p className="font-bold tabular-nums">{priceFrom(total)}</p>
+        ) : (
+          <p className="text-sm text-fg-muted">برای این تاریخ خالی دیده نشد</p>
+        )}
+        <p className="truncate text-xs text-fg-muted tabular-nums">
+          {faNum(daysBetween(stay.checkIn, stay.checkOut))} شب، {faNum(stay.guests)} نفر
+          {top ? ` · در ${top.listing.platform_name}` : ""}
+        </p>
+      </div>
+      <a
+        href="#booking"
+        className="focus-ring inline-flex h-11 shrink-0 items-center rounded-control bg-brand-gradient px-5 font-semibold text-white active:scale-[0.98]"
+      >
+        {COPY.compareOffers}
+      </a>
     </div>
   );
 }

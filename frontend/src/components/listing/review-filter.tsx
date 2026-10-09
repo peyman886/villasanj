@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { smoothScroll } from "@/lib/motion";
 import { faNum } from "@/lib/numbers";
 
 const EVENT = "villasanj:review-filter";
@@ -53,7 +54,7 @@ export function ReviewFilter({ children }: { children: ReactNode }) {
     for (const item of box.current?.querySelectorAll<HTMLElement>("li[id^='review-']") ?? []) {
       item.hidden = keep !== null && !keep.has(item.id);
     }
-    if (filter) box.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (filter) box.current?.scrollIntoView({ behavior: smoothScroll(), block: "start" });
   }, [filter]);
   return (
     <div ref={box} className="scroll-mt-28">

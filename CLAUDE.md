@@ -28,6 +28,13 @@ Context files (local):
   villa `v-6331f454983f` (`scripts/pick_demo_villa.py`, rule D8.4 + A26). Wave 2 done
   (`reports/m12-wave-2-2026-10-08.md`): highlights and grouped truth check, anchor nav, review
   citation chips, the new home page, colour-discipline test (`content/tokens.test.ts`), demo script.
+  Wave 3 done 2026-10-09 (`reports/m12-wave-3-2026-10-09.md`): phone map button and bottom bar,
+  «جست‌وجو در همین محدوده», copy and motion polish; plus the owner's additions: search filters
+  (`discovery/domain/filters.py` ↔ `frontend/src/lib/filters.ts`, shared cases in
+  `backend/tests/fixtures/filter_cases.json`) and dark mode (tokens in `globals.css`).
+- **Taste Skill** (Leonxlnx/taste-skill) is installed in `~/.agents/skills` and linked into
+  `~/.claude/skills`; UI work uses `design-taste-frontend` and `redesign-existing-projects` (no
+  em-dashes, one accent, both colour schemes, no window scroll listeners).
 - **Every milestone M0–M11 is done (2026-10-08).** Status per criterion is
   generated from `frontend/src/content/milestones.ts` + `reports/*.json` into `docs/ROADMAP.md`
   (top) and shown at `/docs/milestones`; a Vitest test fails when they drift (`make roadmap`).

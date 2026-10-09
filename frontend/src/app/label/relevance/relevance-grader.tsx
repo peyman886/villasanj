@@ -14,7 +14,7 @@ import { FEATURE_TEXT } from "@/lib/search";
 type Grade = 0 | 1 | 2;
 const GRADES: Grade[] = [2, 1, 0];
 const GRADE_STYLE: Record<Grade, string> = {
-  2: "aria-pressed:border-brand-700 aria-pressed:bg-brand-700 aria-pressed:text-white",
+  2: "aria-pressed:border-brand-700 aria-pressed:bg-accent-solid aria-pressed:text-white",
   1: "aria-pressed:border-amber-500 aria-pressed:bg-amber-100 aria-pressed:text-amber-950",
   0: "aria-pressed:border-sand-600 aria-pressed:bg-sand-200 aria-pressed:text-fg",
 };

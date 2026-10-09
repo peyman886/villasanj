@@ -147,7 +147,7 @@ export function FilterPanel({
         <SlidersHorizontal aria-hidden="true" className="size-4" />
         فیلترها
         {active ? (
-          <span className="grid size-5 place-items-center rounded-full bg-brand-800 text-xs text-white tabular-nums">
+          <span className="grid size-5 place-items-center rounded-full bg-accent-solid text-xs text-white tabular-nums">
             {faNum(active)}
           </span>
         ) : null}
@@ -155,7 +155,7 @@ export function FilterPanel({
       <dialog
         ref={dialog}
         aria-labelledby="filters-title"
-        className="m-auto h-dvh max-h-none w-full max-w-none overflow-hidden bg-surface p-0 text-fg backdrop:bg-sand-950/40 open:flex open:animate-fade-in open:flex-col sm:h-auto sm:max-h-[88dvh] sm:max-w-2xl sm:rounded-modal sm:shadow-overlay"
+        className="m-auto h-dvh max-h-none w-full max-w-none overflow-hidden bg-surface p-0 text-fg backdrop:bg-scrim/40 open:flex open:animate-fade-in open:flex-col sm:h-auto sm:max-h-[88dvh] sm:max-w-2xl sm:rounded-modal sm:shadow-overlay"
       >
         <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
           <h2 id="filters-title" className="text-lg font-bold">

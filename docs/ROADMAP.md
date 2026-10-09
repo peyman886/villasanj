@@ -53,7 +53,7 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M9 | Enrichment & truth check | ✅ done | 5/5 |
 | M10 | Reviews & “why this villa?” | ✅ done (2026-10-05) | 3/4 (+1 closed by the owner) |
 | M11 | Demo polish | ✅ done (2026-10-05) | 4/4 |
-| M12 | UX redesign & public release | ◐ partly done | 17/22 |
+| M12 | UX redesign & public release | ◐ partly done | 23/24 |
 <!-- generated:summary:end -->
 
 ### The owner's decisions of 2026-10-05
@@ -162,18 +162,20 @@ from `/review`.
 | M12 | 15 | 2.6: Drawers | ✅ done | «قیمت‌های نمونه» closed on load; the exclusions drawer on search; no empty drive-time bucket (E2E and unit test). |
 | M12 | 16 | 2.7: Tokens and contrast | ✅ done | axe: no serious violation on home, search and villa; tokens.test.ts allows amber and red only where the copy rules do. |
 | M12 | 17 | 2.8: Demo script | ✅ done | docs/demo-script.md on the new paths and words («ناموجود», «از»); every number names its report. |
-| M12 | 18 | 3.1: Mobile search with a map button | ❌ not met | In progress. |
-| M12 | 19 | 3.2: Search this area | ❌ not met | In progress. |
-| M12 | 20 | 3.3: Mobile villa page | ❌ not met | In progress. |
-| M12 | 21 | 3.4: Copy and motion polish | ❌ not met | In progress. |
-| M12 | 22 | Repository published publicly after the audit (docs/release/public-release.md) | ❌ not met | The last step of M12. |
+| M12 | 18 | 3.1: Mobile search with a map button | ✅ done | At 390×844 the «نقشه» button is always visible; «فهرست» returns to the same scroll position and filters; no horizontal scroll (E2E). |
+| M12 | 19 | 3.2: Search this area | ✅ done | Moving the map shows the button; it adds a removable «محدوده‌ی نقشه» chip; filtered on the server (E2E and unit tests). |
+| M12 | 20 | 3.3: Mobile villa page | ✅ done | A bottom bar with the cheaper platform's price and «مقایسه‌ی پیشنهادها», which jumps to the platform rows (E2E). |
+| M12 | 21 | 3.4: Copy and motion polish | ✅ done | No detached «می » or « ها» on home, search and villa; with reduced motion no animation is longer than 200 ms and JS scrolling is instant (E2E). |
+| M12 | 22 | 3.5: Search filters | ✅ done | A filter panel with quick tiles, a price histogram, rooms and capacity, amenities, property type, platform, rating and distance to the sea; a live count by the server's own rules (shared cases in filter_cases.json); removable chips (E2E and unit tests). |
+| M12 | 23 | 3.6: Dark mode | ✅ done | Dark tokens for the whole app and a dark map; axe: no serious violation on home, search, villa and docs in dark mode (E2E). |
+| M12 | 24 | Repository published publicly after the audit (docs/release/public-release.md) | ❌ not met | The last step of M12. |
 <!-- generated:criteria:end -->
 
 ### Still open
 
 <!-- generated:open:begin -->
 - **Not met:**
-  - M12 runs end to end without stops: M12 crit. 18, M12 crit. 19, M12 crit. 20, M12 crit. 21, M12 crit. 22 (waves 2 and 3, then the public release).
+  - M12 runs end to end without stops: M12 crit. 24 (the public release of the repository).
 <!-- generated:open:end -->
 
 ---|---|---|---|

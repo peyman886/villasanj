@@ -75,7 +75,7 @@ export function VillaGallery({ gallery }: { gallery: GalleryPhoto[] }) {
             popover="auto"
             role="dialog"
             aria-label="همه‌ی عکس‌ها"
-            className="m-auto max-h-[85dvh] w-[min(64rem,calc(100vw-2rem))] overflow-y-auto rounded-modal border border-line bg-surface p-4 shadow-overlay backdrop:bg-sand-950/40"
+            className="m-auto max-h-[85dvh] w-[min(64rem,calc(100vw-2rem))] overflow-y-auto rounded-modal border border-line bg-surface p-4 shadow-overlay backdrop:bg-scrim/40"
           >
             <div className="flex items-center justify-between">
               <p className="font-semibold">همه‌ی {faNum(photos.length)} عکس</p>

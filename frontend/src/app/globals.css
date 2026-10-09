@@ -62,6 +62,10 @@
   --color-caution: #8a5a00;
   --color-contradicted: #b42318;
   --color-hidden: #c99a2e;
+  /* Fixed in both modes: filled controls with white text, the one gradient, dialog scrims. */
+  --color-accent-solid: oklch(0.42 0.078 186);
+  --color-accent-solid-hover: oklch(0.35 0.064 188);
+  --color-scrim: oklch(0.16 0.007 75);
 
   --radius-control: 0.75rem;
   --radius-card: 1rem;
@@ -108,7 +112,7 @@
 
 /* The one gradient: the primary CTA and the «یک ویلا در ۲ آگهی» badge only. */
 @utility bg-brand-gradient {
-  background-image: linear-gradient(135deg, var(--color-brand-800), var(--color-brand-600));
+  background-image: linear-gradient(135deg, oklch(0.35 0.064 188), oklch(0.47 0.088 184));
 }
 
 /* Unavailable night: a grey hatch, readable in grayscale (decisions.md D4). */
@@ -157,6 +161,69 @@
 @utility ltr {
   direction: ltr;
   unicode-bidi: isolate;
+}
+
+/*
+ * Dark mode follows the system (taste-skill: consumer pages ship both modes). The components use
+ * the ramps and semantic roles above, so the dark theme redefines them here: the sand and brand
+ * ramps are mirrored (a tint stays a tint, a text shade stays readable), state colours are lifted
+ * to keep 4.5:1 on dark surfaces, and the maps switch to the dark Protomaps flavour.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-sand-50: oklch(0.17 0.006 80);
+    --color-sand-100: oklch(0.215 0.007 80);
+    --color-sand-200: oklch(0.275 0.008 80);
+    --color-sand-300: oklch(0.36 0.009 80);
+    --color-sand-400: oklch(0.52 0.01 80);
+    --color-sand-500: oklch(0.66 0.01 80);
+    --color-sand-600: oklch(0.75 0.009 80);
+    --color-sand-700: oklch(0.83 0.008 80);
+    --color-sand-800: oklch(0.89 0.006 80);
+    --color-sand-900: oklch(0.94 0.005 80);
+    --color-sand-950: oklch(0.97 0.004 80);
+
+    --color-brand-50: oklch(0.25 0.035 186);
+    --color-brand-100: oklch(0.29 0.045 186);
+    --color-brand-200: oklch(0.35 0.06 186);
+    --color-brand-300: oklch(0.45 0.075 185);
+    --color-brand-400: oklch(0.56 0.09 184);
+    --color-brand-500: oklch(0.66 0.1 183);
+    --color-brand-600: oklch(0.74 0.1 182);
+    --color-brand-700: oklch(0.8 0.09 182);
+    --color-brand-800: oklch(0.86 0.07 182);
+    --color-brand-900: oklch(0.91 0.05 182);
+    --color-brand-950: oklch(0.96 0.025 182);
+
+    --color-amber-50: oklch(0.27 0.045 75);
+    --color-amber-200: oklch(0.42 0.08 75);
+    --color-amber-300: oklch(0.5 0.1 75);
+    --color-amber-700: oklch(0.8 0.13 80);
+    --color-amber-900: oklch(0.88 0.1 85);
+    --color-amber-950: oklch(0.93 0.06 85);
+    --color-rose-50: oklch(0.27 0.05 20);
+    --color-rose-200: oklch(0.42 0.1 20);
+    --color-rose-300: oklch(0.5 0.12 20);
+    --color-rose-700: oklch(0.78 0.13 20);
+    --color-rose-800: oklch(0.83 0.11 20);
+    --color-rose-950: oklch(0.93 0.05 20);
+    --color-sky-50: oklch(0.27 0.04 235);
+    --color-sky-300: oklch(0.48 0.08 235);
+    --color-sky-900: oklch(0.9 0.05 235);
+
+    --color-surface: oklch(0.205 0.007 80);
+    --color-fg-subtle: oklch(0.68 0.01 80);
+    --color-jabama-soft: oklch(0.34 0.09 262);
+    --color-shab-soft: oklch(0.34 0.1 295);
+    --color-verified: oklch(0.78 0.14 150);
+    --color-caution: oklch(0.82 0.13 80);
+    --color-contradicted: oklch(0.74 0.16 25);
+
+    --shadow-raised: 0 1px 2px oklch(0 0 0 / 0.3), 0 1px 3px oklch(0 0 0 / 0.35);
+    --shadow-float: 0 4px 6px oklch(0 0 0 / 0.3), 0 10px 24px oklch(0 0 0 / 0.4);
+    --shadow-overlay: 0 10px 20px oklch(0 0 0 / 0.35), 0 20px 48px oklch(0 0 0 / 0.5);
+  }
 }
 
 html {

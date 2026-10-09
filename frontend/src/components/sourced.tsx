@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { METHOD_TEXT, faAge, faDateTime, faNumber } from "@/lib/listing";
 
 const FOCUS =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700";
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
 
 /**
  * A number (or claim) whose source opens on click: product rule 1, every value has provenance.
@@ -55,7 +55,7 @@ export function Sourced({
         href={source.url}
         target="_blank"
         rel="noopener noreferrer"
-        className={cn("text-emerald-800 underline underline-offset-4", FOCUS)}
+        className={cn("text-accent underline underline-offset-4", FOCUS)}
       >
         صفحه‌ی آگهی در {sourceName ?? source.platform}
       </a>
@@ -83,8 +83,8 @@ export function Sourced({
         className={cn(
           "cursor-help rounded-sm underline decoration-dotted underline-offset-4",
           quiet
-            ? "decoration-transparent hover:decoration-stone-500 focus-visible:decoration-stone-500"
-            : "decoration-stone-400 hover:decoration-stone-700",
+            ? "decoration-transparent hover:decoration-fg-subtle focus-visible:decoration-fg-subtle"
+            : "decoration-line-strong hover:decoration-fg-muted",
           FOCUS,
           className,
         )}
@@ -97,13 +97,13 @@ export function Sourced({
         popover="auto"
         role="dialog"
         aria-label={`منبع ${label}`}
-        className="m-auto w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-stone-300 bg-white p-4 text-start text-sm font-normal text-stone-800 shadow-lg backdrop:bg-stone-900/20"
+        className="m-auto w-[min(24rem,calc(100vw-2rem))] rounded-card border border-line-strong bg-surface p-4 text-start text-sm font-normal text-fg shadow-overlay backdrop:bg-scrim/20"
       >
         <span className="block font-medium text-balance">منبع {label}</span>
         <span className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-pretty">
           {rows.map(([name, content]) => (
             <span key={name} className="contents">
-              <span className="text-stone-500">{name}</span>
+              <span className="text-fg-subtle">{name}</span>
               <span className="tabular-nums">{content}</span>
             </span>
           ))}
@@ -113,7 +113,7 @@ export function Sourced({
           popoverTarget={id}
           popoverTargetAction="hide"
           className={cn(
-            "mt-4 rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100",
+            "mt-4 rounded-control border border-line-strong px-3 py-1.5 text-sm hover:bg-sunken",
             FOCUS,
           )}
         >

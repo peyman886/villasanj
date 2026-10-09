@@ -51,7 +51,7 @@ export function Diagram({ name, caption }: { name: string; caption: string }) {
         popover="auto"
         role="dialog"
         aria-label={caption}
-        className="m-auto max-h-[92dvh] w-[min(96vw,80rem)] overflow-auto rounded-card border border-line bg-surface p-6 shadow-overlay backdrop:bg-sand-950/40"
+        className="m-auto max-h-[92dvh] w-[min(96vw,80rem)] overflow-auto rounded-card border border-line bg-surface p-6 shadow-overlay backdrop:bg-scrim/40"
       >
         <div className="mb-3 flex items-center justify-between gap-4">
           <p className="font-semibold">{caption}</p>

@@ -42,6 +42,10 @@ export async function loadMaplibre(basemap: string | null) {
   return maplibre;
 }
 
+function prefersDark(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
 /** The local Protomaps style (absolute URLs: MapLibre fetches glyphs from its workers). */
 export function localStyle(origin: string, pmtiles: string): StyleSpecification {
   return {
@@ -55,7 +59,8 @@ export function localStyle(origin: string, pmtiles: string): StyleSpecification 
         attribution: "© مشارکت‌کنندگان OpenStreetMap · Protomaps",
       },
     },
-    layers: layers("protomaps", namedFlavor("light"), { lang: "fa" }),
+    // The dark flavour follows the page in dark mode; the icons come from the one (light) sprite.
+    layers: layers("protomaps", namedFlavor(prefersDark() ? "dark" : "light"), { lang: "fa" }),
   };
 }
 

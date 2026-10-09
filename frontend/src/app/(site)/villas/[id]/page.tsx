@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/ui/callout";
 import { DataTable } from "@/components/ui/table";
 import { AnchorNav } from "@/components/villa/anchor-nav";
-import { BookingCard, type Stay } from "@/components/villa/booking-card";
+import { BookingCard, MobileBookingBar, type Stay } from "@/components/villa/booking-card";
 import { VillaGallery } from "@/components/villa/gallery";
 import { Highlights } from "@/components/villa/highlights";
 import { MatchEvidence, type MatchPair } from "@/components/villa/match-evidence";
@@ -391,7 +391,7 @@ export default async function VillaPage(props: {
   const textReviews = data.reviews.filter((r) => r.text).length;
   const multi = villa.members.length > 1;
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-6 pb-16 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 pt-6 pb-28 sm:px-6 lg:pb-16">
       <nav aria-label="مسیر" className="text-sm text-fg-muted">
         <Link href="/" className="focus-ring rounded-sm hover:text-fg">
           ویلاسنج
@@ -535,6 +535,9 @@ export default async function VillaPage(props: {
           ) : null}
         </aside>
       </div>
+      {data.stay.checkIn ? (
+        <MobileBookingBar members={villa.members} offers={data.offers} stay={data.stay} />
+      ) : null}
     </div>
   );
 }
