@@ -75,7 +75,8 @@ services:
       - ./docs:/project/docs:ro
       - ./config:/project/config:ro
     ports:
-      - "127.0.0.1:${VILLASANJ_WEB_PORT:-3300}:3000"
+      # Local only by default; VILLASANJ_WEB_BIND=0.0.0.0 opens the web app to the local network.
+      - "${VILLASANJ_WEB_BIND:-127.0.0.1}:${VILLASANJ_WEB_PORT:-3300}:3000"
     depends_on:
       api:
         condition: service_healthy

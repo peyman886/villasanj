@@ -109,7 +109,15 @@ test.describe("search page", () => {
     const pin = page.locator("[data-pin]").nth(4);
     await expect(pin).toBeAttached({ timeout: 15_000 });
     const id = await pin.getAttribute("data-pin");
-    const before = await pin.boundingBox();
+    // The pin's place inside the map frame (the page itself scrolls to the card).
+    const inMap = async () => {
+      const [p, m] = await Promise.all([
+        pin.boundingBox(),
+        page.locator("[data-search-map]").boundingBox(),
+      ]);
+      return { x: (p?.x ?? 0) - (m?.x ?? 0), y: (p?.y ?? 0) - (m?.y ?? 0) };
+    };
+    const before = await inMap();
     await pin.dispatchEvent("click"); // this pin, even where a neighbour overlaps it
     const card = page.locator(`[data-result="${id}"]`);
     await expect(card).toHaveAttribute("data-selected", "");
@@ -118,9 +126,9 @@ test.describe("search page", () => {
     // Hovering other cards previews their pins but keeps the selection and the camera.
     await page.locator("[data-result]").first().hover();
     await expect(pin).toHaveAttribute("data-selected", "");
-    const after = await pin.boundingBox();
-    expect(Math.abs((after?.x ?? 0) - (before?.x ?? 0))).toBeLessThan(2);
-    expect(Math.abs((after?.y ?? 0) - (before?.y ?? 0))).toBeLessThan(2);
+    const after = await inMap();
+    expect(Math.abs(after.x - before.x)).toBeLessThan(2);
+    expect(Math.abs(after.y - before.y)).toBeLessThan(2);
     await page.keyboard.press("Escape");
     await expect(card).not.toHaveAttribute("data-selected", "");
   });
@@ -220,7 +228,7 @@ test.describe("search page", () => {
     const cta = page.getByRole("link", { name: "مقایسه‌ی پیشنهادها" }).first();
     await expect(cta).toHaveAttribute("href", /\/villas\/v-[0-9a-f]+\?in=.*&out=.*&guests=6/);
     await cta.click();
-    await expect(page.locator("#booking")).toBeVisible();
+    await expect(page.locator("#booking")).toBeVisible({ timeout: 30_000 }); // first compile
   });
 
   test("removing a chip searches again without it, and everything can be restored", async ({

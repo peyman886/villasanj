@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { LogoMark } from "@/components/site/logo";
 import { ThemeToggle } from "@/components/site/theme-toggle";
+import { ViewToggle } from "@/components/site/view-toggle";
 import { buttonClass } from "@/components/ui/button";
 
 const NAV = [
@@ -35,6 +36,7 @@ export function SiteHeader() {
             <BookOpenText aria-hidden="true" className="size-4" />
             مستندات
           </Link>
+          <ViewToggle />
           <ThemeToggle />
         </div>
         <details className="group relative md:hidden">

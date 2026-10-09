@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { LogoMark } from "@/components/site/logo";
 import { ThemeToggle } from "@/components/site/theme-toggle";
+import { ViewToggle } from "@/components/site/view-toggle";
 import { BRAND } from "@/lib/copy";
 
 /** The English documentation's header. The product is Persian; one link leads to it. */
@@ -24,6 +25,7 @@ export function EnglishHeader() {
             <BookOpenText aria-hidden="true" className="size-4" />
             Open the product (Persian)
           </Link>
+          <ViewToggle locale="en" />
           <ThemeToggle en />
         </div>
       </div>

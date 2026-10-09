@@ -14,9 +14,9 @@ ToS and are excluded unless written permission arrives: all-in offers per stay +
 reviews, and a truth check of listing claims.
 
 Context files (local):
-- `research-prompt.md`: **the deep-research REPORT** (the file names are swapped). It is the
+- `docs/research-prompt.md`: **the deep-research REPORT** (the file names are swapped). It is the
   reference for product decisions. Critique: `docs/research-review.md`.
-- `research-report.md`: the research **prompt**.
+- `docs/research-report.md`: the research **prompt**.
 - `challenge.html`: the challenge page (git-ignored; third-party content).
 
 ## Current status
@@ -40,7 +40,10 @@ Context files (local):
   phone preview card; the new tagline «قبل از رزرو، بسنجید» (`BRAND` in `lib/copy.ts`); the portal
   in two languages, `/docs` (fa) and `/en/docs` (en), page for page (route groups `(fa)` and
   `(en)` each have a root layout; data components take `locale`; English diagrams in
-  `frontend/diagrams/en/`). Terms for both languages: `docs/ux/glossary.md`.
+  `frontend/diagrams/en/`). Terms for both languages: `docs/ux/glossary.md`. A header switch shows
+  the mobile view (a phone frame on wide screens) or the web version on phones (viewport 1280,
+  saved). `VILLASANJ_WEB_BIND=0.0.0.0` in `.env` opens the stack's web app to the local network
+  (default 127.0.0.1).
 - **Taste Skill** (Leonxlnx/taste-skill) is installed in `~/.agents/skills` and linked into
   `~/.claude/skills`; UI work uses `design-taste-frontend` and `redesign-existing-projects` (no
   em-dashes, one accent, both colour schemes, no window scroll listeners).

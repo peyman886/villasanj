@@ -10,8 +10,17 @@ export type Theme = "light" | "dark";
 
 export const THEME_KEY = "villasanj-theme";
 
-/** Runs in <head> before the body paints; it must not throw when storage is blocked. */
-export const THEME_SCRIPT = `try{if(localStorage.getItem("${THEME_KEY}")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}`;
+/** «نسخه‌ی وب» on a phone: the page is laid out at this width, like a browser's desktop site. */
+export const VIEW_KEY = "villasanj-view";
+export const DESKTOP_WIDTH = 1280;
+export const PHONE_SCREEN = 768; // a device narrower than this is a phone
+
+/**
+ * Runs in <head> before the body paints; it must not throw when storage is blocked. It applies
+ * the saved theme and, on a phone whose reader chose the web version, widens the viewport. Next
+ * streams its own viewport meta after this script, so every viewport meta, now and later, is set.
+ */
+export const THEME_SCRIPT = `try{var d=document.documentElement;if(localStorage.getItem("${THEME_KEY}")==="dark")d.dataset.theme="dark";if(localStorage.getItem("${VIEW_KEY}")==="desktop"&&screen.width<${PHONE_SCREEN}){d.dataset.view="desktop";var v="width=${DESKTOP_WIDTH}",w=function(){document.querySelectorAll('meta[name="viewport"]').forEach(function(m){if(m.getAttribute("content")!==v)m.setAttribute("content",v)})};w();new MutationObserver(w).observe(d,{childList:true,subtree:true})}}catch(e){}`;
 
 export function currentTheme(): Theme {
   return typeof document !== "undefined" && document.documentElement.dataset.theme === "dark"

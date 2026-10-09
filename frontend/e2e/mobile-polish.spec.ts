@@ -115,3 +115,40 @@ test.describe("copy and motion polish (3.4)", () => {
     });
   }
 });
+
+test.describe("mobile and web views", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("a wide screen shows the page in a phone frame", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/");
+    await page.locator("header [data-view-toggle]").click();
+    const frame = page.frameLocator("dialog[open] iframe");
+    await expect(frame.locator("h1")).toBeVisible({ timeout: 30_000 });
+    // Inside the frame the phone layout applies and the switch is not offered again.
+    await expect(frame.locator("header [data-view-toggle]")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.locator("dialog[open]")).toHaveCount(0);
+  });
+
+  test("a phone can switch to the web version and back", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      screen: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    });
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.locator("header [data-view-toggle]").click();
+    await expect(page.locator("html")).toHaveAttribute("data-view", "desktop");
+    // Next streams a second viewport meta after the head script; the width must hold after it.
+    await page.waitForLoadState("load");
+    await page.waitForTimeout(1_000);
+    expect(await page.evaluate(() => window.innerWidth)).toBeGreaterThan(1000);
+    await page.locator("header [data-view-toggle]").click();
+    await expect(page.locator("html")).not.toHaveAttribute("data-view", "desktop");
+    expect(await page.evaluate(() => window.innerWidth)).toBeLessThan(500);
+    await context.close();
+  });
+});

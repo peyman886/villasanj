@@ -78,9 +78,12 @@ make health             # web=ok db=ok blob=ok llm=fake-ok (or llm=avalai-ok wit
 ```
 
 - Web: <http://localhost:3300> (`/search`, `/villas/<id>`, `/listings/<platform>/<id>`, `/metrics`,
-  `/how-we-rank`, **`/docs`**, the owner's review hub `/review`; labelling: `/label`, `/label?queue=er-human`, `/label/photos`, `/label/summaries`,
+  `/how-we-rank`, **`/docs`** and **`/en/docs`**, the owner's review hub `/review`; labelling: `/label`, `/label?queue=er-human`, `/label/photos`, `/label/summaries`,
   `/label/claims`) · API:
   <http://localhost:8800/docs> · Postgres: `127.0.0.1:5433`.
+- The web app listens on this machine only; set `VILLASANJ_WEB_BIND=0.0.0.0` in `.env` to open it
+  to phones and other devices on your network. The header has a light/dark switch and a
+  mobile/web view switch.
 - Without `AVALAI_API_KEY` the stack runs with a deterministic fake LLM provider.
 - Crawled snapshots and photos are never committed. A fresh clone has an empty catalog: crawl
   (`make crawl P=jabama LIVE=1`) or rebuild from your own snapshots (`make reparse`).

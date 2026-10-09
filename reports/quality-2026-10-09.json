@@ -2,18 +2,18 @@
   "version": 1,
   "kind": "quality",
   "command": "make quality-report",
-  "generated_at": "2026-10-09T12:06:15.572932+00:00",
+  "generated_at": "2026-10-09T21:57:29.285384+00:00",
   "provenance": {
-    "commit": "6a00970",
+    "commit": "adc7111",
     "e2e": true,
     "e2e_base_url": "http://localhost:3300",
-    "e2e_api_url": "http://127.0.0.1:8800"
+    "e2e_api_url": "http://localhost:8800"
   },
   "data": {
     "suites": [
       {
         "name": "backend: unit + architecture",
-        "passed": 849,
+        "passed": 851,
         "failed": 0,
         "skipped": 0,
         "seconds": 11.1
@@ -23,28 +23,28 @@
         "passed": 41,
         "failed": 0,
         "skipped": 0,
-        "seconds": 9.0
+        "seconds": 8.7
       },
       {
         "name": "frontend: unit",
-        "passed": 140,
+        "passed": 141,
         "failed": 0,
         "skipped": 0,
         "seconds": 1.0
       },
       {
         "name": "E2E (Playwright, axe)",
-        "passed": 87,
+        "passed": 117,
         "failed": 0,
         "skipped": 0,
-        "seconds": 218.0
+        "seconds": 282.5
       },
       {
         "name": "smoke (sampled pages)",
         "passed": 2,
         "failed": 0,
         "skipped": 0,
-        "seconds": 82.4
+        "seconds": 152.2
       }
     ],
     "coverage": [
@@ -63,7 +63,7 @@
     ],
     "lint": {
       "ok": true,
-      "seconds": 7.1
+      "seconds": 7.7
     }
   }
 }

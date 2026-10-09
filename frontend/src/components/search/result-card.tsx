@@ -93,13 +93,16 @@ export function ResultCard({
     >
       <article
         aria-labelledby={`title-${id}`}
-        className="grid sm:h-64 sm:grid-cols-[minmax(13rem,2fr)_minmax(0,3fr)]"
+        className="grid sm:min-h-64 sm:grid-cols-[minmax(13rem,2fr)_minmax(0,3fr)]"
       >
-        <div className="relative aspect-[16/10] sm:aspect-auto sm:h-full">
-          <PhotoCarousel
-            photos={result.photos.length ? result.photos : result.photo ? [result.photo] : []}
-            label={title}
-          />
+        {/* The photo fills its frame and never sets the card's height (absolute inside it). */}
+        <div className="relative aspect-[16/10] sm:aspect-auto">
+          <div className="absolute inset-0">
+            <PhotoCarousel
+              photos={result.photos.length ? result.photos : result.photo ? [result.photo] : []}
+              label={title}
+            />
+          </div>
           {first ? (
             <span className="pointer-events-none absolute start-3 top-3 rounded-full bg-surface/95 px-2.5 py-1 text-xs font-semibold text-brand-900 shadow-raised">
               {COPY.bestMatch}
