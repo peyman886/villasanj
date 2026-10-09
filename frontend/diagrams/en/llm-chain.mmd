@@ -1,0 +1,15 @@
+flowchart TB
+  accTitle: The LLM call chain
+  accDescr: Every call goes through the LLMClient port; the router picks the primary and fallback models, the cache and the cost ledger sit before the provider, and structured output is validated.
+  uc["Use case<br/>LLMRequest: task, prompt_version, schema"] --> route["RoutedLLMClient<br/>primary and fallbacks per task"]
+  route --> cache{"In the cache?"}:::decision
+  cache -- "yes" --> hit["Cached reply<br/>zero cost"]:::good
+  cache -- "no" --> retry["RetryingInvoker<br/>retries transient errors"]
+  retry --> cost["CostGoverningInvoker<br/>worst-case reservation, ledger, cap"]
+  cost --> structured["StructuredOutputInvoker<br/>schema validation"]
+  structured --> provider{"Provider"}:::decision
+  provider --> avalai["AvalAI"]:::ext
+  provider --> offline["Offline<br/>cache only"]
+  provider --> fake["Fake for tests"]
+  avalai -- "key quota used up" --> quota["ProviderQuotaError<br/>no retry"]:::warn
+  quota --> unavailable["LLMUnavailable<br/>API: 503 · page: degraded state"]

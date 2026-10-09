@@ -5,7 +5,8 @@ import { CodeBlock } from "@/components/docs/prose";
 import { Callout } from "@/components/ui/callout";
 import { SourceChip } from "@/components/ui/source";
 import { DataTable } from "@/components/ui/table";
-import { faInt, faPercent } from "@/lib/format";
+import { formatFor } from "@/lib/format";
+import { t, type Locale } from "@/lib/i18n";
 import { apiClient } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { CLAIM_VERDICT_TEXT, faNumber } from "@/lib/listing";
@@ -22,167 +23,217 @@ const metrics = cache(async (): Promise<Metrics | null> => {
   }
 });
 
-const PLATFORM_FA: Record<string, string> = { jabama: "جاباما", shab: "شب" };
-const SCENARIO_FA: Record<string, string> = {
-  weekend: "آخر هفته",
-  midweek: "وسط هفته",
-  holiday: "تعطیلات",
+type Labels = Record<string, { fa: string; en: string }>;
+
+/** The label for a key in a language, or the key itself when it is not listed. */
+function label(map: Labels, key: string, locale: Locale): string {
+  const hit = map[key];
+  return hit ? t(locale, hit.fa, hit.en) : key;
+}
+
+const enNumber = new Intl.NumberFormat("en-US");
+
+/** A plain number (up to three decimals) in the language's digits. */
+function num(value: number | null | undefined, locale: Locale): string {
+  if (locale === "fa") return faNumber(value);
+  return value === null || value === undefined ? "unknown" : enNumber.format(value);
+}
+
+function seconds(value: number | null, locale: Locale): string {
+  return value === null ? "-" : `${num(value, locale)} ${t(locale, "ثانیه", "s")}`;
+}
+
+const PLATFORM: Labels = {
+  jabama: { fa: "جاباما", en: "Jabama" },
+  shab: { fa: "شب", en: "Shab" },
+};
+const SCENARIO: Labels = {
+  weekend: { fa: "آخر هفته", en: "Weekend" },
+  midweek: { fa: "وسط هفته", en: "Midweek" },
+  holiday: { fa: "تعطیلات", en: "Holiday" },
 };
 
-function Unavailable() {
+const UNAVAILABLE_TITLE = { fa: "سنجه‌های زنده در دسترس نیست", en: "Live metrics are unavailable" };
+
+function Unavailable({ locale }: { locale: Locale }) {
   return (
-    <Callout kind="degraded" title="سنجه‌های زنده در دسترس نیست">
-      سرور API پاسخ نداد؛ همین سنجه‌ها را <code className="ltr font-mono">crawl metrics</code> و{" "}
-      <code className="ltr font-mono">catalog inventory</code> هم می‌دهند.
+    <Callout kind="degraded" title={t(locale, UNAVAILABLE_TITLE.fa, UNAVAILABLE_TITLE.en)}>
+      {locale === "en" ? (
+        <>
+          The API server did not respond; <code className="ltr font-mono">crawl metrics</code> and{" "}
+          <code className="ltr font-mono">catalog inventory</code> report the same metrics.
+        </>
+      ) : (
+        <>
+          سرور API پاسخ نداد؛ همین سنجه‌ها را <code className="ltr font-mono">crawl metrics</code> و{" "}
+          <code className="ltr font-mono">catalog inventory</code> هم می‌دهند.
+        </>
+      )}
     </Callout>
   );
 }
 
-const live = (m: Metrics) => <SourceChip live generatedAt={m.computed_at} />;
+const live = (m: Metrics, locale: Locale) => (
+  <SourceChip live generatedAt={m.computed_at} locale={locale} />
+);
 
 /** Measured politeness per host: responses and the real interval between them. */
-export async function CrawlHosts() {
+export async function CrawlHosts({ locale = "fa" }: { locale?: Locale }) {
   const m = await metrics();
-  if (!m) return <Unavailable />;
+  if (!m) return <Unavailable locale={locale} />;
+  const f = formatFor(locale);
   return (
     <div className="space-y-2">
-      <DataTable caption="ادب crawl برای هر میزبان" minWidth="34rem">
+      <DataTable
+        caption={t(locale, "ادب crawl برای هر میزبان", "Crawl politeness per host")}
+        minWidth="34rem"
+      >
         <thead>
           <tr>
-            <th scope="col">پلتفرم</th>
-            <th scope="col">میزبان</th>
-            <th scope="col">پاسخ</th>
-            <th scope="col">کمترین فاصله</th>
-            <th scope="col">میانه‌ی فاصله</th>
+            <th scope="col">{t(locale, "پلتفرم", "Platform")}</th>
+            <th scope="col">{t(locale, "میزبان", "Host")}</th>
+            <th scope="col">{t(locale, "پاسخ", "Responses")}</th>
+            <th scope="col">{t(locale, "کمترین فاصله", "Shortest interval")}</th>
+            <th scope="col">{t(locale, "میانه‌ی فاصله", "Median interval")}</th>
           </tr>
         </thead>
         <tbody>
           {m.hosts.map((h) => (
             <tr key={h.host}>
-              <td>{PLATFORM_FA[h.platform] ?? h.platform}</td>
+              <td>{label(PLATFORM, h.platform, locale)}</td>
               <td>
                 <span className="ltr font-mono text-xs">{h.host}</span>
               </td>
-              <td>{faInt(h.responses)}</td>
-              <td>{h.min_interval_s === null ? "-" : `${faNumber(h.min_interval_s)} ثانیه`}</td>
-              <td>
-                {h.median_interval_s === null ? "-" : `${faNumber(h.median_interval_s)} ثانیه`}
-              </td>
+              <td>{f.int(h.responses)}</td>
+              <td>{seconds(h.min_interval_s, locale)}</td>
+              <td>{seconds(h.median_interval_s, locale)}</td>
             </tr>
           ))}
         </tbody>
       </DataTable>
-      {live(m)}
+      {live(m, locale)}
     </div>
   );
 }
 
 /** Listings, photos, coast distance and drive time per platform. */
-export async function CatalogCoverage() {
+export async function CatalogCoverage({ locale = "fa" }: { locale?: Locale }) {
   const m = await metrics();
-  if (!m) return <Unavailable />;
+  if (!m) return <Unavailable locale={locale} />;
+  const f = formatFor(locale);
   return (
     <div className="space-y-2">
-      <DataTable caption="پوشش کاتالوگ" minWidth="40rem">
+      <DataTable caption={t(locale, "پوشش کاتالوگ", "Catalog coverage")} minWidth="40rem">
         <thead>
           <tr>
-            <th scope="col">پلتفرم</th>
-            <th scope="col">آگهی</th>
-            <th scope="col">عکس انتخاب‌شده</th>
-            <th scope="col">عکس دانلودشده</th>
-            <th scope="col">فاصله تا ساحل</th>
-            <th scope="col">زمان رانندگی</th>
+            <th scope="col">{t(locale, "پلتفرم", "Platform")}</th>
+            <th scope="col">{t(locale, "آگهی", "Listings")}</th>
+            <th scope="col">{t(locale, "عکس انتخاب‌شده", "Photos selected")}</th>
+            <th scope="col">{t(locale, "عکس دانلودشده", "Photos downloaded")}</th>
+            <th scope="col">{t(locale, "فاصله تا ساحل", "Coast distance")}</th>
+            <th scope="col">{t(locale, "زمان رانندگی", "Drive time")}</th>
           </tr>
         </thead>
         <tbody>
           {m.platforms.map((p) => (
             <tr key={p.platform}>
               <th scope="row" className="font-medium">
-                {PLATFORM_FA[p.platform] ?? p.platform}
+                {label(PLATFORM, p.platform, locale)}
               </th>
-              <td>{faInt(p.listings)}</td>
-              <td>{faInt(p.photos_selected)}</td>
+              <td>{f.int(p.listings)}</td>
+              <td>{f.int(p.photos_selected)}</td>
               <td>
-                {faInt(p.photos_downloaded)} ({faPercent(p.photo_coverage)})
+                {f.int(p.photos_downloaded)} ({f.percent(p.photo_coverage)})
               </td>
-              <td>{faInt(p.coast_measured)}</td>
-              <td>{faInt(p.drive_routed)}</td>
+              <td>{f.int(p.coast_measured)}</td>
+              <td>{f.int(p.drive_routed)}</td>
             </tr>
           ))}
         </tbody>
       </DataTable>
-      {live(m)}
+      {live(m, locale)}
     </div>
   );
 }
 
-const STATUS_FA: Record<string, string> = {
-  bookable: "قابل رزرو",
-  unavailable: "شبی پر یا بسته",
-  too_many_guests: "ظرفیت کم",
-  below_min_nights: "کمتر از حداقل شب",
-  unknown: "شبی بی‌مشاهده",
+const STATUS: Labels = {
+  bookable: { fa: "قابل رزرو", en: "Bookable" },
+  unavailable: { fa: "شبی پر یا بسته", en: "A night booked or closed" },
+  too_many_guests: { fa: "ظرفیت کم", en: "Too small" },
+  below_min_nights: { fa: "کمتر از حداقل شب", en: "Below minimum nights" },
+  unknown: { fa: "شبی بی‌مشاهده", en: "A night not observed" },
 };
 
 /** Offers per scenario × group: what share of listings can quote at all, and why not. */
-export async function OfferCoverage() {
+export async function OfferCoverage({ locale = "fa" }: { locale?: Locale }) {
   const m = await metrics();
-  if (!m) return <Unavailable />;
+  if (!m) return <Unavailable locale={locale} />;
+  const f = formatFor(locale);
   const statuses = [...new Set(m.offers.flatMap((o) => Object.keys(o.by_status)))];
   return (
     <div className="space-y-2">
-      <DataTable caption="پیشنهادها در هر سناریو" minWidth="44rem">
+      <DataTable
+        caption={t(locale, "پیشنهادها در هر سناریو", "Offers per scenario")}
+        minWidth="44rem"
+      >
         <thead>
           <tr>
-            <th scope="col">پلتفرم</th>
-            <th scope="col">سناریو</th>
-            <th scope="col">نفر</th>
+            <th scope="col">{t(locale, "پلتفرم", "Platform")}</th>
+            <th scope="col">{t(locale, "سناریو", "Scenario")}</th>
+            <th scope="col">{t(locale, "نفر", "Guests")}</th>
             {statuses.map((s) => (
               <th key={s} scope="col">
-                {STATUS_FA[s] ?? s}
+                {label(STATUS, s, locale)}
               </th>
             ))}
-            <th scope="col">قدیمی</th>
+            <th scope="col">{t(locale, "قدیمی", "Stale")}</th>
           </tr>
         </thead>
         <tbody>
           {m.offers.map((o) => (
             <tr key={`${o.platform}-${o.scenario}-${o.guests}`}>
-              <td>{PLATFORM_FA[o.platform] ?? o.platform}</td>
-              <td>{SCENARIO_FA[o.scenario] ?? o.scenario}</td>
-              <td>{faInt(o.guests)}</td>
+              <td>{label(PLATFORM, o.platform, locale)}</td>
+              <td>{label(SCENARIO, o.scenario, locale)}</td>
+              <td>{f.int(o.guests)}</td>
               {statuses.map((s) => (
-                <td key={s}>{faInt(o.by_status[s] ?? 0)}</td>
+                <td key={s}>{f.int(o.by_status[s] ?? 0)}</td>
               ))}
-              <td>{faInt(o.stale)}</td>
+              <td>{f.int(o.stale)}</td>
             </tr>
           ))}
         </tbody>
       </DataTable>
-      {live(m)}
+      {live(m, locale)}
     </div>
   );
 }
 
-const TARGET_FA: Record<string, string> = {
-  sea: "دریا",
-  city_center: "مرکز شهر",
-  bakery: "نانوایی",
-  supermarket: "سوپرمارکت",
-  restaurant: "رستوران",
-  shopping: "خرید",
-  medical: "درمانی",
-  forest: "جنگل",
-  recreation: "تفریحی",
-  shrine: "زیارتگاه",
-  other: "دیگر",
+const TARGET: Labels = {
+  sea: { fa: "دریا", en: "Sea" },
+  city_center: { fa: "مرکز شهر", en: "Town centre" },
+  bakery: { fa: "نانوایی", en: "Bakery" },
+  supermarket: { fa: "سوپرمارکت", en: "Supermarket" },
+  restaurant: { fa: "رستوران", en: "Restaurant" },
+  shopping: { fa: "خرید", en: "Shopping" },
+  medical: { fa: "درمانی", en: "Medical" },
+  forest: { fa: "جنگل", en: "Forest" },
+  recreation: { fa: "تفریحی", en: "Recreation" },
+  shrine: { fa: "زیارتگاه", en: "Shrine" },
+  other: { fa: "دیگر", en: "Other" },
 };
-const VERDICT_FA = CLAIM_VERDICT_TEXT;
+// The same wording as VerdictBadge's English labels.
+const VERDICT_EN: Record<string, string> = {
+  supported: "Confirmed",
+  not_confirmed: "Not confirmed",
+  contradicted: "Disagrees with the map",
+  not_checked: "Not checked",
+};
 
 /** Every distance claim's verdict per target, both platforms together. */
-export async function DistanceVerdicts() {
+export async function DistanceVerdicts({ locale = "fa" }: { locale?: Locale }) {
   const m = await metrics();
-  if (!m) return <Unavailable />;
+  if (!m) return <Unavailable locale={locale} />;
+  const f = formatFor(locale);
   const totals = new Map<string, Record<string, number>>();
   for (const p of m.platforms) {
     for (const [target, verdicts] of Object.entries(p.distance_verdicts)) {
@@ -196,15 +247,23 @@ export async function DistanceVerdicts() {
     ([, a], [, b]) =>
       Object.values(b).reduce((x, y) => x + y, 0) - Object.values(a).reduce((x, y) => x + y, 0),
   );
+  const perPlatform = m.platforms.map((p) =>
+    locale === "en"
+      ? `${label(PLATFORM, p.platform, locale)}: ${f.int(p.distance_contradicted_listings)} of ${f.int(p.distance_judged_listings)} listings have at least one distance claim that disagrees with the map (${f.percent(p.distance_contradicted_low)} to ${f.percent(p.distance_contradicted_high)})`
+      : `${label(PLATFORM, p.platform, locale)}: ${f.int(p.distance_contradicted_listings)} از ${f.int(p.distance_judged_listings)} آگهی دست‌کم یک ادعای فاصله‌ی ردشده دارند (${f.percent(p.distance_contradicted_low)} تا ${f.percent(p.distance_contradicted_high)})`,
+  );
   return (
     <div className="space-y-2">
-      <DataTable caption="حکم ادعاهای فاصله برای هر مقصد" minWidth="36rem">
+      <DataTable
+        caption={t(locale, "حکم ادعاهای فاصله برای هر مقصد", "Distance claim verdicts per target")}
+        minWidth="36rem"
+      >
         <thead>
           <tr>
-            <th scope="col">مقصد</th>
+            <th scope="col">{t(locale, "مقصد", "Target")}</th>
             {verdicts.map((v) => (
               <th key={v} scope="col">
-                {VERDICT_FA[v]}
+                {locale === "en" ? VERDICT_EN[v] : CLAIM_VERDICT_TEXT[v]}
               </th>
             ))}
           </tr>
@@ -213,68 +272,73 @@ export async function DistanceVerdicts() {
           {rows.map(([target, row]) => (
             <tr key={target}>
               <th scope="row" className="font-medium">
-                {TARGET_FA[target] ?? target}
+                {label(TARGET, target, locale)}
               </th>
               {verdicts.map((v) => (
-                <td key={v}>{faInt(row[v] ?? 0)}</td>
+                <td key={v}>{f.int(row[v] ?? 0)}</td>
               ))}
             </tr>
           ))}
         </tbody>
       </DataTable>
       <p className="text-sm text-pretty text-fg-muted">
-        {m.platforms
-          .map(
-            (p) =>
-              `${PLATFORM_FA[p.platform] ?? p.platform}: ${faInt(p.distance_contradicted_listings)} از ${faInt(p.distance_judged_listings)} آگهی دست‌کم یک ادعای فاصله‌ی ردشده دارند (${faPercent(p.distance_contradicted_low)} تا ${faPercent(p.distance_contradicted_high)})`,
-          )
-          .join("؛ ")}
-        .
+        {perPlatform.join(t(locale, "؛ ", "; "))}.
       </p>
-      {live(m)}
+      {live(m, locale)}
     </div>
   );
 }
 
-const QUEUE_FA: Record<string, string> = {
-  "gold-v1": "جفت‌های gold تطبیق",
-  "photos-v1": "برچسب عکس‌ها",
-  "claims-v1": "ادعاهای توضیحات",
-  "summaries-v1": "بازبینی کور خلاصه‌ها",
+const QUEUE: Labels = {
+  "gold-v1": { fa: "جفت‌های gold تطبیق", en: "Gold-set matching pairs" },
+  "photos-v1": { fa: "برچسب عکس‌ها", en: "Photo labels" },
+  "claims-v1": { fa: "ادعاهای توضیحات", en: "Description claims" },
+  "summaries-v1": { fa: "بازبینی کور خلاصه‌ها", en: "Blind review of summaries" },
 };
 
 /** The owner's labelling queues and how far each got. */
-export async function LabellingProgress() {
+export async function LabellingProgress({ locale = "fa" }: { locale?: Locale }) {
   const m = await metrics();
-  if (!m) return <Unavailable />;
+  if (!m) return <Unavailable locale={locale} />;
+  const f = formatFor(locale);
   return (
     <div className="space-y-3 rounded-card border border-line bg-surface p-5">
       {m.labelling.map((q) => (
         <ProgressBar
           key={q.queue}
-          label={`${QUEUE_FA[q.queue] ?? q.queue} (${q.queue})`}
+          label={`${label(QUEUE, q.queue, locale)} (${q.queue})`}
           value={q.labelled}
           max={Math.max(1, q.total)}
-          display={`${faInt(q.labelled)} از ${faInt(q.total)}`}
+          display={`${f.int(q.labelled)} ${t(locale, "از", "of")} ${f.int(q.total)}`}
         />
       ))}
-      {live(m)}
+      {live(m, locale)}
     </div>
   );
 }
 
-function usd(v: number): string {
-  return `${faNumber(Math.round(v * 100) / 100)} دلار`;
+function usd(v: number, locale: Locale): string {
+  const rounded = Math.round(v * 100) / 100;
+  return locale === "en" ? `$${num(rounded, locale)}` : `${num(rounded, locale)} دلار`;
 }
 
 /** LLM spend from the ledger, live (every call is recorded, cache hits at zero cost). */
-export async function LlmSpend() {
+export async function LlmSpend({ locale = "fa" }: { locale?: Locale }) {
   const m = await metrics();
   if (!m) {
     return (
-      <Callout kind="degraded" title="سنجه‌های زنده در دسترس نیست">
-        سرور API پاسخ نداد؛ هزینه‌ها در دفتر هزینه‌ی پایگاه داده‌اند (
-        <code className="ltr font-mono">llm spend</code>).
+      <Callout kind="degraded" title={t(locale, UNAVAILABLE_TITLE.fa, UNAVAILABLE_TITLE.en)}>
+        {locale === "en" ? (
+          <>
+            The API server did not respond; the spend is in the database&apos;s cost ledger (
+            <code className="ltr font-mono">llm spend</code>).
+          </>
+        ) : (
+          <>
+            سرور API پاسخ نداد؛ هزینه‌ها در دفتر هزینه‌ی پایگاه داده‌اند (
+            <code className="ltr font-mono">llm spend</code>).
+          </>
+        )}
       </Callout>
     );
   }
@@ -287,17 +351,21 @@ export async function LlmSpend() {
   return (
     <div className="space-y-4 rounded-card border border-line bg-surface p-5">
       <ProgressBar
-        label="هزینه‌ی کل در برابر سقف پروژه"
+        label={t(locale, "هزینه‌ی کل در برابر سقف پروژه", "Total spend against the project cap")}
         value={m.llm_total_usd}
         max={m.llm_cap_usd}
-        display={`${usd(m.llm_total_usd)} از ${usd(m.llm_cap_usd)}`}
+        display={`${usd(m.llm_total_usd, locale)} ${t(locale, "از", "of")} ${usd(m.llm_cap_usd, locale)}`}
         tone={m.llm_total_usd > m.llm_cap_usd * 0.8 ? "caution" : "brand"}
       />
       <BarList
-        label="هزینه به تفکیک کار"
-        bars={byTask.map(([task, cost]) => ({ label: task, value: cost, display: usd(cost) }))}
+        label={t(locale, "هزینه به تفکیک کار", "Spend by task")}
+        bars={byTask.map(([task, cost]) => ({
+          label: task,
+          value: cost,
+          display: usd(cost, locale),
+        }))}
       />
-      <SourceChip live generatedAt={m.computed_at} />
+      <SourceChip live generatedAt={m.computed_at} locale={locale} />
     </div>
   );
 }
@@ -307,13 +375,22 @@ export async function ConfigSnippet({
   file,
   from,
   to,
+  locale = "fa",
 }: {
   file: string;
   from?: string;
   to?: string;
+  locale?: Locale;
 }) {
   const text = await readConfig(file);
-  if (text === null) return <Callout kind="caution" title={`config/${file} خوانده نشد`} />;
+  if (text === null) {
+    return (
+      <Callout
+        kind="caution"
+        title={t(locale, `config/${file} خوانده نشد`, `config/${file} could not be read`)}
+      />
+    );
+  }
   let shown = text;
   if (from) {
     const start = shown.indexOf(from);

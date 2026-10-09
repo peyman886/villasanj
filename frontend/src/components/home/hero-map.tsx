@@ -5,6 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
 
 import { OSM_RASTER, loadMaplibre, localStyle } from "@/components/listing-map";
+import { useTheme } from "@/lib/theme";
 
 /**
  * The hero visual (decisions.md D8.2): the Ramsar–Tonekabon coast from the offline OpenStreetMap
@@ -19,6 +20,7 @@ export function HeroMap({
   points: { lat: number; lon: number }[];
 }) {
   const container = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
   useEffect(() => {
     let removed = false;
     let map: { remove: () => void } | null = null;
@@ -26,7 +28,7 @@ export function HeroMap({
       if (removed || !container.current) return;
       const instance = new Map({
         container: container.current,
-        style: basemap ? localStyle(window.location.origin, basemap) : OSM_RASTER,
+        style: basemap ? localStyle(window.location.origin, basemap, theme) : OSM_RASTER,
         center: [50.78, 36.85],
         zoom: 9.6,
         interactive: false,
@@ -62,7 +64,7 @@ export function HeroMap({
       removed = true;
       map?.remove();
     };
-  }, [basemap, points]);
+  }, [basemap, points, theme]);
   return (
     <div
       ref={container}

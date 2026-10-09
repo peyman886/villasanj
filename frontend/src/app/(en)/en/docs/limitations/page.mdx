@@ -1,0 +1,73 @@
+import { Adr, DocHeader } from "@/components/docs/blocks";
+import { OpenItems } from "@/components/docs/milestones";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Limitations and open work",
+  description: "What is open, what the owner closed, and the known limits of the methods.",
+};
+
+<DocHeader eyebrow="Project status" title="Limitations and open work">
+  This page hides nothing: the work that is still open, the criteria that missed their target and
+  that the owner closed, and the known limits of the methods themselves.
+</DocHeader>
+
+## Open work
+
+<OpenItems locale="en" />
+
+## Closed by the owner
+
+These criteria did not reach their written target or could not be done, and the owner closed them.
+Their status in the milestone table is "Closed by the owner", not "Done".
+
+- **New platforms (M4 criterion 1, 5 Oct):** the owner wants no new platform. Jajiga, Otaghak and
+  Mihmansho forbid crawling in their terms of service; the scope stays Jabama and Shab.
+  <Adr n="0011" locale="en" />
+- **Comparison with a direct quote (M6 criterion 3, 5 Oct):** neither platform publishes the final
+  amount on a public page; offers stay lower bounds ("from").
+- **Explanation latency without the cache (M10 criterion 4, 5 Oct):** the uncached p95 is 6.1 to
+  10.6 seconds against a target of 4 seconds; the owner accepted the latency with the cache.
+  <Adr n="0005" locale="en" />
+- **Relevance evaluation (M8 criterion 2, 8 Oct):** 11 queries were fully judged instead of 30, and
+  the owner closed the criterion with these; the current ranking beats both baselines
+  ([search](/en/docs/search-ranking)).
+
+The owner reconciled the cost ledger with the AvalAI dashboard (M1 criterion 8 and M11 criterion 3);
+those two are "Done". A UX review of the villa page (M7) was not an acceptance criterion and the
+owner did not do it. The offline demo shows photos from the platforms' servers (A24) and has no
+local copy.
+
+## Language model work
+
+With the new AvalAI credit (5 to 8 Oct, about $0.4 in total):
+
+- The only unjudged pair in the judge's zone was judged ("not the same"; the villas did not change).
+- The relevance judging queue was built (30 query understanding calls) and the cache for the demo
+  paths was warmed.
+- Query understanding was measured on the owner's reviewed set without the cache: 99.3% slots, zero
+  invented numbers, p95 about 2.1 seconds (M8 criterion 1 is done).
+- A vision-model check for sea view and fireplace was built and measured on 336 labelled photos; it
+  did not reach 85% and is not used ([truth check](/en/docs/truth-check)). We did not run it on the
+  75 listings that make the claim, because its result would not be used anywhere.
+
+## Known limits of the methods
+
+| Limit                                                    | Effect                                                                                   | What compensates                                                                                             |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| The judge was chosen on the same gold set pairs          | End-to-end precision of judge-backed policies is optimistic                              | Judge merges are off; the gold-v2 sample is the clean test                                                   |
+| The gold set's geographic stratum has about 30 pairs     | The lower bound on the precision of judge merges below the threshold is wide             | The er-human queue: 70 of 72 judge suggestions confirmed (lower bound about 90%); judge auto-merge stays off |
+| Only five cover photos per listing                       | Pairs whose photos show different rooms stay "unsure"                                    | The human queue; more photos only where they would settle a pair                                             |
+| Free-flow drive times                                    | Optimistic on a busy weekend                                                             | A "no traffic" label next to every time (A10)                                                                |
+| An assumed 500 m blur circle for Shab                    | Some claims' verdicts rest on an assumption                                              | The `radius_assumed` flag on every row (A14)                                                                 |
+| An incomplete map of shops and restaurants               | These destinations can only be confirmed, never contradicted                             | A rule in code, not in prose                                                                                 |
+| Every offer is a lower bound ("from")                    | The real total with fees is unknown                                                      | No invented cap; the H2 comparison is without fees                                                           |
+| The query set was written by the agent                   | The owner reviewed and approved it, but the queries are not from real users              | Measure query understanding again on real user queries                                                       |
+| Lunar holidays come only from Jabama's flag              | Beyond the observed horizon they are unknown                                             | An "unknown lunar holidays" caveat instead of a guess                                                        |
+| Search with cached understanding takes about two seconds | It slows down with every calendar capture (the holiday-flag query scans the whole table) | A profile in [search](/en/docs/search-ranking); no target was set                                            |
+
+## Outside the demo's scope
+
+Learning to rank from clicks, price history and "buy now or wait", price alerts, image search, host
+profiles across platforms, and detecting stolen photos between unrelated villas. These will be
+weighed again after the findings of M3 and M5.

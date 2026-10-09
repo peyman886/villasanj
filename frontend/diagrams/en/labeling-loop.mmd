@@ -1,0 +1,14 @@
+flowchart TB
+  accTitle: The human labelling loop
+  accDescr: A stratified queue is built, the owner labels it, and a weighted evaluation with Wilson intervals picks the policy; label revisions are recorded with a reason and the report shows before and after.
+  draw["Stratified sample<br/>er queue"] --> ui["Labelling tool<br/>/label · M / N / U"]:::human
+  ui --> labels[("er.label")]:::store
+  labels --> eval["Weighted evaluation<br/>Wilson 95%, B-cubed"]
+  eval --> choose{"Highest recall<br/>with precision ≥ 95% and lower bound ≥ 92%"}:::decision
+  choose --> config["config/er.toml"]
+  config --> villas["Build villas<br/>er villas"]
+  villas --> hq["er-human queue<br/>suggestion, dispute, unsure"]:::human
+  hq --> ui
+  revise["Label revision with reason<br/>eval/labels/*.toml"]:::human --> history[("er.label_revision<br/>original label kept")]:::store
+  history --> labels
+  history --> report["Before and after report<br/>er report"]

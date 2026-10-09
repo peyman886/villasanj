@@ -1,0 +1,17 @@
+flowchart TB
+  accTitle: The data pipeline end to end
+  accDescr: Crawl queue, polite fetching, snapshot, parser, catalog, photos, matching, villa, pricing, enrichment, search and the user interface.
+  frontier["Crawl queue<br/>frontier"] --> fetch["Polite fetching<br/>PoliteFetcher"]
+  fetch --> snap[("snapshot<br/>content-addressed")]:::store
+  snap --> parse["Pure parser<br/>SourceAdapter"]
+  parse --> catalog[("Catalog<br/>listings, calendar, reviews")]:::store
+  catalog --> photos["Photos<br/>pHash, DINOv2, SigLIP"]
+  photos --> er["Listing matching<br/>blocking → evidence → score"]
+  catalog --> er
+  er --> villas[("Unique villa<br/>er.villa")]:::store
+  catalog --> pricing["All-in price<br/>Offer with provenance"]
+  catalog --> enrich["Enrichment<br/>map, claims, truth check"]
+  villas --> search["Search and ranking<br/>discovery"]
+  pricing --> search
+  enrich --> search
+  search --> ui["User interface<br/>every number with its source"]:::human

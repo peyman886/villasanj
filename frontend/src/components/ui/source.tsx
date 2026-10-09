@@ -2,23 +2,25 @@ import { FileText, Database } from "lucide-react";
 import Link from "next/link";
 
 import { cn } from "@/lib/cn";
-import { faDate } from "@/lib/format";
+import { formatFor } from "@/lib/format";
+import { docsRoot, t, type Locale } from "@/lib/i18n";
 
-const REPORT_NAMES: [RegExp, string][] = [
-  [/^er-eval-/, "ارزیابی تطبیق ویلاها"],
-  [/^hypotheses-/, "گزارش فرضیه‌ها"],
-  [/^h4-/, "گزارش H4"],
-  [/^judge-eval-/, "ارزیابی داور"],
-  [/^quality-/, "گزارش کیفیت و تست‌ها"],
-  [/^performance-/, "گزارش کارایی"],
-  [/^relevance-/, "ارزیابی مرتبط‌بودن جستجو"],
-  [/^understanding-/, "ارزیابی فهم پرسش"],
+const REPORT_NAMES: [RegExp, string, string][] = [
+  [/^er-eval-/, "ارزیابی تطبیق ویلاها", "Entity resolution evaluation"],
+  [/^hypotheses-/, "گزارش فرضیه‌ها", "Hypotheses report"],
+  [/^h4-/, "گزارش H4", "H4 report"],
+  [/^judge-eval-/, "ارزیابی داور", "Judge evaluation"],
+  [/^quality-/, "گزارش کیفیت و تست‌ها", "Quality and test report"],
+  [/^performance-/, "گزارش کارایی", "Performance report"],
+  [/^relevance-/, "ارزیابی مرتبط‌بودن نتایج", "Search relevance evaluation"],
+  [/^understanding-/, "ارزیابی فهم پرسش", "Query understanding evaluation"],
 ];
 
 /** A readable name for a generated report file. */
-export function reportName(file: string): string {
+export function reportName(file: string, locale: Locale = "fa"): string {
   const base = file.replace("reports/", "");
-  return REPORT_NAMES.find(([pattern]) => pattern.test(base))?.[1] ?? base;
+  const hit = REPORT_NAMES.find(([pattern]) => pattern.test(base));
+  return hit ? (locale === "en" ? hit[2] : hit[1]) : base;
 }
 
 /**
@@ -31,21 +33,25 @@ export function SourceChip({
   live = false,
   label,
   className,
+  locale = "fa",
 }: {
   file?: string | undefined;
   generatedAt?: string | undefined;
   live?: boolean;
   label?: string;
   className?: string;
+  locale?: Locale;
 }) {
   const Icon = live ? Database : FileText;
-  const text = live ? "زنده از پایگاه داده" : (label ?? (file ? reportName(file) : "منبع"));
+  const text = live
+    ? t(locale, "زنده از پایگاه داده", "Live from the database")
+    : (label ?? (file ? reportName(file, locale) : t(locale, "منبع", "Source")));
   const body = (
     <>
       <Icon aria-hidden="true" className="size-3.5 shrink-0" />
       <span className="truncate">{text}</span>
       {generatedAt ? (
-        <span className="shrink-0 text-fg-subtle">· {faDate(generatedAt)}</span>
+        <span className="shrink-0 text-fg-subtle">· {formatFor(locale).date(generatedAt)}</span>
       ) : null}
     </>
   );
@@ -56,7 +62,7 @@ export function SourceChip({
   if (file && !live) {
     return (
       <Link
-        href={`/docs/reports/${encodeURIComponent(file.replace("reports/", "").replace(/\.json$/, ""))}`}
+        href={`${docsRoot(locale)}/reports/${encodeURIComponent(file.replace("reports/", "").replace(/\.json$/, ""))}`}
         className={cn(classes, "focus-ring hover:border-brand-300 hover:text-fg")}
         title={`${file} · ${generatedAt ?? ""}`}
       >

@@ -86,9 +86,9 @@ describe("short money rounds by the kind of bound", () => {
   });
 
   it.each([
-    [8_540_000, "۸٫۵م"],
-    [10_999_999, "۱۰٫۹م"],
-    [850_000, "۸۵۰ه"],
+    [8_540_000, "۸٫۵"],
+    [10_999_999, "۱۰٫۹"],
+    [850_000, "۸۵۰ هزار"],
   ])("pinToman(%d)", (toman, expected) => expect(pinToman(toman)).toBe(expected));
 
   it("the booking card keeps the full number", () => {

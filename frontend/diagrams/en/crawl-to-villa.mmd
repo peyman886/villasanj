@@ -1,0 +1,20 @@
+flowchart TB
+  accTitle: From crawl to a unique villa
+  accDescr: Every platform response is a fixed snapshot from which a parser builds listings; the catalog can be rebuilt without the network.
+  subgraph ing ["ingestion"]
+    robots["robots.txt and terms of service<br/>owner sign-off"]:::human --> polite["One request at a time per host<br/>at least 3 seconds apart"]
+    polite --> block{"403 or captcha?"}:::decision
+    block -- "yes" --> stop["Stop, no evasion"]:::warn
+    block -- "no" --> snap[("snapshot<br/>var/blobs")]:::store
+  end
+  subgraph cat ["catalog"]
+    snap --> adapter["Pure parser<br/>a function of the snapshot"]
+    adapter --> listing[("Listings, calendar, reviews, photos")]:::store
+    reparse["make reparse<br/>no network"] --> adapter
+  end
+  subgraph res ["entity_resolution"]
+    listing --> cand["Candidate pairs"]
+    cand --> decide["Decision policy"]
+    decide --> cluster["Constrained clustering<br/>at most one per platform"]
+    cluster --> villa[("Villa with a stable id")]:::store
+  end

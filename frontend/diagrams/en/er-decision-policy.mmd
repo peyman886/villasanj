@@ -1,0 +1,16 @@
+flowchart TB
+  accTitle: The matching decision policy
+  accDescr: The rules merge scores above the judge zone. Inside the zone, a confident non-match vetoes the rule merge and a match below the threshold goes to the human queue. Unsure or low-confidence verdicts wait for a human.
+  start(["Candidate pair with rule score"]) --> zone{"Score in the judge zone?<br/>judge_low ≤ score < judge_high"}:::decision
+  zone -- "above" --> rule["Rule merge"]:::good
+  zone -- "below" --> none["No merge<br/>unless the owner labels it"]
+  zone -- "inside" --> judged{"Judged?"}:::decision
+  judged -- "no" --> thr{"score ≥ threshold?"}:::decision
+  thr -- "yes" --> rule
+  thr -- "no" --> none
+  judged -- "yes" --> verdict{"Verdict with confidence ≥ floor"}:::decision
+  verdict -- "match" --> above{"score ≥ threshold?"}:::decision
+  above -- "yes" --> rule
+  above -- "no" --> suggest["Suggestion to the human queue"]:::human
+  verdict -- "non-match" --> veto["Rule merge vetoed<br/>judge_vetoes"]:::warn
+  verdict -- "unsure or low confidence" --> wait["Waits for a human<br/>no merge"]:::human

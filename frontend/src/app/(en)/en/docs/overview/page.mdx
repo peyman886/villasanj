@@ -1,0 +1,137 @@
+import { Adr, CardGrid, DocHeader, InfoCard } from "@/components/docs/blocks";
+import { ErHeadline } from "@/components/docs/data/er";
+import { HypothesesHeadline } from "@/components/docs/data/hypotheses";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Executive summary",
+  description: "Villasanj's problem, solution, scope and main results.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Start here" title="Executive summary">
+  Villasanj was built for Torob's "AI Product Engineer" challenge: crawl offers, normalise messy
+  data, rank by user intent and explain the best choice. We built that chain for villa rentals,
+  where the hardest part is that a villa has no shared identifier across platforms.
+</DocHeader>
+
+## The problem
+
+Someone looking for a weekend villa in the north of Iran sees the same villa on several platforms
+with different prices, calendars and descriptions. The advertised price is not the final price:
+extra guests, holiday nights and fees are added later. The calendars are not in sync: a night that
+is booked on one platform shows as free on another. And nobody has checked claims such as "5
+minutes to the sea".
+
+The product is built around three questions:
+
+1. **Are these listings the same villa?** If we merge the listings of two different villas, we
+   send the user to the wrong villa. So precision comes before recall: the bar is precision ≥ 95%
+   with a lower bound ≥ 92%.
+2. **For my dates and group size, what does each platform really charge?** Every part of the price
+   with its source; when a part is unknown we show a range or a "from" price, never an invented
+   number.
+3. **Which of the listing's claims match the evidence?** In the tone of "not confirmed", never an
+   accusation.
+
+## The solution at a glance
+
+<Diagram
+  name="data-pipeline"
+  caption="The whole chain: from crawling to the villa page and search"
+  locale="en"
+/>
+
+<CardGrid cols={3}>
+  <InfoCard title="Polite crawling" tag="ingestion" href="/en/docs/catalog-ingestion" locale="en">
+    Jabama and Shab only, because the other platforms' terms of service forbid crawling. robots.txt
+    respected, one request every 3 seconds, a stop as soon as we are blocked, and a snapshot of
+    every response.
+  </InfoCard>
+  <InfoCard title="Normalisation" tag="catalog" href="/en/docs/catalog-ingestion" locale="en">
+    Pure parsers over snapshots: rial and toman, Jalali dates, Persian text and each platform's
+    quirks (such as "zero means not set" on Jabama).
+  </InfoCard>
+  <InfoCard
+    title="Entity resolution"
+    tag="entity_resolution"
+    href="/en/docs/entity-resolution"
+    locale="en"
+  >
+    Blocking on location, photos and image embeddings; a transparent rule score; an LLM judge that
+    vetoes wrong merges; and human labels.
+  </InfoCard>
+  <InfoCard title="All-in price" tag="pricing" href="/en/docs/pricing" locale="en">
+    An offer per listing for each scenario and group size, every part with its source; prices are
+    never merged across listings.
+  </InfoCard>
+  <InfoCard
+    title="Search and explanation"
+    tag="discovery"
+    href="/en/docs/search-ranking"
+    locale="en"
+  >
+    Persian query understanding with a number guard, dates from the official calendar, transparent
+    ranking, and an explanation whose numbers are filled in by code, not by the model.
+  </InfoCard>
+  <InfoCard title="Truth check" tag="enrichment" href="/en/docs/truth-check" locale="en">
+    Distance claims checked against the coastline and OpenStreetMap places, amenities against the
+    listing's own list and photos, and disagreements between platforms.
+  </InfoCard>
+</CardGrid>
+
+## Main results
+
+<ErHeadline locale="en" />
+
+<div className="h-4" />
+
+<HypothesesHeadline locale="en" />
+
+The four findings above are why the product exists: a notable share of villas are on both platforms
+(H1), a villa's price differs between platforms and the cheaper platform changes from one scenario
+to another (H2), and on about one fifth of the nights both platforms observed, one shows the night
+free and the other booked (H3). The full account is in
+[Evaluation and hypotheses](/en/docs/evaluation).
+
+## Non-negotiable rules
+
+These six rules are enforced by the code and the tests, not just by this document:
+
+1. **No invented number.** Every price or claim has provenance (platform, snapshot, observation
+   time). Unknown means a range or a "from" price; we never make up a cap. <Adr n="0007" locale="en" />
+2. **The LLM writes no digits.** Facts go in as IDs, the model writes `{slot}`s in their place, and
+   a deterministic renderer and verifier fill and check them.
+3. **Prices are never merged.** Each listing in a villa keeps its own offer.
+4. **A villa has at most one listing per platform**, enforced both by the domain aggregate and by
+   a unique index in the database.
+5. **The truth check says "not confirmed".** "Contradicted by the evidence" is used only when even
+   the most favourable reading of the evidence rules the claim out.
+6. **Availability and prices are observations, not states.** Each carries its observation time and
+   age.
+
+## Scope and limits
+
+- **Region:** Ramsar to Tonekabon (plus the surrounding villages in the gazetteer).
+- **Platforms:** Jabama and Shab. Jajiga, Otaghak and Mihmansho forbid crawling in their terms of
+  service and are excluded until they give written permission. <Adr n="0011" locale="en" />
+- **Hardware:** one Apple M4 laptop with 16 GB of memory; everything runs locally, with no GPU in
+  Docker. <Adr n="0003" locale="en" />
+- **LLM cost:** a hard cap of $30, with a cost ledger and an estimate before every run.
+  <Adr n="0004" locale="en" />
+- **Fees:** neither platform publishes its guest fee, so every offer is a "from" price.
+
+<Callout kind="verified" title="Status in one line">
+  No criterion is open: each one is done or was closed by the owner. Details in
+  [Milestones](/en/docs/milestones) and [Limitations](/en/docs/limitations).
+</Callout>
+
+## Reading these docs
+
+- For a **quick review**: [Demo and review guide](/en/docs/demo).
+- For the **status of every acceptance criterion**: [Milestones](/en/docs/milestones), which reads
+  the same generated reports that build the ROADMAP.
+- For **technical depth**: [Architecture](/en/docs/architecture) and
+  [Entity resolution](/en/docs/entity-resolution).
+- For **what is open or was closed**: [Limitations and open work](/en/docs/limitations).

@@ -1,8 +1,9 @@
-import { ArrowUpLeft, FileCode2, Scale } from "lucide-react";
+import { ArrowUpLeft, ArrowUpRight, FileCode2, Scale } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
+import { docsRoot, t, type Locale } from "@/lib/i18n";
 import { loadAdrs } from "@/lib/project-files";
 
 /** The top of every docs page: where it sits, what it is, and the one-paragraph answer. */
@@ -32,9 +33,18 @@ export function DocHeader({
 }
 
 /** A link to an ADR by its number, with its title read from docs/adr. */
-export async function Adr({ n, children }: { n: string; children?: ReactNode }) {
+export async function Adr({
+  n,
+  children,
+  locale = "fa",
+}: {
+  n: string;
+  children?: ReactNode;
+  locale?: Locale;
+}) {
   const adr = (await loadAdrs()).find((a) => a.number === n);
-  const href = adr ? `/docs/decisions/${adr.slug}` : "/docs/decisions";
+  const root = `${docsRoot(locale)}/decisions`;
+  const href = adr ? `${root}/${adr.slug}` : root;
   return (
     <Link
       href={href}
@@ -51,9 +61,9 @@ export async function Adr({ n, children }: { n: string; children?: ReactNode }) 
 /** A source file in the repository, named left to right. */
 export function SourceFile({ path }: { path: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-line bg-sunken px-2.5 py-0.5 align-middle text-xs text-fg-muted">
-      <FileCode2 aria-hidden="true" className="size-3.5" />
-      <span className="ltr font-mono">{path}</span>
+    <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-sunken px-2.5 py-0.5 align-middle text-xs text-fg-muted">
+      <FileCode2 aria-hidden="true" className="size-3.5 shrink-0" />
+      <span className="ltr min-w-0 font-mono break-all">{path}</span>
     </span>
   );
 }
@@ -72,12 +82,15 @@ export function InfoCard({
   tag,
   href,
   children,
+  locale = "fa",
 }: {
   title: string;
   tag?: string;
   href?: string;
   children: ReactNode;
+  locale?: Locale;
 }) {
+  const More = locale === "en" ? ArrowUpRight : ArrowUpLeft;
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -89,8 +102,8 @@ export function InfoCard({
       </div>
       {href ? (
         <span className="mt-2 inline-flex items-center gap-1 text-sm text-accent">
-          بیشتر
-          <ArrowUpLeft aria-hidden="true" className="size-3.5" />
+          {t(locale, "بیشتر", "More")}
+          <More aria-hidden="true" className="size-3.5" />
         </span>
       ) : null}
     </>
@@ -115,7 +128,7 @@ export function Steps({ children }: { children: ReactNode }) {
 
 export function Step({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <li className="relative rounded-card border border-line bg-surface p-4 ps-14 [counter-increment:step] before:absolute before:start-4 before:top-4 before:grid before:size-7 before:place-items-center before:rounded-full before:bg-brand-50 before:text-sm before:font-semibold before:text-brand-800 before:content-[counter(step,persian)]">
+    <li className="relative rounded-card border border-line bg-surface p-4 ps-14 [counter-increment:step] before:absolute before:start-4 before:top-4 before:grid before:size-7 before:place-items-center before:rounded-full before:bg-brand-50 before:text-sm before:font-semibold before:text-brand-800 before:content-[counter(step,persian)] in-[[lang=en]]:before:content-[counter(step)]">
       <p className="font-semibold text-fg">{title}</p>
       <div className="mt-1 text-sm leading-7 text-pretty text-fg-muted [&_p]:my-0 [&_p]:leading-7 [&_p+p]:mt-2">
         {children}

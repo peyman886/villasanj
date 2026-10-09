@@ -1,0 +1,205 @@
+import { Adr, CardGrid, DocHeader, InfoCard, SourceFile } from "@/components/docs/blocks";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "معماری",
+  description: "معماری شش‌ضلعی، زمینه‌های مستقل، لایه‌ها، پورت‌ها، پایگاه داده و جریان داده.",
+};
+
+<DocHeader eyebrow="معماری و داده" title="معماری">
+  یک monolith ماژولار با معماری شش‌ضلعی: شش زمینه‌ی مستقل (bounded context) با جهت وابستگی ثابت، سه
+  لایه در هر کدام و یک composition root دست‌نویس. این قاعده‌ها فقط روی کاغذ نیستند؛ import-linter و
+  تست‌های معماری در هر `make lint` و `make test` اجرایشان می‌کنند.
+  <span className="mt-3 flex flex-wrap gap-2">
+    <Adr n="0001" />
+    <Adr n="0002" />
+    <Adr n="0003" />
+    <Adr n="0010" />
+  </span>
+</DocHeader>
+
+## نمای سامانه
+
+<Diagram
+  name="system-architecture"
+  caption="مرورگر، وب Next.js، API و کارهای دسته‌ای، و منابع داده"
+/>
+
+- **وب** (Next.js، App Router، رندر سمت سرور، فارسی و راست‌به‌چپ) هم صفحه‌های محصول را می‌سازد و
+  هم این پورتال مستندات را. عددهای مستندات را مستقیم از گزارش‌های `reports/*.json` می‌خواند و
+  سنجه‌های زنده را از API.
+- **API** (FastAPI) فقط برای خواندن و جستجوست؛ هر عدد در پاسخ منبعش را همراه دارد و schema آن از
+  راه OpenAPI به یک client تایپ‌شده‌ی TypeScript تبدیل می‌شود (`make openapi-check`).
+- **کارهای دسته‌ای** (Typer CLI): خزش، parse، عکس، تطبیق، قیمت، غنی‌سازی و گزارش‌ها. هزینه‌ی هر
+  کاری که مدل زبانی صدا می‌زند، پیش از اجرا با `--dry-run` برآورد می‌شود.
+- **Postgres** با PostGIS و pgvector همه‌چیز را نگه می‌دارد: کاتالوگ، صف خزش، بردارهای تصویر،
+  داده‌ی جغرافیایی، کش و دفتر هزینه‌ی مدل زبانی. <Adr n="0010" />
+
+## زمینه‌های مستقل (bounded context)
+
+<Diagram name="bounded-contexts" caption="شش زمینه‌ی مستقل و جهت مجاز وابستگی" />
+
+جهت مجاز وابستگی، که import-linter اجرایش می‌کند:
+
+```text
+shared ← ingestion ← catalog ← {entity_resolution, pricing} ← enrichment ← discovery ← entrypoints
+```
+
+`pricing` و `entity_resolution` از هم مستقل‌اند. هر context فقط لایه‌های **domain** و
+**application** زمینه‌های بالادستش را import می‌کند، هرگز infrastructure آن‌ها را.
+
+<CardGrid>
+  <InfoCard title="Ingestion" tag="ingestion" href="/docs/catalog-ingestion">
+    خزش، robots.txt، صف frontier، snapshot و adapter هر پلتفرم. adapter خالص است: صفحه می‌گیرد و
+    `ParsedListing` برمی‌گرداند، بدون هیچ I/O.
+  </InfoCard>
+  <InfoCard title="Catalog" tag="catalog" href="/docs/catalog-ingestion">
+    آگهی، عکس، نظر، مشاهده‌ی تقویم و نرخ، و gazetteer. صاحب داده‌ی یکدست‌شده است؛ مشاهده‌ها
+    append-only‌اند.
+  </InfoCard>
+  <InfoCard title="Entity resolution" tag="entity_resolution" href="/docs/entity-resolution">
+    blocking، شواهد، امتیاز، داور، برچسب‌ها، خوشه‌بندی مقید، ساختن ویلاها و ارزیابی.
+  </InfoCard>
+  <InfoCard title="Pricing" tag="pricing" href="/docs/pricing">
+    موتور قیمت خالص، سیاست کارمزد با منبع، سناریوها و پیشنهادها. پوشش شاخه‌ای لایه‌ی دامنه‌اش باید
+    ۱۰۰٪ باشد.
+  </InfoCard>
+  <InfoCard title="Enrichment" tag="enrichment" href="/docs/truth-check">
+    ادعاها، شواهد جغرافیایی، برچسب عکس، نتیجه‌های راستی‌آزمایی و خلاصه‌ی نظرها.
+  </InfoCard>
+  <InfoCard title="Discovery" tag="discovery" href="/docs/search-ranking">
+    فهم پرسش، تاریخ و تعطیلات، رتبه‌بندی، زمان رانندگی و توضیح.
+  </InfoCard>
+</CardGrid>
+
+چرا این مرزها؟ سه تغییر نسبت به پیشنهاد اولیه: «یکدست‌سازی» زمینه‌ی جداگانه نیست (تابعی خالص و
+بی‌چرخه‌ی عمر است و در adapter هر پلتفرم یا shared kernel جا می‌گیرد)؛ «Catalog» اضافه شد تا داده‌ی
+پایدار صاحبی جدا از خزشِ ناپایدار داشته باشد؛ و صف بازبینی به entity resolution منتقل شد، چون
+تنها مصرف‌کننده‌اش همان است. شرح کامل در بخش ۲ از `docs/ARCHITECTURE.md`.
+
+## لایه‌ها در هر context
+
+```text
+<context>/
+  domain/          # موجودیت‌ها و value objectها؛ فقط stdlib و shared.domain
+  application/     # use caseها، پورت‌ها (typing.Protocol)، DTO و قالب prompt
+  infrastructure/  # adapterها: SQLAlchemy، HTTP، parserها، مدل‌های ML، AvalAI، OSRM
+```
+
+1. **دامنه خالص است:** نه pydantic، نه sqlalchemy، نه httpx. value objectها
+   `@dataclass(frozen=True, slots=True)` هستند. پوشش تست لایه‌ی دامنه باید ≥ ۹۵٪ باشد.
+2. **application** پورت‌ها را تعریف می‌کند. Pydantic اینجا مجاز است (DTO و schema خروجی مدل)؛
+   این مصالحه‌ای آگاهانه است تا هیچ schema دو بار نوشته نشود.
+3. **infrastructure** تنها لایه‌ای است که vendor import می‌کند.
+4. **composition root** دست‌نویس است (<SourceFile path="entrypoints/container.py" />) و از هیچ
+   framework تزریق وابستگی استفاده نمی‌کند. تنها جایی است که می‌داند کدام adapter کدام پورت را
+   پیاده می‌کند.
+5. **هیچ نام پلتفرمی** بیرون از `ingestion/infrastructure/sources/<slug>/`، config و تست‌ها نمی‌آید.
+   ویژگی‌های هر پلتفرم به شکل داده (`SourceProfile`، `FeePolicy`) به هسته می‌رسند.
+
+## اجرای قاعده‌ها
+
+| قاعده                 | ابزار                                                | چه چیزی را می‌گیرد                           |
+| --------------------- | ---------------------------------------------------- | -------------------------------------------- |
+| جهت وابستگی contextها | import-linter، قرارداد «Context dependency DAG»      | import معکوس یا میان‌بر                      |
+| ترتیب لایه‌ها         | import-linter، قرارداد «Layers inside every context» | application که infrastructure را import کند  |
+| خلوص دامنه            | تست معماری                                           | import غیر stdlib در `domain/`               |
+| infrastructure بیگانه | تست معماری                                           | import از infrastructure یک context دیگر     |
+| نام پلتفرم در هسته    | تست معماری                                           | رشته‌ی `jabama` یا `shab` بیرون از adapter   |
+| نویسه‌ی نامرئی        | تست معماری                                           | ZWNJ خام در فایل `.py` (باید `\N{...}` باشد) |
+
+هر قاعده‌ی تست معماری یک fixture عمداً خراب هم دارد تا ثابت شود قاعده واقعاً خطا می‌دهد.
+
+## پورت‌ها و adapterها
+
+| پورت                           | adapterهای ساخته‌شده                                                                                |
+| ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `SourceAdapter`                | جاباما، شب (entry point در `villasanj.sources`)                                                     |
+| `Fetcher`                      | `HttpxFetcher` درون `PoliteFetcher`؛ `SnapshotReplayFetcher` برای حالت آفلاین                       |
+| `LLMClient`                    | `AvalAIProvider` با زنجیره‌ی تزئین‌کننده‌ها، `FakeLLMProvider` برای تست، `OfflineProvider` برای دمو |
+| `ImageEmbedder`                | DINOv2-small محلی (نسخه‌ی ثابت)؛ SigLIP 2 برای برچسب عکس                                            |
+| `MatchJudge`                   | `LlmMatchJudge` روی `LLMClient`                                                                     |
+| `RoutingService`               | OSRM محلی (پروفایل compose به نام routing)                                                          |
+| `CoastlineIndex`، `PlaceIndex` | PostGIS روی snapshot OpenStreetMap                                                                  |
+| `LabelStore`                   | Postgres، با جدول تاریخچه‌ی اصلاح برچسب‌ها                                                          |
+| `Clock`                        | ساعت سیستم؛ ساعت ثابت در تست                                                                        |
+
+برای اضافه کردن یک پلتفرم تازه (آزمون OCP) کافی است: یک پوشه زیر
+`ingestion/infrastructure/sources/<slug>/`، fixture و تست قرارداد، یک entry point و یک سیاست کارمزد
+در `config/fees.toml`. هیچ چیز دیگری عوض نمی‌شود. کامیت adapter شب در M2 همین را نشان داد.
+
+## از خزش تا ویلا
+
+<Diagram name="crawl-to-villa" caption="snapshot ← کاتالوگ ← تطبیق ← ویلا" />
+
+هر پاسخ HTTP با نشانی‌دهی بر پایه‌ی محتوا (content-addressed) ذخیره می‌شود و parse تابعی خالص از
+snapshot است. پس `make reparse` کل کاتالوگ را بدون حتی یک درخواست شبکه دوباره می‌سازد و hash
+نتیجه همان می‌ماند.
+
+## منبع هر عدد
+
+<Diagram name="provenance" caption="مسیر یک عدد از snapshot تا کارت منبع در صفحه" />
+
+هر مقدار نمایش‌داده از نوع `Sourced[T]` است: مقدار، پلتفرم، snapshot، زمان مشاهده و روش (مشاهده‌شده،
+مشتق، استخراج‌شده با مدل زبانی، انسانی). در رابط کاربری، هر عدد یک کارت منبع باز می‌کند؛ تست E2E
+این را روی ده عدد تصادفی هر صفحه وارسی می‌کند. <Adr n="0007" />
+
+## پایگاه داده
+
+یک Postgres 17 با PostGIS 3.6 و pgvector 0.8، و **یک schema برای هر context**: `ingestion`،
+`catalog`، `er`، `pricing`، `enrichment`، `discovery` و `ops`. مهاجرت‌ها با Alembic‌اند. Postgres
+صف خزش هم هست (`SELECT … FOR UPDATE SKIP LOCKED`) و کش و دفتر هزینه‌ی مدل زبانی را هم نگه
+می‌دارد. چرا Redis، OpenSearch و MinIO نداریم؟ Docker فقط ۷٫۷۵ گیگابایت حافظه دارد و یک پایگاه
+داده برای این حجم کافی است. <Adr n="0003" />
+
+چند جدول کلیدی:
+
+| جدول                                              | نقش                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------- |
+| `ingestion.snapshot`                              | هر پاسخ با درخواست، وضعیت، hash بدنه و زمان                         |
+| `catalog.listing`، `catalog.calendar_observation` | آگهی نرمال‌شده؛ مشاهده‌های تقویم append-only                        |
+| `catalog.photo`، `catalog.photo_embedding`        | pHash، dHash و بردار DINOv2 برای هر محتوای یکتا                     |
+| `er.run`، `er.candidate`                          | هر اجرای تطبیق (با dataset hash) و جفت‌های نامزدش با شواهد و امتیاز |
+| `er.judgement`                                    | رأی داور مدل زبانی برای هر جفت با اطمینان و دلیل                    |
+| `er.label`، `er.label_revision`                   | برچسب‌های مالک و تاریخچه‌ی اصلاح هر برچسب                           |
+| `er.villa`، `er.villa_member`، `er.villa_event`   | ویلا، آگهی‌های عضو (یکی برای هر پلتفرم) و تاریخچه‌ی شناسه           |
+| `enrichment.coastline`، `enrichment.place`        | خط ساحل و مکان‌های OSM                                              |
+| `discovery.drive_time`                            | زمان رانندگی هر آگهی به‌صورت بازه                                   |
+| `ops.llm_cache`، `ops.llm_call`                   | کش پاسخ مدل و دفتر هزینه‌ی هر فراخوانی                              |
+
+## اجرا (docker compose)
+
+| سرویس     | پروفایل                      | پورت میزبان                        |
+| --------- | ---------------------------- | ---------------------------------- |
+| `db`      | پیش‌فرض                      | `127.0.0.1:5433`                   |
+| `migrate` | پیش‌فرض                      | - (یک‌بار، `alembic upgrade head`) |
+| `api`     | پیش‌فرض                      | `127.0.0.1:8800`                   |
+| `web`     | پیش‌فرض                      | `127.0.0.1:3300`                   |
+| `osrm`    | `routing`                    | -                                  |
+| دمو       | پروژه‌ی جدا `villasanj-demo` | `127.0.0.1:3400`                   |
+
+پورت‌ها عمداً با ۳۰۰۰ و ۸۰۰۰ فرق دارند، چون پروژه‌ی محلی دیگری آن‌ها را اشغال کرده است. همه‌ی
+imageها linux/arm64‌اند.
+
+## فرانت‌اند و سامانه‌ی طراحی
+
+محصول و این مستندات هر دو از یک سامانه‌ی طراحی استفاده می‌کنند:
+
+- **توکن‌ها** در `globals.css` با `@theme` در Tailwind 4: رنگ برند فیروزه‌ای دریای خزر و
+  خنثی‌های شنی، نقش‌های معنایی (سطح، خط، متن، تأکید)، دو شعاع (کنترل و کارت) و سه سایه.
+- **اجزا**: دکمه، نشان (badge) با هفت لحن معنایی، کارت و بخش، callout (اطلاع، احتیاط، خطر، تأییدشده،
+  محدودشده)، حالت‌های بارگذاری و خالی و خطا، کارت سنجه، چیپ منبع، جدول، نشان وضعیت، و نمودارهای
+  میله‌ای، بازه‌ای و خطی بدون کتابخانه‌ی نمودار.
+- **راست‌به‌چپ**: `dir="rtl"` روی سند، خصوصیات منطقی (`ps`، `me`، `start`، `end`)، و کلاس `ltr`
+  برای شناسه‌ها، کد، فرمان‌ها و محور عددی نمودارها.
+- **دسترس‌پذیری**: پیوند «پرش به محتوا»، حلقه‌ی focus روی هر عنصر تعاملی، رنگ هرگز تنها نشانه‌ی
+  معنا نیست (هر وضعیت آیکن و متن دارد) و `prefers-reduced-motion` رعایت می‌شود. axe در E2E هیچ خطای
+  جدی یا بحرانی را نمی‌پذیرد.
+
+<Callout kind="info" title="چرا نمودارها هنگام build ساخته می‌شوند">
+  نمودارهای این مستندات منبع Mermaid دارند (`frontend/diagrams/*.mmd`) و `npm run diagrams` آن‌ها را
+  با Mermaid 12 و فونت Vazirmatn به SVG ثابت تبدیل می‌کند. صفحه هیچ کتابخانه‌ی نمودار یا فونتی از
+  شبکه بار نمی‌کند، پس دموی آفلاین هم همه را نشان می‌دهد. `npm run diagrams:check` در lint وارسی
+  می‌کند که SVGها با منبعشان یکی باشند.
+</Callout>

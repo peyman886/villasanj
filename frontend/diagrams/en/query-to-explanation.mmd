@@ -1,0 +1,16 @@
+flowchart TB
+  accTitle: From query to explanation
+  accDescr: The model only turns the query into structure; guards check every number against the query text, and code builds the rank and the explanation.
+  q["Persian query"] --> und["Query understanding<br/>LLM → SearchIntent"]:::llm
+  und --> guard{"Every number in the query?<br/>Budget basis stated?"}:::decision
+  guard -- "No" --> drop["Number dropped or unknown"]:::warn
+  guard -- "Yes" --> intent["Conditions and uncheckable wishes"]
+  drop --> intent
+  intent --> dates["Dates by code<br/>Jalali calendar and holidays"]
+  dates --> filters["Filters with reasons<br/>stated facts only"]
+  filters --> rank["Transparent rank<br/>confirmed first, then score"]
+  rank --> group["One result per villa<br/>other platform's offer beside it"]
+  group --> explain["Explanation<br/>slots by code, text by model"]:::llm
+  explain --> verify{"Verifier<br/>numbers, comparisons, status"}:::decision
+  verify -- "Rejected twice or no model" --> template["Fixed template"]
+  verify -- "Accepted" --> shown["Model text"]:::good

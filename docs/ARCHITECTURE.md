@@ -1,6 +1,6 @@
 # Villasanj — Architecture
 
-> «ویلاسنج: یک ویلا، همه‌ی حقیقت». Each real villa gets one canonical page that aggregates its
+> «ویلاسنج: قبل از رزرو، بسنجید» (compare before you book). Each real villa gets one canonical page that aggregates its
 > listings across Iranian rental platforms: all-in offers for a concrete stay and group size, a merged
 > calendar, aggregated reviews, and a "truth check" of listing claims against evidence.
 >

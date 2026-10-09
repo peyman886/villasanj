@@ -1,0 +1,24 @@
+sequenceDiagram
+  accTitle: The flow of one search request
+  accDescr: The page fetches the results without an explanation and shows them at once; the explanation is fetched separately after the results and is built from a template when no model is available.
+  autonumber
+  actor U as User
+  participant W as Web (Next.js)
+  participant A as API
+  participant L as Model gateway
+  U->>W: /search?q=...
+  W->>A: POST /search (explain=false)
+  A->>L: Query understanding (cached)
+  L-->>A: SearchIntent
+  A->>A: Guards, dates, filters, prices, rank, villa grouping
+  A-->>W: Results with reasons and sources
+  W-->>U: Results (no wait for the explanation)
+  W->>A: POST /search/explanation
+  A->>L: Text around the slots
+  alt Model answered and passed the verifier
+    L-->>A: Text with {F1}...
+    A-->>W: Model explanation
+  else Model unavailable or rejected
+    A-->>W: Template built by code
+  end
+  W-->>U: "Why the first option?"

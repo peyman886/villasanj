@@ -51,6 +51,7 @@ export type Milestone = {
   status: Status;
   date?: string; // when it was delivered or approved
   summary_fa: string;
+  summary_en: string;
   criteria: Criterion[];
 };
 
@@ -161,7 +162,7 @@ const WAVE_2 = wave(
   [
     [
       "2.1",
-      "برجسته‌های مستند و حقیقت‌سنجی گروه‌بندی‌شده",
+      "برجسته‌های مستند و راستی‌آزمایی گروه‌بندی‌شده",
       "Evidence-backed highlights; grouped truth check",
       "۳ تا ۵ برجسته فقط از شاهد تأییدشده (نقشه، عکس، اندازه‌گیری، امتیازها)؛ گروه‌های تأیید شد / تأیید نشد / با نقشه نمی‌خواند بدون نوار پیشرفت؛ یادداشت محدوده یک بار در هر گروه (E2E).",
       "3 to 5 highlights from verified evidence only (map, photos, measurements, ratings); groups تأیید شد / تأیید نشد / با نقشه نمی‌خواند, no progress bar; the blur note once per group (E2E).",
@@ -231,7 +232,7 @@ const WAVE_3 = wave(
     ],
     [
       "3.2",
-      "«جست‌وجو در همین محدوده»",
+      "«جستجو در همین محدوده»",
       "Search this area",
       "جابه‌جا کردن نقشه دکمه را نشان می‌دهد و کلیک آن chip «محدوده‌ی نقشه» می‌سازد که مثل بقیه حذف می‌شود؛ فیلتر روی سرور (E2E و آزمون واحد).",
       "Moving the map shows the button; it adds a removable «محدوده‌ی نقشه» chip; filtered on the server (E2E and unit tests).",
@@ -286,6 +287,8 @@ export const MILESTONES: Milestone[] = [
     status: "done",
     date: "2026-10-01",
     summary_fa: "خواندن چالش و گزارش پژوهشی، طراحی معماری، ADRهای ۱ تا ۱۰ و نقشه‌ی راه.",
+    summary_en:
+      "Reading the challenge and the research report, designing the architecture, ADRs 1 to 10 and the roadmap.",
     criteria: [
       {
         n: 1,
@@ -337,6 +340,8 @@ export const MILESTONES: Milestone[] = [
     date: "2026-10-01",
     summary_fa:
       "monorepo، Docker، Postgres، دروازه‌ی مدل زبانی با کش و دفتر هزینه، قراردادهای معماری.",
+    summary_en:
+      "Monorepo, Docker, Postgres, the LLM gateway with its cache and cost ledger, and the architecture contracts.",
     criteria: [
       {
         n: 1,
@@ -428,7 +433,10 @@ export const MILESTONES: Milestone[] = [
     name_en: "First vertical slice: jabama → shab",
     status: "done",
     date: "2026-10-01",
-    summary_fa: "crawl مؤدبانه‌ی دو پلتفرم، snapshot و parser خالص، نرمال‌سازی، اثبات OCP با شب.",
+    summary_fa:
+      "خزش مؤدبانه‌ی دو پلتفرم، snapshot و parser خالص، یکدست‌سازی داده، و اثبات OCP با شب.",
+    summary_en:
+      "Polite crawling of two platforms, snapshots and pure parsers, normalisation, and Shab as the proof of OCP.",
     criteria: [
       {
         n: 1,
@@ -505,6 +513,8 @@ export const MILESTONES: Milestone[] = [
     status: "done",
     date: "2026-10-03",
     summary_fa: "gold-v1 با برچسب مالک، ارزیابی خط پایه، موتور قیمت و فرضیه‌های H1 تا H3.",
+    summary_en:
+      "gold-v1 with the owner's labels, the baseline evaluation, the pricing engine and hypotheses H1 to H3.",
     criteria: [
       {
         n: 1,
@@ -591,6 +601,8 @@ export const MILESTONES: Milestone[] = [
     date: "2026-10-05",
     summary_fa:
       "برداشت هم‌زمان، خط لوله‌ی عکس و موجودی؛ مالک پلتفرم تازه نمی‌خواهد، پس دامنه جاباما و شب می‌ماند.",
+    summary_en:
+      "Same-window capture, the photo pipeline and the inventory; the owner wants no new platform, so the scope stays Jabama and Shab.",
     criteria: [
       {
         n: 1,
@@ -598,7 +610,7 @@ export const MILESTONES: Milestone[] = [
         title_en: "Adapters for platforms with written permission",
         status: "waived",
         evidence_fa:
-          "مالک: پلتفرم تازه لازم نیست (۱۳ مهر). جاجیگا، اتاقک و میهمانشو crawl را در شرایط استفاده منع کرده‌اند (ADR-0011).",
+          "مالک: پلتفرم تازه لازم نیست (۱۳ مهر). جاجیگا، اتاقک و میهمانشو خزش را در شرایط استفاده منع کرده‌اند (ADR-0011).",
         evidence_en:
           "The owner wants no new platform (2026-10-05); jajiga, otaghak and mihmansho forbid crawling in their terms (ADR-0011).",
       },
@@ -640,7 +652,9 @@ export const MILESTONES: Milestone[] = [
     name_en: "Full entity resolution",
     status: "done",
     date: "2026-10-04",
-    summary_fa: "داور مدل‌زبانی، سیاست تصمیم، خوشه‌بندی مقید، صف انسانی و اصلاح برچسب‌ها.",
+    summary_fa: "داور مدل زبانی، سیاست تصمیم، خوشه‌بندی مقید، صف انسانی و اصلاح برچسب‌ها.",
+    summary_en:
+      "The LLM judge, the decision policy, constrained clustering, the human queue and label revisions.",
     criteria: [
       {
         n: 1,
@@ -756,6 +770,8 @@ export const MILESTONES: Milestone[] = [
     status: "done",
     date: "2026-10-05",
     summary_fa: "پیشنهاد هر آگهی با منبع، بازه‌ها و تازگی؛ مقایسه با قیمت مستقیم ممکن نشد.",
+    summary_en:
+      "Each listing's offer with provenance, ranges and freshness; the comparison with a direct quote was not possible.",
     criteria: [
       {
         n: 1,
@@ -800,6 +816,8 @@ export const MILESTONES: Milestone[] = [
     status: "done",
     date: "2026-10-03",
     summary_fa: "صفحه‌ی یک ویلا با قیمت هر پلتفرم، تقویم یکپارچه، ناهمخوانی‌ها و نظرها.",
+    summary_en:
+      "The villa page with each platform's price, the merged calendar, differences between listings and reviews.",
     criteria: [
       {
         n: 1,
@@ -876,6 +894,8 @@ export const MILESTONES: Milestone[] = [
     status: "done",
     date: "2026-10-08",
     summary_fa: "فهم پرسش با محافظ عدد، رتبه‌ی شفاف، گروه‌بندی ویلا و زمان رانندگی.",
+    summary_en:
+      "Query understanding with a number guard, transparent ranking, grouping by villa, and drive times.",
     criteria: [
       {
         n: 1,
@@ -942,10 +962,12 @@ export const MILESTONES: Milestone[] = [
   },
   {
     id: "M9",
-    name_fa: "غنی‌سازی و حقیقت‌سنجی",
+    name_fa: "غنی‌سازی و راستی‌آزمایی",
     name_en: "Enrichment & truth check",
     status: "done",
     summary_fa: "ادعاهای فاصله و امکانات، شاهد عکس و نقشه، ناهمخوانی بین پلتفرم‌ها و H4.",
+    summary_en:
+      "Distance and amenity claims, photo and map evidence, cross-platform differences and H4.",
     criteria: [
       {
         n: 1,
@@ -1009,7 +1031,9 @@ export const MILESTONES: Milestone[] = [
     name_en: "Reviews & “why this villa?”",
     status: "done",
     date: "2026-10-05",
-    summary_fa: "خلاصه‌ی با ارجاع، توضیح با اسلات و بررسی‌گر، و الگوی ثابت.",
+    summary_fa: "خلاصه‌ی نظرها با ارجاع، توضیح با اسلات و بررسی‌گر، و الگوی ثابت.",
+    summary_en:
+      "Cited summaries, the explanation with slots and a verifier, and the fixed template fallback.",
     criteria: [
       {
         n: 1,
@@ -1056,6 +1080,8 @@ export const MILESTONES: Milestone[] = [
     status: "done",
     date: "2026-10-05",
     summary_fa: "دموی آفلاین، سناریوی ۵ دقیقه‌ای، پورتال مستندات و سنجه‌ها.",
+    summary_en:
+      "The offline demo, the five-minute script, the documentation portal and the metrics.",
     criteria: [
       {
         n: 1,
@@ -1109,6 +1135,8 @@ export const MILESTONES: Milestone[] = [
     date: "2026-10-09",
     summary_fa:
       "«حقیقت در دسترس، نه بلند»: جستجو با نقشه و کارت ترب‌وار، کارت رزرو دوپلتفرمی، تقویم دونیمه، «چرا مطمئنیم؟»؛ و در پایان انتشار عمومی مخزن.",
+    summary_en:
+      "“The truth within reach, not shouted”: map search with Torob-style cards, the two-platform booking card, the two-half calendar and the match evidence; and finally the public release of the repository.",
     criteria: [
       ...WAVE_1,
       ...WAVE_2,

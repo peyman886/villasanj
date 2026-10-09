@@ -11,9 +11,9 @@ import { describe, expect, it } from "vitest";
 
 const SRC = path.resolve(__dirname, "..");
 const PRODUCT = [
-  "app/(site)/page.tsx",
-  "app/(site)/search",
-  "app/(site)/villas",
+  "app/(fa)/(site)/page.tsx",
+  "app/(fa)/(site)/search",
+  "app/(fa)/(site)/villas",
   "components/search",
   "components/villa",
   "components/home",
@@ -50,7 +50,7 @@ describe("warm colours on the product pages", () => {
       }
       for (const match of source.matchAll(/(?:tone|kind)="(caution|danger)"/g)) {
         const ok =
-          file === "app/(site)/villas/[id]/page.tsx" &&
+          file === "app/(fa)/(site)/villas/[id]/page.tsx" &&
           source.includes("آنچه دو آگهی یکسان نمی‌گویند");
         if (!ok) misuse.push(`${file}: ${match[0]}`);
       }

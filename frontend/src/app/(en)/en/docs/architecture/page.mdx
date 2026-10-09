@@ -1,0 +1,224 @@
+import { Adr, CardGrid, DocHeader, InfoCard, SourceFile } from "@/components/docs/blocks";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Architecture",
+  description:
+    "Hexagonal architecture, bounded contexts, layers, ports, the database and the data flow.",
+};
+
+<DocHeader eyebrow="Architecture and data" title="Architecture">
+  A modular monolith with a hexagonal architecture: six bounded contexts with a fixed dependency
+  direction, three layers in each, and a hand-written composition root. The rules are not only on
+  paper; import-linter and the architecture tests enforce them on every `make lint` and `make test`.
+  <span className="mt-3 flex flex-wrap gap-2">
+    <Adr n="0001" locale="en" />
+    <Adr n="0002" locale="en" />
+    <Adr n="0003" locale="en" />
+    <Adr n="0010" locale="en" />
+  </span>
+</DocHeader>
+
+## The system
+
+<Diagram
+  name="system-architecture"
+  caption="Browser, the Next.js web app, the API and batch jobs, and the data stores"
+  locale="en"
+/>
+
+- **Web** (Next.js, App Router, server rendering, Persian and right to left) builds both the
+  product pages and this documentation portal. It reads the documentation's numbers straight from
+  the `reports/*.json` reports and the live metrics from the API.
+- **API** (FastAPI) serves reads and search only; every number in a response carries its source,
+  and its schema becomes a typed TypeScript client through OpenAPI (`make openapi-check`).
+- **Batch jobs** (Typer CLI): crawling, parsing, photos, matching, pricing, enrichment and reports.
+  The cost of every job that calls an LLM is estimated before it runs with `--dry-run`.
+- **Postgres** with PostGIS and pgvector holds everything: the catalog, the crawl queue, image
+  vectors, geodata, and the LLM cache and cost ledger. <Adr n="0010" locale="en" />
+
+## Bounded contexts
+
+<Diagram
+  name="bounded-contexts"
+  caption="Six bounded contexts and the allowed dependency direction"
+  locale="en"
+/>
+
+The allowed dependency direction, enforced by import-linter:
+
+```text
+shared ← ingestion ← catalog ← {entity_resolution, pricing} ← enrichment ← discovery ← entrypoints
+```
+
+`pricing` and `entity_resolution` are independent of each other. A context imports only the
+**domain** and **application** layers of its upstream contexts, never their infrastructure.
+
+<CardGrid>
+  <InfoCard title="Ingestion" tag="ingestion" href="/en/docs/catalog-ingestion" locale="en">
+    Crawling, robots.txt, the frontier queue, snapshots and one adapter per platform. An adapter is
+    pure: it takes a page and returns a `ParsedListing`, with no I/O.
+  </InfoCard>
+  <InfoCard title="Catalog" tag="catalog" href="/en/docs/catalog-ingestion" locale="en">
+    Listings, photos, reviews, calendar and rate observations, and the gazetteer. It owns the
+    normalised data; observations are append-only.
+  </InfoCard>
+  <InfoCard
+    title="Entity resolution"
+    tag="entity_resolution"
+    href="/en/docs/entity-resolution"
+    locale="en"
+  >
+    Blocking, evidence, scoring, the judge, labels, constrained clustering, building the villas and
+    evaluation.
+  </InfoCard>
+  <InfoCard title="Pricing" tag="pricing" href="/en/docs/pricing" locale="en">
+    A pure pricing engine, sourced fee policies, scenarios and offers. Its domain layer must keep
+    100% branch coverage.
+  </InfoCard>
+  <InfoCard title="Enrichment" tag="enrichment" href="/en/docs/truth-check" locale="en">
+    Claims, geographic evidence, photo tags, truth-check results and review summaries.
+  </InfoCard>
+  <InfoCard title="Discovery" tag="discovery" href="/en/docs/search-ranking" locale="en">
+    Query understanding, dates and holidays, ranking, drive times and explanations.
+  </InfoCard>
+</CardGrid>
+
+Why these boundaries? Three changes from the original proposal: normalisation is not a context (it
+is a pure function with no lifecycle and lives in each platform's adapter or the shared kernel);
+Catalog was added so that durable data has an owner separate from volatile crawling; and the review
+queue moved into entity resolution, its only consumer. The full reasoning is in section 2 of
+`docs/ARCHITECTURE.md`.
+
+## Layers in every context
+
+```text
+<context>/
+  domain/          # entities and value objects; stdlib and shared.domain only
+  application/     # use cases, ports (typing.Protocol), DTOs and prompt templates
+  infrastructure/  # adapters: SQLAlchemy, HTTP, parsers, ML models, AvalAI, OSRM
+```
+
+1. **The domain is pure:** no pydantic, no sqlalchemy, no httpx. Value objects are
+   `@dataclass(frozen=True, slots=True)`. Test coverage of the domain layer must be ≥ 95%.
+2. **application** defines the ports. Pydantic is allowed here (DTOs and model output schemas);
+   this is a deliberate trade-off so that no schema is written twice.
+3. **infrastructure** is the only layer that imports vendors.
+4. **The composition root** is hand-written (<SourceFile path="entrypoints/container.py" />) and
+   uses no dependency injection framework. It is the only place that knows which adapter implements
+   which port.
+5. **No platform name** appears outside `ingestion/infrastructure/sources/<slug>/`, config and
+   tests. Platform specifics reach the core as data (`SourceProfile`, `FeePolicy`).
+
+## Enforcing the rules
+
+| Rule                         | Tool                                                  | What it catches                                  |
+| ---------------------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| Context dependency direction | import-linter, contract "Context dependency DAG"      | a reversed or shortcut import                    |
+| Layer order                  | import-linter, contract "Layers inside every context" | application importing infrastructure             |
+| Domain purity                | architecture test                                     | a non-stdlib import in `domain/`                 |
+| Foreign infrastructure       | architecture test                                     | an import from another context's infrastructure  |
+| Platform name in the core    | architecture test                                     | the string `jabama` or `shab` outside an adapter |
+| Invisible characters         | architecture test                                     | a raw ZWNJ in a `.py` file (must be `\N{...}`)   |
+
+Every architecture-test rule also has a deliberately broken fixture, to prove the rule really fails.
+
+## Ports and adapters
+
+| Port                           | Adapters built                                                                                             |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `SourceAdapter`                | Jabama, Shab (entry points in `villasanj.sources`)                                                         |
+| `Fetcher`                      | `HttpxFetcher` inside `PoliteFetcher`; `SnapshotReplayFetcher` for offline mode                            |
+| `LLMClient`                    | `AvalAIProvider` with its chain of decorators, `FakeLLMProvider` for tests, `OfflineProvider` for the demo |
+| `ImageEmbedder`                | local DINOv2-small (pinned revision); SigLIP 2 for photo tags                                              |
+| `MatchJudge`                   | `LlmMatchJudge` on top of `LLMClient`                                                                      |
+| `RoutingService`               | local OSRM (the compose profile named routing)                                                             |
+| `CoastlineIndex`, `PlaceIndex` | PostGIS on an OpenStreetMap snapshot                                                                       |
+| `LabelStore`                   | Postgres, with a history table of label revisions                                                          |
+| `Clock`                        | the system clock; a fixed clock in tests                                                                   |
+
+Adding a new platform (the OCP test) takes: a folder under
+`ingestion/infrastructure/sources/<slug>/`, fixtures and contract tests, one entry point and a fee
+policy in `config/fees.toml`. Nothing else changes. The commit that added the Shab adapter in M2
+showed exactly this.
+
+## From crawl to villa
+
+<Diagram name="crawl-to-villa" caption="snapshot → catalog → matching → villa" locale="en" />
+
+Every HTTP response is stored content-addressed, and parsing is a pure function of a snapshot. So
+`make reparse` rebuilds the whole catalog without a single network request, and the result hashes
+the same.
+
+## Where every number comes from
+
+<Diagram
+  name="provenance"
+  caption="The path of one number from a snapshot to the source card on the page"
+  locale="en"
+/>
+
+Every displayed value is a `Sourced[T]`: the value, platform, snapshot, observation time and method
+(observed, derived, LLM-extracted, human). In the interface every number opens a source card; an
+E2E test checks this on ten random numbers per page. <Adr n="0007" locale="en" />
+
+## Database
+
+One Postgres 17 with PostGIS 3.6 and pgvector 0.8, and **one schema per context**: `ingestion`,
+`catalog`, `er`, `pricing`, `enrichment`, `discovery` and `ops`. Migrations use Alembic. Postgres is
+also the crawl queue (`SELECT … FOR UPDATE SKIP LOCKED`) and holds the LLM cache and cost ledger.
+Why no Redis, OpenSearch or MinIO? Docker has only 7.75 GB of memory, and one database is enough
+for this volume. <Adr n="0003" locale="en" />
+
+Some key tables:
+
+| Table                                             | Role                                                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `ingestion.snapshot`                              | every response with its request, status, body hash and time                                |
+| `catalog.listing`, `catalog.calendar_observation` | the normalised listing; append-only calendar observations                                  |
+| `catalog.photo`, `catalog.photo_embedding`        | pHash, dHash and a DINOv2 vector per unique content                                        |
+| `er.run`, `er.candidate`                          | every matching run (with its dataset hash) and its candidate pairs with evidence and score |
+| `er.judgement`                                    | the LLM judge's verdict for each pair, with confidence and reason                          |
+| `er.label`, `er.label_revision`                   | the owner's labels and the revision history of each label                                  |
+| `er.villa`, `er.villa_member`, `er.villa_event`   | the villa, its member listings (one per platform) and its id history                       |
+| `enrichment.coastline`, `enrichment.place`        | the coastline and OSM places                                                               |
+| `discovery.drive_time`                            | each listing's drive time, as a range                                                      |
+| `ops.llm_cache`, `ops.llm_call`                   | the model response cache and the cost ledger of every call                                 |
+
+## Running it (docker compose)
+
+| Service   | Profile                           | Host port                        |
+| --------- | --------------------------------- | -------------------------------- |
+| `db`      | default                           | `127.0.0.1:5433`                 |
+| `migrate` | default                           | - (once, `alembic upgrade head`) |
+| `api`     | default                           | `127.0.0.1:8800`                 |
+| `web`     | default                           | `127.0.0.1:3300`                 |
+| `osrm`    | `routing`                         | -                                |
+| demo      | separate project `villasanj-demo` | `127.0.0.1:3400`                 |
+
+The ports deliberately differ from 3000 and 8000, because another local project occupies them. All
+images are linux/arm64.
+
+## Frontend and design system
+
+The product and this documentation share one design system:
+
+- **Tokens** in `globals.css` via `@theme` in Tailwind 4: a Caspian turquoise brand colour and sand
+  neutrals, semantic roles (surface, line, text, accent), two radii (control and card) and three
+  shadows.
+- **Components**: button, badge with seven semantic tones, card and section, callout (info,
+  caution, danger, verified, degraded), loading, empty and error states, metric card, source chip,
+  table, status badge, and bar, interval and line charts with no charting library.
+- **Right to left**: `dir="rtl"` on the document, logical properties (`ps`, `me`, `start`, `end`),
+  and an `ltr` class for identifiers, code, commands and the numeric axes of charts.
+- **Accessibility**: a "skip to content" link, a focus ring on every interactive element, colour
+  never the only carrier of meaning (every state has an icon and text), and respect for
+  `prefers-reduced-motion`. axe in the E2E suite accepts no serious or critical violation.
+
+<Callout kind="info" title="Why the diagrams are built at build time">
+  The diagrams in these docs have Mermaid sources (`frontend/diagrams/*.mmd`), and `npm run
+  diagrams` turns them into static SVG with Mermaid 12 and the Vazirmatn font. The page loads no
+  charting library and no font from the network, so the offline demo shows them all too. `npm run
+  diagrams:check` in lint verifies that the SVGs match their sources.
+</Callout>

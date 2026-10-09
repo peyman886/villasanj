@@ -1,0 +1,108 @@
+import { Adr, DocHeader } from "@/components/docs/blocks";
+import { ConfigSnippet, DistanceVerdicts } from "@/components/docs/data/live";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Geodata",
+  description:
+    "PostGIS, OpenStreetMap coastline and places, distances as intervals over the blur circle, OSRM and the offline map.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Architecture and data" title="Geodata">
+  The platforms give neither the coastline nor drive times, and they blur each villa's location on
+  purpose. Villasanj builds this evidence from an open OpenStreetMap snapshot, runs everything
+  locally, and computes every distance as an interval over the blur circle.
+  <span className="mt-3 flex flex-wrap gap-2">
+    <Adr n="0013" locale="en" />
+    <Adr n="0003" locale="en" />
+  </span>
+</DocHeader>
+
+<Diagram
+  name="geo"
+  caption="OSM snapshot → region clip → coastline, places and OSRM graph → evidence"
+  locale="en"
+/>
+
+## Data and clip
+
+- **Source:** the Geofabrik Iran extract, snapshot `iran-260930` (230 MB, MD5 checked). The
+  snapshot name is stored on every derived row in the `dataset` column.
+- **Clip:** `osmium extract` with the box from longitude 49.4 to 52.6 and latitude 35.4 to 37.6:
+  Tehran, the Chalus, Haraz and Qazvin to Rasht roads, and the coast from Rasht to Amol. Every
+  Jabama listing and 597 of 601 Shab listings fall inside the box.
+- **Tooling:** osmium runs in a small Debian image, so nothing is installed on the host. The data
+  licence is ODbL, with attribution at the foot of the pages.
+
+## Blurred location and intervals
+
+Jabama publishes a 400 m blur radius and Shab gives no radius at all. For the distance to a fixed
+shape, the interval is exact: every point within radius r of the pin lies between d − r and d + r
+from that shape. When a platform gives no radius, **we assume 500 m** and the row carries a
+`radius_assumed` flag so the interface can say which verdicts rest on that assumption (A14).
+Entity resolution reads the pin as exact, because there it only affects recall.
+
+## Coastline
+
+The 55 `natural=coastline` ways inside the box are stored as `geography(LineString)` with a GiST
+index in `enrichment.coastline`, and distances are geodesic (`ST_Distance` on geography). Median
+distance to the coast: 2.2 km for Jabama and 1.6 km for Shab (3 October 2026). Listings whose title
+says "beachfront" are 1 to 5 m from the line; "forest" ones are up to 26 km away.
+
+## Places
+
+From the same snapshot we extract shops, bakeries, restaurants, medical centres, shopping centres,
+town and village centres and forests (about 18 thousand places in `enrichment.place`), and for
+every listing we store the nearest place of each kind with its blur interval. Two rules came out of
+a manual review of the verdicts:
+
+1. **An incomplete map can only confirm.** A shop missing from OSM means the map lacks it, not that
+   the shop does not exist. For shops, restaurants, medical centres and forests, the nearest place
+   on the map is an upper bound on the real distance: it confirms the claim or gives "Not
+   confirmed", and never contradicts it.
+2. **Town centres are complete and can contradict.** Every gazetteer town has a centre in OSM. A
+   centre is an area, not a point: anywhere within 1.5 km of the town's point counts as "the
+   centre" (A20). In the 3 October 2026 run, without this rule, 210 town-centre claims were
+   contradicted; the manual review of those same claims set the size of this area. The current
+   count is in the table below.
+
+<DistanceVerdicts locale="en" />
+
+## Drive time
+
+- **OSRM** version 6 on an MLD graph of the same clip, under the `routing` compose profile (about
+  287 MB of memory). The "from Tehran" origin is Azadi Square (A16).
+- For each listing, the pin and 8 points on the blur circle are routed; the minimum, the pin time
+  and the maximum are stored in `discovery.drive_time`. A villa's time is the union of its
+  listings' intervals.
+- **No traffic:** we have no traffic data, so no "holiday traffic" factor is invented and every
+  time is labelled "without traffic" (A10).
+- Coverage: 100% of listings with coordinates (M8 criterion 3). Median from Azadi Square: 261
+  minutes; the mean width of the blur interval is 3.3 minutes and its 95th percentile 6.5 minutes.
+
+<ConfigSnippet file="routing.toml" locale="en" />
+
+## Offline map
+
+The listing page's map is MapLibre. `make basemap` builds a Protomaps extract of the region (about
+11 MB, zoom 0 to 15) with glyphs and sprites in `data/basemap`, served from `/basemap/*` with byte
+ranges; labels are in Persian and no external tile is loaded. If the basemap has not been built,
+the map falls back to OSM tiles with attribution. The pin and its blur circle are drawn on the map;
+an assumed circle is dashed.
+
+<Callout kind="caution" title="Limitations">
+  Times without traffic are optimistic on busy weekends, and they are labelled as such. The 500 m
+  assumption for Shab is a judgement call and is visible on every row. Targets without a kind
+  (recreation, shrines, named places) stay "Not checked".
+</Callout>
+
+## Reproduce
+
+```bash
+make osm-download osm-prepare   # Geofabrik snapshot, clip, coastline, places and OSRM graph
+make routing-up                 # OSRM (the core stack is untouched)
+make geo                        # load into PostGIS, distances, drive times, verdicts
+make basemap                    # offline basemap
+```

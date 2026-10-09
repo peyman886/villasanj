@@ -1,0 +1,42 @@
+flowchart TB
+  accTitle: Villasanj system architecture
+  accDescr: The browser talks to the Next.js web app, which reads from the API and the reports; the API and the batch jobs use Postgres, the file store, the LLM gateway and OSRM.
+  user(["User and reviewer<br/>Browser"]):::human
+  subgraph web ["Web · Next.js (SSR)"]
+    pages["Product pages<br/>/ /search /villas /listings"]
+    docs["Documentation portal<br/>/docs /en/docs"]
+    tiles["Offline map<br/>/basemap (PMTiles)"]
+  end
+  subgraph api ["API · FastAPI"]
+    routes["Routes<br/>listings, villas, search, metrics"]
+    root["Composition root<br/>container.py"]
+  end
+  subgraph batch ["Batch jobs · CLI"]
+    crawl["Polite crawling"]
+    match["Matching and evaluation"]
+    enrich["Enrichment and truth check"]
+    reports["Reports<br/>reports/*.json"]
+  end
+  pg[("Postgres<br/>PostGIS + pgvector")]:::store
+  blobs[("File store<br/>snapshots and photos")]:::store
+  llm["LLM gateway<br/>AvalAI or offline"]:::llm
+  osrm["Routing<br/>OSRM"]:::ext
+  platforms["Jabama and Shab"]:::ext
+  user --> pages & docs
+  pages --> routes
+  pages --> tiles
+  docs --> reports
+  docs --> routes
+  routes --> root
+  root --> pg
+  root --> llm
+  crawl --> platforms
+  crawl --> blobs
+  crawl --> pg
+  match --> pg
+  match --> llm
+  enrich --> pg
+  enrich --> osrm
+  enrich --> llm
+  match --> reports
+  enrich --> reports

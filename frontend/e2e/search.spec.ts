@@ -101,6 +101,40 @@ test.describe("search page", () => {
     await expect(card).toHaveAttribute("data-active", "");
   });
 
+  test("a clicked pin stays selected, scrolls to its card and leaves the map where it was", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1536, height: 864 });
+    await open(page);
+    const pin = page.locator("[data-pin]").nth(4);
+    await expect(pin).toBeAttached({ timeout: 15_000 });
+    const id = await pin.getAttribute("data-pin");
+    const before = await pin.boundingBox();
+    await pin.dispatchEvent("click"); // this pin, even where a neighbour overlaps it
+    const card = page.locator(`[data-result="${id}"]`);
+    await expect(card).toHaveAttribute("data-selected", "");
+    await expect(pin).toHaveAttribute("data-selected", "");
+    await expect(card).toBeInViewport();
+    // Hovering other cards previews their pins but keeps the selection and the camera.
+    await page.locator("[data-result]").first().hover();
+    await expect(pin).toHaveAttribute("data-selected", "");
+    const after = await pin.boundingBox();
+    expect(Math.abs((after?.x ?? 0) - (before?.x ?? 0))).toBeLessThan(2);
+    expect(Math.abs((after?.y ?? 0) - (before?.y ?? 0))).toBeLessThan(2);
+    await page.keyboard.press("Escape");
+    await expect(card).not.toHaveAttribute("data-selected", "");
+  });
+
+  test("every card has the same height on a wide screen, whatever its photos", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await open(page);
+    const heights = await page
+      .locator("[data-result] article")
+      .evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+    expect(heights.length).toBeGreaterThan(5);
+    expect(new Set(heights).size).toBe(1);
+  });
+
   test("flipping the budget chip re-ranks without a full reload and keeps the chips", async ({
     page,
   }) => {

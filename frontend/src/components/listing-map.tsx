@@ -7,6 +7,7 @@ import type { StyleSpecification } from "maplibre-gl";
 import { useEffect, useRef } from "react";
 
 import { faNumber } from "@/lib/listing";
+import { useTheme, type Theme } from "@/lib/theme";
 
 /**
  * Where the listing can be: its published pin and blur circle on OpenStreetMap (ROADMAP M7).
@@ -42,12 +43,8 @@ export async function loadMaplibre(basemap: string | null) {
   return maplibre;
 }
 
-function prefersDark(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
 /** The local Protomaps style (absolute URLs: MapLibre fetches glyphs from its workers). */
-export function localStyle(origin: string, pmtiles: string): StyleSpecification {
+export function localStyle(origin: string, pmtiles: string, theme: Theme): StyleSpecification {
   return {
     version: 8,
     glyphs: `${origin}/basemap/fonts/{fontstack}/{range}.pbf`,
@@ -59,8 +56,8 @@ export function localStyle(origin: string, pmtiles: string): StyleSpecification 
         attribution: "© مشارکت‌کنندگان OpenStreetMap · Protomaps",
       },
     },
-    // The dark flavour follows the page in dark mode; the icons come from the one (light) sprite.
-    layers: layers("protomaps", namedFlavor(prefersDark() ? "dark" : "light"), { lang: "fa" }),
+    // The dark flavour follows the page's theme; the icons come from the one (light) sprite.
+    layers: layers("protomaps", namedFlavor(theme), { lang: "fa" }),
   };
 }
 
@@ -103,6 +100,7 @@ export function ListingMap({
   basemap: string | null; // the local PMTiles file name, or null for OSM's raster tiles
 }) {
   const container = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
 
   useEffect(() => {
     let removed = false;
@@ -111,7 +109,7 @@ export function ListingMap({
       if (removed || !container.current) return;
       const instance = new Map({
         container: container.current,
-        style: basemap ? localStyle(window.location.origin, basemap) : OSM_RASTER,
+        style: basemap ? localStyle(window.location.origin, basemap, theme) : OSM_RASTER,
         center: [lon, lat],
         zoom: radiusM > 600 ? 13.5 : 14.3,
         interactive: false,
@@ -168,7 +166,7 @@ export function ListingMap({
       removed = true;
       map?.remove();
     };
-  }, [lat, lon, radiusM, assumed, basemap]);
+  }, [lat, lon, radiusM, assumed, basemap, theme]);
 
   return (
     <figure>

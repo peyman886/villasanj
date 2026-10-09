@@ -1,0 +1,124 @@
+import { Adr, DocHeader } from "@/components/docs/blocks";
+import { ErAblations } from "@/components/docs/data/er";
+import {
+  H1Table,
+  H2Table,
+  H3Table,
+  H4Table,
+  HypothesesHeadline,
+} from "@/components/docs/data/hypotheses";
+import { LabellingProgress } from "@/components/docs/data/live";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Evaluation and hypotheses",
+  description:
+    "Hypotheses H1 to H5, the statistical method, every experiment and the history of the numbers.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Models and quality" title="Evaluation and hypotheses">
+  The research report made several claims about the northern villa market. Before building the
+  product on them, we turned each claim into a testable hypothesis and measured it on our own data,
+  with confidence intervals. One of them was rejected.
+</DocHeader>
+
+## Hypotheses at a glance
+
+| Hypothesis | Claim                                                  | Result                                                                                   | Status       |
+| ---------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------ |
+| H1         | A notable share of villas is on more than one platform | About 15% of villas are on both; most Shab listings have a counterpart                   | Confirmed    |
+| H2         | A villa's price differs between platforms              | Median 1.1× on ordinary days, about 1.2 to 1.25× on holidays; the cheaper platform flips | Confirmed    |
+| H3         | Calendars are out of sync                              | About one fifth of observed nights are free on one platform and taken on the other       | Confirmed    |
+| H4         | At least 25% of listings make a refutable claim        | About 10% on Jabama and 5% on Shab                                                       | **Rejected** |
+| H5         | Photos alone are not enough for precise matching       | Neither photos nor the other evidence reaches the precision line on its own              | Confirmed    |
+
+The exact numbers below are read from the generated reports; the table above is their qualitative
+summary.
+
+<HypothesesHeadline locale="en" />
+
+## Method
+
+- **Stratum weights:** the gold set is stratified; precision and recall are weighted by each
+  stratum's population.
+- **95% Wilson interval** for every proportion, with the effective sample size when weights are
+  unequal.
+- **Corrected H1:** true pair count ≈ predictions × precision / recall; the range comes from the
+  ends of the precision and recall intervals and is capped at the size of the smaller platform (it
+  is not itself a 95% interval).
+- **H2 and H3 on the same-window capture:** only nights that both platforms showed less than 6 hours
+  apart.
+- **Matching policy:** pairs come from the same decision policy the product uses
+  (`config/er.toml`), and the precision and recall used to correct H1 are end-to-end, on the gold
+  set without applying the labels.
+- **Reproducibility:** every report records its match run and dataset hash; rerunning gives the same
+  output.
+
+## H1: platform overlap
+
+<H1Table locale="en" />
+
+## H2: one villa's price on two platforms
+
+The advertised total (nights plus extra guests) for the same scenario. No platform publishes its
+fee, so both sides are a "from" price and the comparison excludes fees.
+
+<H2Table locale="en" />
+
+## H3: hidden nights
+
+<H3Table locale="en" />
+
+Some platforms do not say whether a taken night is booked or closed by the host, so a "hidden night"
+means "shown as free elsewhere", not "bookable".
+
+## H4: refutable claims
+
+<H4Table locale="en" />
+
+## H5: photos against the other evidence
+
+<ErAblations locale="en" />
+
+## History of the numbers
+
+Every time the data or the policy changed, a new report was generated and the previous one was kept:
+
+| Report                              | Change                                         | H1 pairs | H2 holiday, 4 guests | Cheaper flips | H3                 |
+| ----------------------------------- | ---------------------------------------------- | -------- | -------------------- | ------------- | ------------------ |
+| `hypotheses-2026-10-02`             | M3 baseline                                    | 320      | 1.30×                | 76 of 267     | 21.8% in 163 pairs |
+| `hypotheses-2026-10-03-same-window` | Same-window calendar capture                   | 320      | 1.26×                | 63 of 265     | 21.1% in 180 pairs |
+| `hypotheses-2026-10-04`             | "Judge vetoes" policy after the label revision | 302      | 1.25×                | 63 of 248     | 20.7% in 166 pairs |
+
+The label revision removed 18 pairs: the same complex units the judge now vetoes. No hypothesis
+changed its conclusion. The reports can be read under [Generated reports](/en/docs/reports).
+
+## Other experiments
+
+| Experiment           | Question                                                                                 | Result                                    | Source                                          |
+| -------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------- |
+| Image embedding      | Which image evidence survives cropping and compression and keeps unrelated villas apart? | Local DINOv2-small; pHash failed on crops | <Adr n="0012" locale="en" />                    |
+| Matching judge       | Which model judges hard pairs correctly?                                                 | gemini-3.8-flash, zero wrong merges       | [Entity resolution](/en/docs/entity-resolution) |
+| Query understanding  | Which model fills the slots correctly and fast?                                          | gpt-5.4-mini                              | [Search](/en/docs/search-ranking)               |
+| Explanation          | Which model writes good prose fast?                                                      | gemini-3.8-flash; latency target not met  | [Search](/en/docs/search-ranking)               |
+| Low reasoning        | Does "thinking less" lower the quality of summaries and explanations?                    | No, at much lower cost and latency        | <Adr n="0005" locale="en" />                    |
+| Cost estimator       | Is the dry run within ±25% of the cost ledger?                                           | 3% and 22%                                | <Adr n="0005" locale="en" />                    |
+| Claim extraction     | Precision and recall on 60 descriptions                                                  | 93.7% and 80.8%                           | [Truth check](/en/docs/truth-check)             |
+| Photo tags           | Which tags reach 85% precision?                                                          | Four of six                               | [Truth check](/en/docs/truth-check)             |
+| Blind summary review | Are the summaries faithful to the reviews?                                               | 20 of 20                                  | [Reviews](/en/docs/reviews)                     |
+
+## Human labels
+
+Every quality evaluation rests on the owner's labels; an LLM label is never the ground truth of an
+evaluation.
+
+<LabellingProgress locale="en" />
+
+<Callout kind="info" title="Limits of these evaluations">
+  The retrieval evaluation was graded in full on 11 queries, not 30, and the owner closed the
+  criterion on that basis; most pooled villas matched their query, so the grades separate the orders
+  less than a stricter scale would. The 50-query understanding set was written by the agent and
+  reviewed and accepted by the owner. The gold-v2 sample was not drawn from the new villas; the
+  human queue's labels measure the judge within its own zone, not matching on a random sample.
+</Callout>

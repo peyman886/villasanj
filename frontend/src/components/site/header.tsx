@@ -2,11 +2,12 @@ import { BookOpenText, Menu, Search } from "lucide-react";
 import Link from "next/link";
 
 import { LogoMark } from "@/components/site/logo";
+import { ThemeToggle } from "@/components/site/theme-toggle";
 import { buttonClass } from "@/components/ui/button";
 
 const NAV = [
   { href: "/search", label: "جستجو" },
-  { href: "/how-we-rank", label: "چطور رتبه‌بندی می‌کنیم" },
+  { href: "/how-we-rank", label: "روش رتبه‌بندی" },
   { href: "/metrics", label: "سنجه‌ها" },
 ] as const;
 
@@ -29,11 +30,14 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <Link href="/docs" className={buttonClass("ghost", "sm", "ms-auto hidden md:inline-flex")}>
-          <BookOpenText aria-hidden="true" className="size-4" />
-          برای داوران
-        </Link>
-        <details className="group relative ms-auto md:hidden">
+        <div className="ms-auto flex items-center gap-1">
+          <Link href="/docs" className={buttonClass("ghost", "sm", "hidden md:inline-flex")}>
+            <BookOpenText aria-hidden="true" className="size-4" />
+            مستندات
+          </Link>
+          <ThemeToggle />
+        </div>
+        <details className="group relative md:hidden">
           <summary
             aria-label="منو"
             className="focus-ring grid size-10 cursor-pointer list-none place-items-center rounded-control text-fg hover:bg-sunken [&::-webkit-details-marker]:hidden"
@@ -65,7 +69,7 @@ export function SiteHeader() {
               className="focus-ring mt-1 flex items-center gap-2 rounded-control border-t border-line px-3 py-2.5 text-sm font-medium text-accent hover:bg-brand-50"
             >
               <BookOpenText aria-hidden="true" className="size-4" />
-              برای داوران: گزارش فنی
+              مستندات فنی
             </Link>
           </nav>
         </details>

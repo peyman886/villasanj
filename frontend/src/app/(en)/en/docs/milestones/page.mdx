@@ -1,0 +1,53 @@
+import { DocHeader } from "@/components/docs/blocks";
+import {
+  CriteriaProgress,
+  MilestoneChecklist,
+  MilestoneTimeline,
+  OpenItems,
+} from "@/components/docs/milestones";
+import { StatusBadge } from "@/components/ui/status";
+
+export const metadata = {
+  title: "Milestones",
+  description: "M0 to M11: every acceptance criterion with its status and evidence.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Project status" title="Milestones">
+  Each milestone has acceptance criteria that were written before it started. This page shows every
+  criterion with its status and evidence. Measured evidence is read from the latest generated
+  reports, and the status table in `docs/ROADMAP.md` is built from the same data.
+</DocHeader>
+
+## Overview
+
+<CriteriaProgress locale="en" />
+
+Statuses:
+
+<span className="inline-flex flex-wrap gap-2 align-middle">
+  <StatusBadge status="done" locale="en" />
+  <StatusBadge status="waived" locale="en" />
+  <StatusBadge status="partial" locale="en" />
+  <StatusBadge status="provisional" locale="en" />
+  <StatusBadge status="owner_review" locale="en" />
+  <StatusBadge status="deferred" locale="en" />
+  <StatusBadge status="blocked" locale="en" />
+  <StatusBadge status="not_met" locale="en" />
+</span>
+
+"Closed by the owner" means the criterion did not reach its written target or could not be done,
+and the owner explicitly closed it; it is not "done" and is counted separately. "Partly done" means
+at least one criterion is open. "Provisional" means measured, but on data that has not been
+reviewed yet. "Blocked" means an external obstacle (permission, a missing source). "Not met" means
+measured and short of the target; such a criterion is never hidden.
+
+## Timeline
+
+<MilestoneTimeline locale="en" />
+
+<MilestoneChecklist locale="en" />
+
+## What is still open
+
+<OpenItems locale="en" />

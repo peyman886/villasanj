@@ -1,0 +1,316 @@
+import { Adr, DocHeader, SourceFile, Step, Steps } from "@/components/docs/blocks";
+import {
+  ErAblations,
+  ErCounts,
+  ErCurve,
+  ErHeadline,
+  ErHumanQueue,
+  ErPolicies,
+  ErRevisions,
+  ErStrata,
+  ErWhatChanged,
+  JudgeBakeoff,
+  JudgeVerdicts,
+} from "@/components/docs/data/er";
+import { ConfigSnippet } from "@/components/docs/data/live";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Entity resolution",
+  description:
+    "From listings to the real villa: blocking, evidence, the gold set, the LLM judge, the decision policy, label revisions and clustering.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Product core" title="Entity resolution">
+  A villa has no shared identifier across platforms: the titles differ, the coordinates are
+  approximate, and even capacity and floor area sometimes disagree. This page explains how we find
+  the listings of one villa, how we measure precision against human labels, and why the current
+  policy is "the judge vetoes, a human merges".
+  <span className="mt-3 flex flex-wrap gap-2">
+    <Adr n="0009" locale="en" />
+    <Adr n="0012" locale="en" />
+    <Adr n="0014" locale="en" />
+  </span>
+</DocHeader>
+
+<ErHeadline locale="en" />
+
+## The problem and the cost of errors
+
+The two kinds of error do not cost the same. A **wrong merge** sends the user to a different villa
+and destroys the trust the product is built on; a **missed merge** only loses some value. So the M5
+bar is end-to-end precision ≥ 95% with a Wilson lower bound ≥ 92%, and among the policies that clear
+that bar we pick the one with the highest recall.
+
+The research report had not foreseen the hardest case: **complexes that use one promotional photo
+for several units.** Photo-based matching sees these units as one, although each is a separate
+rental unit. This case later led to a revision of the gold-set labels as well (below).
+
+## The pipeline
+
+<Diagram
+  name="er-pipeline"
+  caption="blocking → evidence → score → judge in a zone → human queue → constrained clustering"
+  locale="en"
+/>
+
+<Steps>
+  <Step title="Blocking (recall first)">
+    The union of several sources: normalised location with room count ±1, pHash buckets (any shared
+    near-identical photo), k nearest DINOv2 neighbours at photo level, and overlapping distance
+    ranges. The goal: find ≥ 98% of true pairs.
+  </Step>
+  <Step title="Evidence">
+    Photo-set similarity (best one-to-one match, with pHash and image cosine) with **frequency
+    weighting**: a photo that appears in several listings carries almost no weight. Alongside it,
+    differences in rooms, capacity and floor area, the distance range, the nightly price ratio and
+    the similarity of rare phrases in the text.
+  </Step>
+  <Step title="A transparent rule score">
+    A weighted sum of the evidence with each part's contribution, so every merge can be explained on
+    the page. The gold set sets the threshold. We did not use Splink: our strong evidence is
+    pair-level, and the missed pairs are not separated by reweighting the same evidence.
+    <Adr n="0014" locale="en" />
+  </Step>
+  <Step title="An LLM judge in one score zone">
+    For pairs scoring −2 to 3, the judge sees a photo grid of both listings and the structured
+    facts, and returns "match", "non-match" or "unsure" with its confidence.
+  </Step>
+  <Step title="Human labels and clustering">
+    The owner's label is a must-link or a cannot-link, and no machine decision overrides it.
+    Clustering is greedy from the strongest pair, and each villa gets at most one listing per
+    platform.
+  </Step>
+</Steps>
+
+## Candidates and the size of the problem
+
+<Diagram
+  name="er-candidates"
+  caption="The blocking sources and the wide net that measures their recall"
+  locale="en"
+/>
+
+Candidate pairs come in two groups: the pairs production blocking really generates, and the "wide
+net" cast only to measure that blocking's recall. Most pairs are cross-platform; same-platform pairs
+are included on purpose as hard negatives (units of one complex).
+
+<ErCounts locale="en" />
+
+## The gold set: the owner's labels
+
+We claim no precision without human labels, and an LLM label is never the ground truth of an
+evaluation. gold-v1 is a stratified queue: geographic score bands, photo score bands, same-platform
+pairs and the wide net, ordered so that the sample stays balanced wherever labelling stops. Each
+stratum's weight in the evaluation comes from its population, so precision and recall are reported
+**weighted**, and the Wilson interval uses the effective sample size.
+
+<Diagram
+  name="labeling-loop"
+  caption="The labelling loop: queue, blind tool, label, evaluation and villa rebuild"
+  locale="en"
+/>
+
+- **Blind tool:** `/label` does not show the system's score or why the pair was picked, so the
+  labeller's judgement is not anchored. The keys are M, N and U, and they also work on a Persian
+  keyboard.
+- **Protocol:** `docs/er-labeling-protocol.md`. The question for each pair: "Are these two listings
+  the same real rental unit?". Rule 2: different units of one complex are `N`, and if only shared
+  spaces are visible, `U`.
+- **Volume:** 362 pairs in about 7.4 hours, 73 seconds per pair on average.
+
+<ErStrata locale="en" />
+
+## The rule threshold
+
+The ADR-0009 rule: the lowest score whose precision is ≥ 95% and whose lower bound is ≥ 92%. The
+curve below shows the weighted precision and recall of the rule score at each threshold, on the
+revised labels; the marker is the threshold the gold set picks for "rules alone".
+
+<ErCurve locale="en" />
+
+After the label revision, "rules alone" has to raise its threshold so far to reach the precision bar
+that half of the recall is lost. That is the main reason the judge was brought in as a guard of
+precision.
+
+## The LLM judge
+
+For each pair the judge receives two photo grids (composite grids, because Gemini bills about 1,090
+tokens per image regardless of size) and the structured facts, and returns a structured verdict with
+confidence and reason. The prompt is versioned, and the reason for every verdict is stored.
+
+### Model comparison
+
+Three models, each on its own, on the same gold pairs in the −3 to 3 zone. The first run (3 Oct)
+gave cost and latency: gemini-3.8-flash cost about $0.32 for 142 pairs, with a p95 of about 34
+seconds. After the label revision the same responses were re-scored from the cache, without a single
+call:
+
+<JudgeBakeoff locale="en" />
+
+The other two models' wrong merges are exactly the pairs now labelled "non-match": units of one
+complex. gemini-3.8-flash kept them apart, and it stayed our choice. <Adr n="0005" locale="en" />
+
+### Verdicts on production candidates
+
+`er judge-zone` judged every production pair in the [−2, 3) zone once (2,885 pairs, $9.58), and the
+responses are cached. The only pair that failed in that run was judged on 5 Oct ("non-match"; it was
+below the threshold, so the villas did not change). New pairs are judged incrementally.
+
+<JudgeVerdicts locale="en" />
+
+## The decision policy
+
+<Diagram
+  name="er-decision-policy"
+  caption="The current policy: outside the zone the rules decide; inside it the judge confirms or vetoes rule merges, and a new merge is up to a human"
+  locale="en"
+/>
+
+<ConfigSnippet file="er.toml" locale="en" />
+
+Four approaches that need to be kept apart:
+
+| Approach                                       | Who merges                                                                           | Who vetoes                                    | Status                                                                                             |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Rules alone                                    | score ≥ threshold                                                                    | nobody                                        | does not clear the precision bar at −0.25 on the revised labels                                    |
+| Full judge                                     | the rules, and the judge below the threshold                                         | the judge                                     | excellent point precision, but the lower bound is below 92%: too few labels in the geographic band |
+| Advisory judge (policy of 3 Oct)               | the rules                                                                            | nobody; the judge only orders the human queue | after the label revision it has the same precision as "rules alone" and fails                      |
+| **The judge vetoes, a human merges** (current) | the rules, unless the judge disagrees or is unsure inside the zone; and human labels | the judge (a confident "non-match")           | clears the precision bar with the same recall as the rules                                         |
+
+**Merges a human reviewed** are counted separately: every "match" label from the owner is a
+must-link, so the judge's suggestions (pairs below the threshold that the judge is confident match)
+are merged only when a human confirms them. Recall rises only with precision a human has confirmed.
+
+How the current policy behaves inside the zone: a confident "match" on a pair above the threshold is
+the rule merge itself; below the threshold it goes to the human queue as a "suggestion". A confident
+"non-match" vetoes the rule merge. "Unsure", or any verdict with confidence below 0.8, holds the
+merge back, and the pair waits in the human queue.
+
+<ErPolicies locale="en" />
+
+<Callout kind="caution" title="An optimism to be aware of">
+  The judge was chosen on these same gold pairs, so the end-to-end numbers of the policies that use
+  it are optimistic by that much. The clean test is a gold-v2 sample of new villas. The judge's
+  merges below the threshold also stay off until labels show their precision in the geographic band:
+  that stratum has about 30 labelled pairs, each standing for about 84 candidates.
+</Callout>
+
+## What changed after the human review
+
+### History of the label revision
+
+1. **2 and 3 Oct, the M3 results:** 41 of 45 same-platform pairs were labelled "match", although
+   their titles named different units ("unit 4" and "unit 7", three bedrooms against two, up to 946
+   metres apart). They were outside the cross-platform evaluation and were left alone; the owner was
+   told.
+2. **3 Oct, the end-to-end evaluation:** the judge vetoed five cross-platform pairs labelled "match",
+   and in all five it named the numbers of different units of one complex. Because arbitration
+   between the judge and the labels belonged to the owner, the judge was made "advisory" only.
+   <Adr n="0014" locale="en">
+     amendment of 3 Oct
+   </Adr>
+3. **4 Oct, the owner confirms:** the owner confirmed that these pairs had been labelled "match" by
+   mistake. 48 labels were revised under rule 2, each with its reason: 41 same-platform (38 to
+   "non-match" and 3 to "unsure") and 7 cross-platform (4 to "non-match" and 3 to "unsure"). The
+   owner's own "unsure" labels were left alone.
+4. **The same day, every measurement rerun:** the matching evaluation, the threshold curve, the
+   judge bake-off (from the cache), the villa rebuild, H1 to H3, H4 and the ROADMAP tables.
+
+The revisions did not erase history: `er.label_revision` keeps the original label, the new label,
+the reason, the reviser and the time, and `er revise-labels` applies all of them or none: if a
+pair's current label does not match the file, no revision is applied, and running it again changes
+nothing. The evaluation always runs on both versions of the labels so the effect of the revision is
+visible.
+
+### Effect on the metrics
+
+<ErWhatChanged locale="en" />
+
+In short: the new wrong merges of "rules alone" are exactly the complex units, and the judge vetoes
+all of them without losing a single correct gold pair. Under the ADR-0009 rule (the highest recall
+that clears the bar), `judge_vetoes` was switched on and `judge_merges` stayed off. The number of
+villas went up slightly, because pairs that had been merged by mistake are now apart.
+
+### All the revisions
+
+<ErRevisions locale="en" />
+
+### Policies on the original labels (for comparison)
+
+<details className="group my-4 rounded-card border border-line bg-surface">
+  <summary className="focus-ring cursor-pointer rounded-card p-4 text-sm font-medium">
+    Show the policy table on the labels before the revision
+  </summary>
+  <div className="border-t border-line p-4">
+    <ErPolicies labels="original" locale="en" />
+  </div>
+</details>
+
+## Clustering and stable ids
+
+<Diagram
+  name="villa-reconciliation"
+  caption="Merges, splits and id reconciliation between two villa builds"
+  locale="en"
+/>
+
+- **At most one listing per platform** in each villa: product rule 4, both in the domain aggregate
+  and through the unique index on `(villa_id, platform)`. A merge that would break it is refused and
+  reported, never forced.
+- **Merge order:** human labels first, then the strongest score. A human cannot-link blocks every
+  machine merge.
+- **Stable ids:** each new build is reconciled with the previous one by the largest member overlap;
+  merges and splits are recorded in `er.villa_event`. A bug that left one id on two villas after a
+  split was found and closed with a test.
+- **Reproducibility:** rebuilding with the same labels gives the same villas and the same ids (M5
+  criterion 7).
+
+## The human queue
+
+Waiting pairs are added to the `er-human` queue (append-only: a rerun adds nothing, and labelled
+pairs stay as history). The order: the judge's suggestions first, then its disputes of rule merges,
+then the unsure ones; within each group, the most confident first. Every label rebuilds the villas.
+
+The owner labelled all 376 pairs in the queue, choosing "unsure" or "another villa" where there
+were no photos, and sometimes checked the listing on the platform's own site to make sure two
+listings were not different units of one property. Because these are pairs the judge itself picked,
+they measure the judge inside its own zone, not matching precision on a random sample:
+
+<ErHumanQueue locale="en" />
+
+Every "match" from the owner is a must-link, so these labels increased the number of villas on both
+platforms (the cards at the top of the page). 97% of the judge's suggestions were confirmed, but the
+interval's lower bound is still below 92%, so the judge's automatic merges stay off for new pairs.
+The judge's vetoes were confirmed again by the same labels.
+
+## H5: photos against the other evidence
+
+Hypothesis H5 said that photos alone are not enough for precision. The ablation measures each part
+of the evidence on its own:
+
+<ErAblations locale="en" />
+
+Photos alone do not reach the precision bar, because units of one complex share photos; the other
+evidence alone does not reach it either; together they do. H5 is confirmed.
+
+## Reproducing
+
+```bash
+make match                                   # photo hashes and embeddings, blocking, evidence, scores
+cd backend
+uv run villasanj er queue --name gold-v1     # the stratified queue
+uv run villasanj er revise-labels ../eval/labels/gold-v1-revisions-2026-10-04.toml
+uv run villasanj er report                   # reports/er-eval-<date>.md and .json
+LLM__PROVIDER=offline uv run villasanj er judge-eval --out ../reports/judge-eval-<model>-<date>.md   # bake-off from the cache
+uv run villasanj er villas                   # villas with the config/er.toml policy
+uv run villasanj er villas-eval              # end to end on gold with the labels not applied
+```
+
+Code:
+
+- <SourceFile path="entity_resolution/application/villas.py" /> policy and clustering
+- <SourceFile path="entity_resolution/application/report.py" /> report
+- <SourceFile path="entity_resolution/application/revisions.py" /> label revisions

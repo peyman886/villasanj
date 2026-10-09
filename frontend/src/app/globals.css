@@ -164,13 +164,14 @@
 }
 
 /*
- * Dark mode follows the system (taste-skill: consumer pages ship both modes). The components use
- * the ramps and semantic roles above, so the dark theme redefines them here: the sand and brand
- * ramps are mirrored (a tint stays a tint, a text shade stays readable), state colours are lifted
- * to keep 4.5:1 on dark surfaces, and the maps switch to the dark Protomaps flavour.
+ * Dark mode is the reader's choice (the header's toggle, kept in localStorage); light is the
+ * default. The components use the ramps and semantic roles above, so the dark theme redefines
+ * them here: the sand and brand ramps are mirrored (a tint stays a tint, a text shade stays
+ * readable), state colours are lifted to keep 4.5:1 on dark surfaces, and the maps switch to the
+ * dark Protomaps flavour. A script in the root layout sets data-theme before the first paint.
  */
-@media (prefers-color-scheme: dark) {
-  :root {
+@layer theme {
+  :root[data-theme="dark"] {
     color-scheme: dark;
     --color-sand-50: oklch(0.17 0.006 80);
     --color-sand-100: oklch(0.215 0.007 80);
@@ -257,4 +258,16 @@ h4 {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* MapLibre's zoom buttons follow the theme (their icons are dark SVG backgrounds). */
+:root[data-theme="dark"] .maplibregl-ctrl-group {
+  background: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+:root[data-theme="dark"] .maplibregl-ctrl-group button + button {
+  border-top-color: var(--color-line);
+}
+:root[data-theme="dark"] .maplibregl-ctrl-group .maplibregl-ctrl-icon {
+  filter: invert(1);
 }

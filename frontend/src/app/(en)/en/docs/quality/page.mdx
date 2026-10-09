@@ -1,0 +1,91 @@
+import { DocHeader } from "@/components/docs/blocks";
+import { PerformanceTable, TestSuites } from "@/components/docs/data/quality";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Testing and quality",
+  description:
+    "The test pyramid, architecture contracts, accessibility, performance and the CI commands.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Models and quality" title="Testing and quality">
+  A milestone is done only when `make lint` and `make test` are green. Tests never call the real
+  language model API, no snapshot or photo is in git, and every suite's result is recorded in a
+  generated report that this page reads.
+</DocHeader>
+
+<Diagram
+  name="testing-pyramid"
+  caption="The test pyramid: the pure domain at the base, E2E and accessibility at the top"
+  locale="en"
+/>
+
+## Latest result
+
+<TestSuites locale="en" />
+
+## Layers
+
+| Layer         | Tools                                         | What it guarantees                                                                                                                                               |
+| ------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domain        | pytest, hypothesis                            | Pure logic: money and ranges, the Jalali calendar, the pricing engine (100% branch coverage), verdict rules, constrained clustering; whole-domain coverage ≥ 95% |
+| Application   | pytest with fakes                             | Use cases on in-memory adapters and the deterministic `FakeLLMProvider`; dry runs with zero calls                                                                |
+| Contract      | Trimmed fixtures per platform                 | Each adapter's parser on real pages, trimmed and free of personal data                                                                                           |
+| Architecture  | import-linter and architecture tests          | Dependency direction, domain purity, no platform name in the core, no invisible characters; each rule tested with a breaking fixture                             |
+| Integration   | testcontainers with real Postgres and PostGIS | Migrations, repositories, the queue, database constraints (one listing per platform)                                                                             |
+| Frontend      | Vitest                                        | Formatting, the API client, the ROADMAP status table against the reports                                                                                         |
+| E2E           | Playwright with Chrome                        | Provenance of ten random numbers on each page, removing a search chip, calendar keyboard use, no horizontal scroll at 375 px, the offline map, every docs route  |
+| Accessibility | axe in E2E                                    | No serious or critical violations on product and docs pages                                                                                                      |
+| Smoke         | Playwright                                    | A sample of 50 listings and 50 two-platform villas with no page or console errors                                                                                |
+
+## Contracts that are tests themselves
+
+- **ROADMAP and the portal agree:** the ROADMAP status tables are generated from
+  `frontend/src/content/milestones.ts` and the `reports/*.json` artifacts, and a Vitest test fails
+  if ROADMAP falls behind them (`make roadmap` regenerates it).
+- **Diagrams match their sources:** `npm run diagrams:check` in `make lint`.
+- **OpenAPI and the typed client:** `make openapi-check` fails if the schema and the types drift
+  apart.
+- **Prompt versions:** a test keeps the hash of every prompt template; changing a template without
+  bumping its version fails, so the cache never serves an old template's reply for a new one.
+- **Secrets:** tests on repr, logs and error messages, and gitleaks in pre-commit.
+
+## Performance
+
+<PerformanceTable locale="en" />
+
+The M7 criterion 5 target (p95 for a villa and its offers under 300 ms) is met by a wide margin.
+Uncached explanation latency (M10 criterion 4) missed its target, and the owner accepted it with the
+cache; the details are in [Search](/en/docs/search-ranking).
+
+## Accessibility and right to left
+
+- The Persian pages set `lang="fa"` and `dir="rtl"`; code, identifiers and the numeric axes of
+  charts are left to right.
+- A "skip to content" link, a focus ring on every interactive element, and a source card on a
+  native Popover that closes with Escape and returns focus.
+- Colour never carries meaning alone: every status and verdict has an icon and text.
+- Every wide table scrolls inside its own card, not the whole page; E2E checks this at a width of
+  375 px.
+- `prefers-reduced-motion` turns every animation off.
+
+## Commands
+
+```bash
+make lint               # ruff, mypy strict, import-linter, tsc, eslint, prettier, diagrams
+make test               # unit and architecture (domain coverage ≥ 95%) and Vitest
+make test-integration   # real Postgres in a throwaway container
+make test-e2e           # Playwright and axe against the running app
+make test-smoke         # 50 sampled pages
+make quality-report     # all of the above, results in reports/quality-<date>.json, then ROADMAP
+make perf-report        # API latency in reports/performance-<date>.json
+make ci                 # lint, test and test-integration
+```
+
+<Callout kind="info" title="Why the quality report is separate">
+  The numbers on this page come from real runs of the suites through machine-readable reporters
+  (JUnit, JSON), not from manual counting. If the quality report is old, its date is shown next to
+  every number.
+</Callout>

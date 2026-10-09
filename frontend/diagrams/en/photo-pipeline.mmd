@@ -1,0 +1,14 @@
+flowchart TB
+  accTitle: The photo evidence pipeline
+  accDescr: Five photos per listing are downloaded politely; pHash and local DINOv2 embeddings feed matching, and SigLIP tags, thresholded by the owner's labels, only corroborate amenities.
+  urls["Photo URLs"] --> pick["Five photos per listing"]
+  pick --> dl["Polite download"]
+  dl --> blob[("Blob store")]:::store
+  blob --> phash["pHash<br/>same photo"]
+  blob --> dino["Local DINOv2-small<br/>similar photo"]
+  blob --> siglip["Local SigLIP 2<br/>scene tags"]
+  phash --> er["Matching evidence<br/>weighted by photo frequency"]
+  dino --> er
+  labels["Owner's photo labels"]:::human --> thr["Threshold at precision ≥ 85%"]
+  siglip --> thr
+  thr --> corro["Only corroborates amenities<br/>the description claims"]:::good

@@ -1,0 +1,128 @@
+import { Adr, DocHeader, SourceFile, Step, Steps } from "@/components/docs/blocks";
+import { ConfigSnippet, LlmSpend } from "@/components/docs/data/live";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Language models",
+  description:
+    "The AvalAI gateway behind the LLMClient port: routing, caching, budgets, the cost ledger, dry runs and offline mode.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Models and quality" title="Language models">
+  A language model is used only where deterministic rules are not enough, and only through one port.
+  Every call is priced before it runs and recorded in the cost ledger afterwards. No model name
+  appears in code; each task's route lives in `config/llm.toml`.
+  <span className="mt-3 flex flex-wrap gap-2">
+    <Adr n="0004" locale="en" />
+    <Adr n="0005" locale="en" />
+    <Adr n="0007" locale="en" />
+  </span>
+</DocHeader>
+
+<Callout kind="info" title="Account status and behaviour without a model">
+  From 4 to 5 October 2026 the AvalAI account had no credit; on 5 October it was recharged with a
+  new key and a small balance. In that gap, the first "quota exhausted" answer stopped calls at once
+  (no retry, and no fallback model on the same key) and the API returned 503; cached replies were
+  still served, and otherwise only the existing fallbacks (the explanation template, the
+  "unavailable" box) worked. The same behaviour returns whenever the credit runs out.
+</Callout>
+
+## Where a language model is used
+
+| Task                          | Current model                   | Fallback              | Why a model, not a rule                                  |
+| ----------------------------- | ------------------------------- | --------------------- | -------------------------------------------------------- |
+| Query understanding           | gpt-5.4-mini                    | gemini-3.1-flash-lite | Free-form Persian; output guarded for numbers and quotes |
+| Matching judge                | gemini-3.8-flash                | gpt-5.4-mini          | Visual comparison of rooms that hashes miss              |
+| Review summary                | gemini-3.8-flash, low reasoning | gpt-5.4-mini          | Summarising text with citations                          |
+| "Why this villa?" explanation | gemini-3.8-flash, low reasoning | gpt-5.4-mini          | Persian prose around slots                               |
+| Claim extraction (residue)    | gemini-3.1-flash-lite           | gpt-5.4-mini          | Sentences the rules could not read                       |
+
+The "deterministic first" rule: regex, rules and pHash come first; the model sees only the residue.
+gpt-5-nano was excluded on purpose: it failed the extraction probe. Text embeddings (ADR-0006) are
+not built: vector retrieval does not ship until the retrieval evaluation (M8 criterion 2) shows it
+is better, and image embeddings are local (DINOv2, ADR-0012).
+
+## The call chain
+
+<Diagram
+  name="llm-chain"
+  caption="Routing, cache, retry, budget and output validation, before the provider"
+  locale="en"
+/>
+
+<Steps>
+  <Step title="Routing">
+    `RoutedLLMClient` tries each task's primary model and then its fallbacks, only on transport or
+    availability errors, with a per-task concurrency limit. Routing sits above the cache because the
+    cache key depends on the model: a fallback's reply is never served in place of the primary.
+  </Step>
+  <Step title="Cache">
+    The key is a sha256 of the provider, model, `prompt_id@version`, messages (with image hashes),
+    schema and parameters. Any prompt template change bumps the version; a test checks the template
+    hashes so it is not forgotten. Every cache hit also gets a zero-dollar row in the cost ledger.
+  </Step>
+  <Step title="Retry">
+    Exponential backoff with jitter, honouring `Retry-After`. Invalid output is asked again with the
+    validation feedback. "Quota exhausted" is never retried.
+  </Step>
+  <Step title="Cost governor">
+    Before every call, the worst-case cost is reserved and checked against the task budget and the
+    project cap ($30). Every attempt, even a failed one, is a row in `ops.llm_call`.
+  </Step>
+  <Step title="Structured output">
+    Pydantic validation with a strict json_schema. `finish_reason=length` on reasoning models is an
+    error, not a partial answer.
+  </Step>
+</Steps>
+
+## Estimating before running
+
+Every LLM use case implements `plan()`, so `--dry-run` estimates the cost with no calls at all:
+cache hits are subtracted, and tokens and cost come from each model's calibrated estimator and the
+price list. Examples: the review summary estimate was 3% and the claim reading estimate 22% away
+from the cost ledger (criterion ±25%).
+
+```bash
+make dry-run JOB=llm-smoke                                       # price a job with zero calls
+cd backend && uv run villasanj er judge --low -2 --high 3 --dry-run
+cd backend && uv run villasanj llm spend                         # ledger totals and the cap
+```
+
+## Spend so far
+
+These figures are live from the database's cost ledger; every cache hit is recorded at zero cost.
+
+<LlmSpend locale="en" />
+
+The matching judge has the largest share: a full run over the [−2, 3) band on 2,885 pairs cost
+$9.58. The owner reconciled the cost ledger with the AvalAI dashboard and confirmed it (5 October
+2026; M1 criterion 8 and M11 criterion 3).
+
+## Account and model facts
+
+- AvalAI is **tier 3** (from the `x-ratelimit-*` headers, 1 October 2026).
+- Gemini bills about 1,090 tokens per image regardless of size, so the judge receives a composite
+  grid of photos, not separate images.
+- `gemini-embedding-001` reports zero usage; the cost ledger marks it as "estimated".
+- gemini-3.8-flash thinks by default (165 to 255 reasoning tokens even for a trivial reply); for the
+  summary and the explanation, `reasoning_effort = "low"` was measured and set.
+
+<ConfigSnippet file="llm.toml" from="[tasks.er_judge]" to="[tasks.review_summary]" locale="en" />
+
+## Tests and offline mode
+
+- **Tests never call the real API:** `FakeLLMProvider` is deterministic and scripted. Live tests
+  carry the `live_llm` marker, run only through `make test-live`, and are capped at $0.05.
+- **Offline demo:** `LLM__PROVIDER=offline` answers from the cache only; a cache miss means 503,
+  and the page drops or replaces that section.
+- **The key:** only in `.env`; never in code, logs, error messages or commits. `.env.example` has no
+  values, and gitleaks runs in pre-commit.
+
+## Adding a provider
+
+One adapter for `RawModelProvider`, one branch in `build_provider` and a value for
+`LLM__PROVIDER`. Model names go in `config/llm.toml`. The decorators and use cases do not change.
+
+Code: <SourceFile path="shared/application/llm/" /> and <SourceFile path="shared/infrastructure/llm/" />.

@@ -1,0 +1,15 @@
+flowchart TB
+  accTitle: The entity resolution pipeline
+  accDescr: Candidate pairs come from several blocking sources and get evidence and a rule score; an LLM judge gives its verdict in the grey zone, and constrained clustering with the owner's labels builds the villas.
+  listings[("Listings and photos")]:::store --> blocking["Blocking<br/>four candidate sources"]
+  blocking --> evidence["Pair evidence<br/>photos, location, structure, price"]
+  evidence --> score["Transparent rule score<br/>sum of named contributions"]
+  score --> policy{"Decision policy<br/>config/er.toml"}:::decision
+  judge["LLM judge<br/>photo grid + facts"]:::llm --> policy
+  policy --> merges["Machine merges"]:::good
+  policy --> queue["Human queue<br/>er-human"]:::human
+  labels["Owner's labels<br/>must-link and cannot-link"]:::human --> cluster
+  merges --> cluster["Greedy clustering<br/>at most one per platform"]
+  queue -.-> labels
+  cluster --> reconcile["Id reconciliation<br/>with the previous run"]
+  reconcile --> villas[("er.villa and history")]:::store

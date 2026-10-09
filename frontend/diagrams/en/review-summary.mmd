@@ -1,0 +1,13 @@
+flowchart TB
+  accTitle: Review summary with citations
+  accDescr: The newest text reviews from all platforms go to the model with short IDs; every point must cite existing reviews and contain no number or checkable comparison; code decides whether a point is one guest's view.
+  reviews[("Reviews from all platforms")]:::store --> choose["Newest text reviews<br/>with IDs R1...Rn"]
+  choose --> llm["LLM<br/>pros and cons"]:::llm
+  llm --> verify{"Citations exist? No numbers or money?"}:::decision
+  verify -- "No" --> retry["One retry with the error list"]
+  retry --> verify2{"Still failing?"}:::decision
+  verify2 -- "Yes" --> dropp["Drop that point"]:::warn
+  verify -- "Yes" --> map["Map ID to review<br/>platform:review_id"]
+  verify2 -- "No" --> map
+  map --> single["One review or several<br/>by code, not by the model"]
+  single --> ui["Summary card with a link<br/>to each review"]:::good

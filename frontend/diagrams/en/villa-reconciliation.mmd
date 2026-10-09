@@ -1,0 +1,12 @@
+flowchart TB
+  accTitle: Merges, splits and stable villa ids
+  accDescr: Each old id goes to the new cluster it overlaps most; a cluster with no heir gets a fresh id that never collides with another, and every change is recorded in the history.
+  prev[("Previous villas<br/>id → members")]:::store --> overlap["Overlap of each old id<br/>with each new cluster"]
+  next["New clusters"] --> overlap
+  overlap --> assign["Each id goes to the cluster<br/>with the largest overlap"]
+  assign --> fresh{"Cluster has an heir?"}:::decision
+  fresh -- "yes" --> keep["Same id"]:::good
+  fresh -- "no" --> salt["Id from the members' hash<br/>salted so it never repeats"]
+  keep --> events["Events<br/>created · merged · split · retired"]
+  salt --> events
+  events --> store[("er.villa_event")]:::store

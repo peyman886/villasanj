@@ -9,7 +9,7 @@ import { expectCleanCopy } from "./copy";
 test.describe("home page (M12 2.5)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("h1")).toHaveText("یک ویلا، همه‌ی حقیقت");
+    await expect(page.locator("h1")).toHaveText("قبل از رزرو، بسنجید");
   });
 
   test("the two-platform villas come right after the hero, each with both prices", async ({

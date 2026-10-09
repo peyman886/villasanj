@@ -1,0 +1,14 @@
+flowchart TB
+  accTitle: Amenity claim extraction
+  accDescr: Rules run first; the model reads only the amenities the rules found nothing about, and every quote must appear verbatim in the text.
+  text["Description text"] --> rules["Deterministic rules<br/>lexicon, negation, shared"]
+  rules --> found["Rule claims"]:::good
+  rules --> residue["Amenities the rules<br/>found nothing about"]
+  residue --> llm["LLM<br/>claim_extraction"]:::llm
+  llm --> quote{"Quote verbatim in text?"}:::decision
+  quote -- "No, once more" --> llm
+  quote -- "Still no" --> dropq["Dropped"]:::warn
+  quote -- "Yes" --> read["Extracted claim<br/>llm_extracted"]
+  found --> merged["Merged under the rules<br/>a rule always wins"]
+  read --> merged
+  merged --> use["Truth check and search"]

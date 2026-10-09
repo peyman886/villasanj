@@ -1,7 +1,7 @@
-import { Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
+import { SectionAnchor, TableRegion } from "@/components/docs/prose-client";
 import { cn } from "@/lib/cn";
 
 /** Headings with a hover anchor; ids come from rehype-slug (MDX) or are given. */
@@ -24,15 +24,7 @@ export function Heading({
   return (
     <Tag id={id} className={cn("group scroll-mt-24 text-balance text-fg", size, className)}>
       {children}
-      {id ? (
-        <a
-          href={`#${id}`}
-          aria-label="پیوند به این بخش"
-          className="focus-ring ms-2 inline-flex rounded-sm align-middle text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-        >
-          <LinkIcon aria-hidden="true" className="size-4" />
-        </a>
-      ) : null}
+      {id ? <SectionAnchor id={id} /> : null}
     </Tag>
   );
 }
@@ -89,15 +81,10 @@ export function CodeBlock({ children, title }: { children?: ReactNode; title?: s
 
 export function ProseTable({ children }: { children?: ReactNode }) {
   return (
-    <div
-      className="my-5 overflow-x-auto rounded-card border border-line bg-surface"
-      tabIndex={0}
-      role="region"
-      aria-label="جدول"
-    >
+    <TableRegion>
       <table className="w-full min-w-[28rem] text-start text-sm tabular-nums [&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_th]:px-3 [&_th]:py-2 [&_th]:text-start [&_th]:font-medium [&_thead]:bg-sunken [&_thead]:text-fg-muted [&_tr]:border-t [&_tr]:border-line [&_thead_tr]:border-0">
         {children}
       </table>
-    </div>
+    </TableRegion>
   );
 }

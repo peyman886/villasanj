@@ -1,0 +1,144 @@
+import { Adr, DocHeader, SourceFile } from "@/components/docs/blocks";
+import { H4Table } from "@/components/docs/data/hypotheses";
+import { DistanceVerdicts } from "@/components/docs/data/live";
+import { Diagram } from "@/components/docs/diagram";
+import { VerdictBadge } from "@/components/ui/status";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Truth check",
+  description:
+    "Distance and amenity claims against the map, the amenity list and the photos; disagreements between platforms and H4.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Product core" title="Truth check">
+  Listings say "5 minutes' walk to the sea", "has a pool", "near the town centre". Villasanj places
+  every claim next to its evidence: the map, the listing's own amenity list, the photos, and the
+  same villa's listing on the other platform. The tone is always "not confirmed", never an
+  accusation.
+  <span className="mt-3 flex flex-wrap gap-2">
+    <Adr n="0013" locale="en" />
+    <Adr n="0007" locale="en" />
+  </span>
+</DocHeader>
+
+<Diagram
+  name="truth-check"
+  caption="From claim to evidence to a verdict with a range, and the best-case rule"
+  locale="en"
+/>
+
+## Verdict vocabulary
+
+| Verdict                                              | Meaning                                                                                                                |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| <VerdictBadge verdict="supported" locale="en" />     | Independent evidence (the map, or a photo together with the description) agrees with the claim.                        |
+| <VerdictBadge verdict="consistent" locale="en" />    | The description agrees with the listing's own amenity list. Both come from the host, so this is not "confirmed" (A18). |
+| <VerdictBadge verdict="shared" locale="en" />        | The amenity is shared by the complex, not specific to this unit.                                                       |
+| <VerdictBadge verdict="not_confirmed" locale="en" /> | We do not have enough evidence. It means we do not know, not that the claim is false.                                  |
+| <VerdictBadge verdict="contradicted" locale="en" />  | Even the most generous reading of the claim and the nearest possible position of the villa do not meet.                |
+| <VerdictBadge verdict="inconsistent" locale="en" />  | The description says something the listing's own amenity list contradicts.                                             |
+| <VerdictBadge verdict="not_checked" locale="en" />   | We have no evidence for this kind of claim (for example, entertainment venues).                                        |
+
+**The best-case rule:** a "does not match" verdict is given only when even the best case of the
+evidence refutes the claim (product rule 5). Being closer than claimed, or understating ("more than
+30 minutes"), is never refuted.
+
+## Distance claims
+
+- **Reading the claim:** the published value is a rounded choice from the platform's short list
+  (Jabama: under 5, 5, 10 … 30, more than 30 minutes; Shab: 5, 15, 30, 60). So "N minutes" means up
+  to N + max(5, N/2) minutes (A15).
+- **Time to distance:** with generous straight-line speeds: walking 40 to 100 metres per minute,
+  driving 150 to 1,000 metres per minute (A13). When the mode is unknown, both readings are tested.
+- **"Sea" is a whole word:** «دریاسر» (Daryasar, a plain) and «ساحلی» ("coastal") in «پیاده‌راه
+  ساحلی» ("coastal walkway") are not the sea, and a value given for two places at once ("forest and
+  sea") is not tested.
+- **A range over a blurred position:** the distance from the whole blur circle to the coast or the
+  place; details in [Geodata](/en/docs/geo).
+- **An incomplete map only confirms:** shops, restaurants, medical centres and forest; the town
+  centre data is complete and can refute.
+
+<DistanceVerdicts locale="en" />
+
+The refuted examples are clear overstatements; for example "under 5 minutes' walk to the sea" while
+the whole blur circle is 6.3 to 7.1 km from the coast. Three rule errors that produced an accusing
+tone in the first verdicts were found by reading verdicts by hand and are now unit tests.
+
+## Amenity claims
+
+<Diagram
+  name="claims-extraction"
+  caption="Claim extraction: deterministic rules first, the LLM only for the residue, verbatim quotes"
+  locale="en"
+/>
+
+- **Rules first:** an amenity lexicon shared with search (`config/features.toml`), with negation
+  ("no pool") and shared amenities. Every claim carries a verbatim quote from the text.
+- **The LLM only for the residue:** sentences the rules could not read. A quote that is not verbatim
+  in the text goes back once and is then dropped.
+- **Evaluation on 60 descriptions labelled by the owner (claims-v1):** precision 93.7% (84.8 to
+  97.5%) and recall 80.8% (70.3 to 88.2%); every quote verbatim. M9 criterion 1 (precision ≥ 90%,
+  recall ≥ 80%) passed. Source: `enrichment claims-eval`, 3 October.
+- **Evidence:** the same listing's amenity list ("matches the amenity list" or "does not match"),
+  and the photos.
+
+## Photo evidence
+
+Zero-shot SigLIP 2 tags on every photo, with a threshold at which per-photo precision on the owner's
+labels is ≥ 85% (336 photos, photos-v1, 3 October):
+
+| Tag       | Precision (95% interval) | Recall | Used |
+| --------- | ------------------------ | ------ | ---- |
+| Pool      | 94.0% (83.8 to 97.9%)    | 97.9%  | Yes  |
+| Jacuzzi   | 86.0%                    | 87.5%  | Yes  |
+| Forest    | 87.0%                    | 72.7%  | Yes  |
+| Barbecue  | 88.9%                    | 84.2%  | Yes  |
+| Sea view  | Did not reach 85%        | -      | No   |
+| Fireplace | Did not reach 85%        | -      | No   |
+
+A photo is only **supporting** evidence (A21): an amenity the description claims and a photo shows
+gets "confirmed" with the photo as its source; a photo tag alone confirms nothing and never
+overrides "does not have". The reason is that a listing's five photos are five chances for a false
+positive, so listing-level precision is lower than per-photo precision.
+
+<Callout kind="caution" title="Vision model check: built and measured, not used">
+  For sea view and fireplace, a vision model (gemini-3.1-flash-lite, one call per photo) was asked
+  about the same 336 photos labelled by the owner (8 October, about $0.2). Precision against the
+  labels: sea view 35 of 48 (about 73%) with full recall, fireplace 18 of 26 (about 69%); neither
+  reached 85% and no threshold was stored. A look at four "false positives" showed that all four
+  photos really do show the sea or a fireplace and the label had missed it, so the model's true
+  precision is probably higher; but the rule is that the owner's label is the judge, so these two
+  tags stay unused until the owner reviews the labels.
+</Callout>
+
+## Disagreement between platforms and H4
+
+Two listings of one villa count as "inconsistent" only when what the platforms themselves say
+(amenity list, description) is "yes" on one and "no" on the other and each is uncontested on its own
+platform, or when their distance claims to a named destination do not overlap under any reading
+(A23). The map and the photos are evidence, not statements. The villa page shows both sides with
+their sources, without judging which one is right.
+
+H4 asked what share of listings make at least one claim that the map refutes or that the same
+villa's listing on the other platform contradicts. The research report expected ≥ 25%:
+
+<H4Table locale="en" />
+
+H4 was not confirmed: the real share is about one tenth or less. Villas on both platforms come from
+the current villa build (with the policy after the label revision).
+
+## Reproduce
+
+```bash
+cd backend
+uv run villasanj enrichment claims             # parse coverage of distance claims
+uv run villasanj enrichment features           # description claims against the amenity list
+uv run villasanj enrichment truth-sea          # sea claims against the coastline
+uv run villasanj enrichment truth-distances    # other destinations against OSM places
+uv run villasanj enrichment photo-tags-eval    # photo-tag thresholds on the owner's labels
+uv run villasanj enrichment h4 --out ../reports/h4-<date>.md
+```
+
+Code: <SourceFile path="enrichment/domain/" /> and <SourceFile path="enrichment/application/consistency.py" />.

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Badge, type Tone } from "@/components/ui/badge";
+import type { Locale } from "@/lib/i18n";
 import { CLAIM_VERDICT_TEXT } from "@/lib/listing";
 
 export type Status =
@@ -23,24 +24,37 @@ export type Status =
   | "owner_review"
   | "not_met";
 
-export const STATUS: Record<Status, { text: string; tone: Tone; Icon: typeof CircleCheck }> = {
-  done: { text: "انجام شد", tone: "verified", Icon: CircleCheck },
+export const STATUS: Record<
+  Status,
+  { text: string; en: string; tone: Tone; Icon: typeof CircleCheck }
+> = {
+  done: { text: "انجام شد", en: "Done", tone: "verified", Icon: CircleCheck },
   // Closed by the owner's decision: not achieved as written, and no longer required (said so).
-  waived: { text: "بسته به تصمیم مالک", tone: "muted", Icon: CircleCheckBig },
-  partial: { text: "بخشی انجام شد", tone: "info", Icon: CircleDashed },
-  provisional: { text: "موقت", tone: "caution", Icon: Hourglass },
-  blocked: { text: "مسدود", tone: "danger", Icon: CircleSlash },
-  deferred: { text: "به تعویق افتاده", tone: "muted", Icon: Clock },
-  owner_review: { text: "منتظر بازبینی مالک", tone: "info", Icon: UserCheck },
-  not_met: { text: "پاس نشده", tone: "danger", Icon: CircleX },
+  waived: {
+    text: "بسته به تصمیم مالک",
+    en: "Closed by the owner",
+    tone: "muted",
+    Icon: CircleCheckBig,
+  },
+  partial: { text: "بخشی انجام شد", en: "Partly done", tone: "info", Icon: CircleDashed },
+  provisional: { text: "موقت", en: "Provisional", tone: "caution", Icon: Hourglass },
+  blocked: { text: "مسدود", en: "Blocked", tone: "danger", Icon: CircleSlash },
+  deferred: { text: "به تعویق افتاده", en: "Deferred", tone: "muted", Icon: Clock },
+  owner_review: {
+    text: "منتظر بازبینی مالک",
+    en: "Awaiting the owner's review",
+    tone: "info",
+    Icon: UserCheck,
+  },
+  not_met: { text: "پاس نشده", en: "Not met", tone: "danger", Icon: CircleX },
 };
 
 /** Milestone or criterion status: icon + words, never colour alone. */
-export function StatusBadge({ status }: { status: Status }) {
+export function StatusBadge({ status, locale = "fa" }: { status: Status; locale?: Locale }) {
   const s = STATUS[status];
   return (
     <Badge tone={s.tone} icon={<s.Icon aria-hidden="true" className="size-3.5" />}>
-      {s.text}
+      {locale === "en" ? s.en : s.text}
     </Badge>
   );
 }
@@ -65,11 +79,25 @@ const VERDICT: Record<Verdict, { tone: Tone; Icon: typeof CircleCheck }> = {
 };
 
 /** A truth-check verdict; «تأیید نشد» is the default tone, never an accusation (rule 5). */
-export function VerdictBadge({ verdict }: { verdict: string }) {
+const VERDICT_EN: Record<Verdict, string> = {
+  supported: "Confirmed",
+  consistent: "Matches the amenity list",
+  shared: "Shared amenity",
+  not_confirmed: "Not confirmed",
+  contradicted: "Disagrees with the map",
+  inconsistent: "Disagrees with the amenity list",
+  not_checked: "Not checked",
+};
+
+export function VerdictBadge({ verdict, locale = "fa" }: { verdict: string; locale?: Locale }) {
   const v = VERDICT[verdict as Verdict] ?? VERDICT.not_checked;
+  const text =
+    locale === "en"
+      ? (VERDICT_EN[verdict as Verdict] ?? verdict)
+      : (CLAIM_VERDICT_TEXT[verdict] ?? verdict);
   return (
     <Badge tone={v.tone} icon={<v.Icon aria-hidden="true" className="size-3.5" />}>
-      {CLAIM_VERDICT_TEXT[verdict] ?? verdict}
+      {text}
     </Badge>
   );
 }

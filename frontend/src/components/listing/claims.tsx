@@ -215,7 +215,7 @@ export function ClaimsSection({
   return (
     <Section
       id="claims"
-      title="حقیقت‌سنجی ادعاها"
+      title="راستی‌آزمایی ادعاها"
       description={`ادعاهای خود آگهی در ${listing.platform_name}، هر کدام کنار شاهدش.`}
     >
       <ClaimGroups sources={[{ listing, claims, idPrefix: "" }]} now={now} />

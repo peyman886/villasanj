@@ -4,6 +4,20 @@
  * words on the left of that table never appear (FORBIDDEN).
  */
 
+/** The name and the one line said about it (home, metadata, README and the docs share these). */
+export const BRAND = {
+  name: "ویلاسنج",
+  tagline: "قبل از رزرو، بسنجید",
+  description:
+    "ویلاسنج آگهی‌های یک ویلا را در جاباما و شب پیدا می‌کند و قیمت، تقویم و نظرهایش را کنار هم نشان می‌دهد؛ هر عدد با منبعش.",
+  en: {
+    name: "Villasanj",
+    tagline: "Compare before you book",
+    description:
+      "Villasanj finds the same villa on Jabama and Shab and shows its prices, calendar and reviews side by side, every number with its source.",
+  },
+} as const;
+
 export const COPY = {
   from: "از",
   platforms: "پلتفرم‌ها",

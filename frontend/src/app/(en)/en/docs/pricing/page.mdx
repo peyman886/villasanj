@@ -1,0 +1,106 @@
+import { Adr, DocHeader, SourceFile } from "@/components/docs/blocks";
+import { H2Table, H3Table } from "@/components/docs/data/hypotheses";
+import { ConfigSnippet, OfferCoverage } from "@/components/docs/data/live";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Prices and calendar",
+  description:
+    "Each listing's all-in offer with a source for every component, ranges, the per-person share and the merged calendar.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Product core" title="Prices and calendar">
+  The price a listing advertises is not the price a guest pays. For every listing, stay window and
+  group size, the pricing engine builds an offer in which every component has a source, and where a
+  component is unknown it gives a range or a "from" price instead of an invented number.
+  <span className="mt-3 flex flex-wrap gap-2">
+    <Adr n="0007" locale="en" />
+  </span>
+</DocHeader>
+
+## The formula
+
+```text
+total = Σ nightly price of each night
+      + max(0, guests − base capacity) × extra-guest rate × nights
+      + fees per the platform's fee policy (unknown ⇒ open upper bound)
+```
+
+- Every component is a `MoneyRange` with a source. A component with no source yields an **open
+  upper bound**: "from X". We never invent a cap.
+- A night's price comes from the calendar observation for that night. If the calendar has no price
+  for it, the listing's rate card (regular, weekend, holiday) is used and the offer says so as a
+  caveat; if the platform left a rate "not set", it is unknown, not zero.
+- Each offer's kind is explicit: `EXACT` (every component known), `RANGE` (a closed range) or
+  `OPEN` ("from X").
+- The engine gives no offer in these cases and says why: too small for the group, below the
+  minimum nights, a night seen booked or closed, a night with no usable observation.
+- Branch coverage of `pricing/domain` is enforced at 100% in `make test`, and a property test
+  makes sure every component of every offer has a source.
+
+## Fees: why every offer is a "from" price
+
+Neither platform publishes the guest fee or the final total on its public pages, and the checkout
+page is not crawled (ADR-0008). So each platform's fee policy is `fees_known = false`, with a source
+that says what was checked:
+
+<ConfigSnippet file="fees.toml" locale="en" />
+
+The result: every bookable offer is "from X", the most precise statement the data allows. A
+comparison with the platform's direct price (M6 criterion 3) was not possible, because no public
+source of the final price exists; the owner confirmed this and closed the criterion (5 October
+2026).
+
+## Scenarios and offer coverage
+
+Three scenarios (weekend, midweek, holiday) for 4 and 8 guests. The holiday date is not guessed; it
+comes from Jabama's calendar flag. The table below shows, for each scenario, how many listings have
+an offer and why the rest do not:
+
+<OfferCoverage locale="en" />
+
+## Per-person share
+
+Every offer also carries the per-person share (`per_person`). The division rounds the range
+outwards so the real share always stays inside it, and an open total gives an open share. Search
+compares the budget against this share, per person and per night.
+
+## Prices are never merged
+
+A villa listed on both platforms has two offers, each with its own source, side by side. There is
+no constructed "average" or "best price" (rule 3). The gap between the two offers is itself one of
+the findings:
+
+<H2Table locale="en" />
+
+## Freshness
+
+Prices and availability are observations, not states. Every offer carries the observation time of
+its oldest input and, when that is more than 24 hours old, gets a `stale` flag in the API; the page
+states the age of every observation ("seen free on Jabama 3 hours ago").
+
+## The merged calendar
+
+The villa page shows each platform's calendar side by side. A night that is free on one platform
+and booked on the other is a "hidden night": either one calendar is out of sync, or the villa was
+booked through another channel. Villasanj does not say which one is right; it shows both with
+their age and treats this as a warning sign, not a guarantee.
+
+<H3Table locale="en" />
+
+<Callout kind="info" title="Platform details">
+  Jabama's `disabled` nights do not say whether they are booked or closed, so they are stored as
+  "unavailable". Shab's calendar is keyed by Jalali month and comes in two payload shapes. Both are
+  handled in that platform's adapter.
+</Callout>
+
+## Reproduce
+
+```bash
+cd backend
+uv run villasanj pricing quote jabama <id>   # one listing's offer with every component and source
+uv run villasanj pricing offers              # the offer distribution across all scenarios
+```
+
+Code: <SourceFile path="pricing/domain/quote.py" /> and <SourceFile path="pricing/application/offers.py" />.

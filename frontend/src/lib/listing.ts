@@ -40,7 +40,7 @@ export const STATUS_TEXT: Record<string, string> = {
   unavailable: "دست‌کم یک شب ناموجود بود",
   too_many_guests: "ظرفیت برای این تعداد کافی نیست",
   below_min_nights: "کمتر از حداقل شب‌های اقامت",
-  unknown: "برای همه‌ی شب‌ها مشاهده‌ی قابل‌استفاده نداریم",
+  unknown: "برای همه‌ی شب‌ها داده‌ی قابل‌اتکا نداریم",
 };
 
 export const CAVEAT_TEXT: Record<string, string> = {
@@ -78,7 +78,7 @@ export const METHOD_TEXT: Record<Provenance["method"], string> = {
   observed: "مشاهده‌شده در صفحه‌ی پلتفرم",
   derived: "محاسبه‌شده از مقادیر مشاهده‌شده",
   llm_extracted: "استخراج‌شده با مدل زبانی",
-  human: "ثبت‌شده توسط انسان",
+  human: "ثبت‌شده به دست انسان",
 };
 
 export function faNumber(value: number | null | undefined): string {

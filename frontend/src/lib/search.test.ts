@@ -71,7 +71,7 @@ describe("search texts", () => {
     const choices = budgetChoices(result({ budget_readings: { per_night: 12, whole_stay: 4 } }));
     expect(choices.map((c) => [c.label, c.count])).toEqual([
       ["هر شب", 12],
-      ["کل اقامت", 4],
+      ["کل سفر", 4],
     ]);
     expect(choices[0]?.query).toBe("ویلا زیر ۵ میلیون شبی");
   });

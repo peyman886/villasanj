@@ -8,3 +8,4 @@ test-results
 playwright-report
 public/maplibre
 src/diagrams/generated.ts
+src/diagrams/generated-en.ts

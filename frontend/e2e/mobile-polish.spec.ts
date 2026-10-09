@@ -27,6 +27,27 @@ test.describe("phones (390×844)", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
   });
 
+  test("a tapped pin opens its villa's preview; «نمایش در فهرست» goes to its card", async ({
+    page,
+  }) => {
+    await page.goto(SEARCH);
+    await page.locator("[data-map-button]").click();
+    const dialog = page.getByRole("dialog", { name: "نقشه‌ی نتایج" });
+    const pin = dialog.locator("[data-pin]").last();
+    await expect(pin).toBeAttached({ timeout: 15_000 });
+    const id = await pin.getAttribute("data-pin");
+    await pin.click({ force: true }); // pins overlap along the coast
+    await expect(pin).toHaveAttribute("data-selected", "");
+    const preview = page.locator("[data-pin-preview]");
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole("link")).toHaveAttribute("href", /\/(villas|listings)\//);
+    await preview.getByRole("button", { name: "نمایش در فهرست" }).click();
+    await expect(dialog).toHaveCount(0);
+    const card = page.locator(`[data-result="${id}"]`);
+    await expect(card).toHaveAttribute("data-selected", "");
+    await expect(card).toBeInViewport();
+  });
+
   test("the villa's booking card becomes a bottom bar (3.3)", async ({ page }) => {
     await page.goto(VILLA);
     const bar = page.locator("[data-mobile-booking]");
@@ -41,7 +62,7 @@ test.describe("desktop map", () => {
   test.use({ viewport: { width: 1536, height: 864 } });
   test.describe.configure({ timeout: 120_000 });
 
-  test("moving the map offers «جست‌وجو در همین محدوده», which becomes a chip (3.2)", async ({
+  test("moving the map offers «جستجو در همین محدوده», which becomes a chip (3.2)", async ({
     page,
   }) => {
     await page.goto(SEARCH);

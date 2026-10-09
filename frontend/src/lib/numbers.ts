@@ -83,10 +83,13 @@ export function millions(toman: number): string {
   return faNum(rounded(toman / MILLION, 0.1, "lower"), 1);
 }
 
-/** The map pin: «۸٫۵م» (always a lower bound, so rounded down). */
+/**
+ * The map pin: «۸٫۵» in millions of toman (the map's legend names the unit), or «۸۵۰ هزار» for
+ * the rare stay under a million. Always a lower bound, so rounded down.
+ */
 export function pinToman(toman: number): string {
-  if (toman >= MILLION) return `${faNum(rounded(toman / MILLION, 0.1, "lower"), 1)}م`;
-  return `${faNum(rounded(toman / THOUSAND, 1, "lower"))}ه`;
+  if (toman >= MILLION) return faNum(rounded(toman / MILLION, 0.1, "lower"), 1);
+  return `${faNum(rounded(toman / THOUSAND, 1, "lower"))} هزار`;
 }
 
 /** The exact amount for the booking card rows: «۸٬۵۴۰٬۰۰۰ تومان». */

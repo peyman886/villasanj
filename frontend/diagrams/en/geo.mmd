@@ -1,0 +1,14 @@
+flowchart TB
+  accTitle: Geodata
+  accDescr: The Iran OSM snapshot is clipped; the coastline and places go to PostGIS, the road graph to OSRM and the basemap to local PMTiles.
+  osm["OSM Iran<br/>Geofabrik, fixed snapshot"]:::ext --> clip["Region clip<br/>osmium"]
+  clip --> coast["Coastline"]
+  clip --> places["Places<br/>shops, bakeries, medical, town centres"]
+  clip --> roads["Road graph<br/>OSRM MLD"]
+  coast --> pg[("PostGIS")]:::store
+  places --> pg
+  pg --> dist["Distances as intervals<br/>over the blur circle"]
+  roads --> osrm["Local OSRM"]:::ext
+  osrm --> drive["Drive time without traffic<br/>from Azadi Square"]
+  pm["Protomaps<br/>regional extract"]:::ext --> pmtiles[("Local PMTiles")]:::store
+  pmtiles --> map["MapLibre<br/>Persian labels, no external tiles"]:::good

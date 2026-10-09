@@ -1,0 +1,10 @@
+flowchart TB
+  accTitle: The test pyramid
+  accDescr: At the base, unit tests without network using fakes; above them architecture tests, integration with real Postgres, E2E with Playwright and axe, smoke on sampled pages, and at the top an optional live test with a cost cap.
+  live["Live model test · opt-in, $0.05 cap"]:::llm
+  smoke["Smoke · sample of 50 listings and 50 villas"]
+  e2e["E2E · Playwright: number provenance, axe, keyboard, mobile, docs"]
+  integration["Integration · real Postgres with testcontainers"]:::store
+  arch["Architecture · import-linter, layer and context contracts"]
+  unit["Unit · domain and application with fakes, no network; domain coverage ≥ 95%"]:::good
+  live --- smoke --- e2e --- integration --- arch --- unit

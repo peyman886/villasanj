@@ -1,0 +1,15 @@
+flowchart TB
+  accTitle: Generating candidate pairs
+  accDescr: Four blocking sources generate candidate pairs, and a sampled wide net measures the recall of the blocking step.
+  subgraph sources ["Blocking sources"]
+    hash["Same photo<br/>pHash, small distance"]
+    knn["Similar photo<br/>kNN on DINOv2"]
+    geo["Nearby, same rooms<br/>blur radius + room count"]
+  end
+  wide["Wide net<br/>only to measure recall"]:::ext
+  hash --> union["Union of pairs<br/>one key per pair"]
+  knn --> union
+  geo --> union
+  union --> scored[("er.candidate<br/>with evidence and score")]:::store
+  wide -.-> gold["Stratified sample<br/>gold-v1"]:::human
+  scored --> gold

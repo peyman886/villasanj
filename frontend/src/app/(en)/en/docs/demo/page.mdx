@@ -1,0 +1,116 @@
+import { Adr, DocHeader, Step, Steps } from "@/components/docs/blocks";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Demo and review guide",
+  description: "A ten-minute review path, the five-minute script and the offline demo.",
+};
+
+<DocHeader eyebrow="Start here" title="Demo and review guide">
+  This page is for someone who wants to understand in ten minutes what Villasanj does and how far
+  its numbers can be trusted. Each step leads to a live product page or a generated report. The
+  product itself is in Persian.
+</DocHeader>
+
+## A ten-minute review path
+
+<Steps>
+  <Step title="The home page">
+    The [home page](/) starts with a Persian search box and shows the key metrics from the reports.
+    Click the source label of any metric to reach the report that produced it.
+  </Step>
+  <Step title="Search in everyday language">
+    In [search](/search), type a sentence such as «ویلای استخردار در رامسر برای ۶ نفر آخر هفته بعد
+    زیر ۲۰ میلیون» ("a villa with a pool in Ramsar for 6 people next weekend under 20 million"). The
+    system's reading is shown as removable chips, and no number that was not in the sentence is
+    added. If the query has not been understood before and the language model is unavailable, the
+    page says so plainly.
+  </Step>
+  <Step title="Why this rank?">
+    Under each result card is the share of each part of the score. The full rules are on [how we
+    rank](/how-we-rank): there is no commission factor.
+  </Step>
+  <Step title="A villa page">
+    From a card marked as on two platforms, go to the villa page: each platform's offer is shown
+    separately (never combined), the merged calendar shows the hidden nights, the places where the
+    listings disagree are marked, and the reviews of both platforms sit side by side.
+  </Step>
+  <Step title="The source of every number">
+    Click any price or date: a provenance card opens with the platform, the snapshot and the time of
+    observation. An E2E test does the same on ten random numbers on every page.
+  </Step>
+  <Step title="Truth check">
+    On the page of a listing that claims "a few minutes to the sea", the claim sits next to its
+    evidence: the actual distance to the coastline, as a range over the blur circle.
+  </Step>
+  <Step title="Metrics and documentation">
+    [Metrics](/metrics) shows crawl politeness, data coverage and model spend live from the
+    database, and [milestones](/en/docs/milestones) shows every acceptance criterion with its
+    evidence.
+  </Step>
+</Steps>
+
+## The five-minute video script
+
+The full narration is in `docs/demo-script.md`, and every number in it names its source report.
+The structure:
+
+| Time         | Part        | What is shown                                                                                       |
+| ------------ | ----------- | --------------------------------------------------------------------------------------------------- |
+| 0:00 to 0:30 | Problem     | One villa on two platforms with two prices and two calendars; H1                                    |
+| 0:30 to 1:45 | Search      | Removable chips, the "from" price and the share per person, provenance card, explanation with slots |
+| 1:45 to 3:00 | Villa page  | Each platform's price separately (H2), hidden nights (H3), listing differences, review summary      |
+| 3:00 to 3:45 | Truth check | A distance claim against the map; H4                                                                |
+| 3:45 to 4:30 | Trust       | Matching precision with its confidence interval, a judge that only vetoes wrong merges, cost        |
+| 4:30 to 5:00 | Engineering | Ethical crawling, snapshots, the offline demo                                                       |
+
+## The offline demo
+
+The demo starts from a local bundle and sends no request outside. Language model answers are read
+from the cache only (`LLM__PROVIDER=offline`). This documentation also works in the offline demo:
+the diagrams were rendered to SVG at build time, and no library or font is loaded from a CDN.
+
+<Diagram
+  name="offline-demo"
+  caption="The offline demo: data bundle, separate stack and the LLM cache"
+  locale="en"
+/>
+
+```bash
+make demo-bundle   # database dump with the LLM cache in data/demo
+make demo          # a separate stack on http://localhost:3400 from that bundle
+make demo-down     # stop; the demo volume stays
+```
+
+- **Photos:** listing photos come from the platforms' own servers and stay grey without a network.
+  Whether the demo shows local copies of the photos is the owner's decision (A24).
+- **Map:** the region's basemap is served locally (Protomaps, about 11 MB). <Adr n="0003" locale="en" />
+- **Reports and documentation:** the `reports`, `docs` and `config` folders are mounted read-only
+  in the web container; every number these pages show is read from those files.
+
+<Callout kind="verified" title="The demo cache is warm">
+  On 5 Oct the script's paths and the three sample searches on the search page were opened online
+  once (query understanding, explanation, review summaries of the villas and the top listings), and
+  on the third pass no call reached the model; the demo bundle was built after that. A new search
+  that is not in the cache stops in the offline demo with a clear message.
+</Callout>
+
+## When the language model is unavailable
+
+| Part                                                | Behaviour                                                                                                                                                                                                |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Query understanding                                 | The cached answer if there is one; otherwise the API returns 503 and the search page says understanding this search is not possible right now, with the cached sample searches. No condition is guessed. |
+| The «چرا این ویلا؟» ("why this villa?") explanation | The cached answer; otherwise a fixed template that states the same facts, checked by the same verifier.                                                                                                  |
+| Review summary                                      | The cached answer; otherwise a box saying the summary is not available right now. The reviews themselves are always shown.                                                                               |
+| Matching judge                                      | No new run; earlier verdicts are in the cache and the database, and the current policy works with them.                                                                                                  |
+
+## Running locally for development
+
+```bash
+make setup && make up      # db on 5433, api on 8800, web on 3300
+make health                # web=ok db=ok blob=ok llm=...
+make test && make lint     # unit and architecture tests, and every linter
+make test-e2e              # Playwright and axe on the running app
+make quality-report        # every suite and coverage in reports/quality-<date>.json
+```

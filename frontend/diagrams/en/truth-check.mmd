@@ -1,0 +1,23 @@
+flowchart TB
+  accTitle: Truth check pipeline
+  accDescr: A distance claim becomes a range and is tested against the map's best case; an amenity claim against the amenity list and the photos; and for villas on both platforms, the two listings' statements side by side.
+  subgraph dist ["Distance claim"]
+    claim["«under 5 minutes to the sea»"] --> readings["Readings<br/>walking and driving, with rounding"]
+    readings --> range["Claimed distance range"]
+    map["Measured range<br/>blur circle to coast or POI"]:::store --> assess
+    range --> assess{"Does even the best case meet?"}:::decision
+    assess -- "Meets everywhere" --> sup["Confirmed"]:::good
+    assess -- "Meets nowhere" --> con["Does not match the map"]:::warn
+    assess -- "Depends" --> nc["Not confirmed"]
+  end
+  subgraph feat ["Amenity claim"]
+    text["Description"] --> rules["Rules<br/>negation, shared"]
+    rules --> residue["Residue<br/>LLM with verbatim quote"]:::llm
+    residue --> amen{"The listing's own amenity list"}:::decision
+    photos["Photo tag<br/>confirms only"] --> amen
+  end
+  subgraph cross ["Across platforms"]
+    a["Jabama listing says"] --> cmp{"Unambiguously opposed?"}:::decision
+    b["Shab listing says"] --> cmp
+    cmp -- "Yes" --> inc["They say different things"]
+  end

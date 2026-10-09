@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { t as tr, type Locale } from "@/lib/i18n";
 
 export type Point = { x: number; y: number | null; low?: number; high?: number };
 export type Series = { label: string; points: Point[]; tone: "brand" | "amber" | "sand" };
@@ -18,7 +19,7 @@ const PAD = { top: 12, right: 12, bottom: 32, left: 40 };
 /**
  * A 0–1 line chart over a numeric x (e.g. precision and recall against the rule threshold), with
  * optional 95% bands and a marker at a chosen x. Plotted left to right like any numeric axis;
- * the legend and the data table are Persian and readable without the picture.
+ * the legend and the data table are in the page's language and readable without the picture.
  */
 export function LineChart({
   series,
@@ -27,6 +28,7 @@ export function LineChart({
   marker,
   formatX = (x) => String(x),
   formatY = (y) => `${Math.round(y * 1000) / 10}%`,
+  locale = "fa",
 }: {
   series: Series[];
   label: string;
@@ -34,6 +36,7 @@ export function LineChart({
   marker?: { x: number; label: string };
   formatX?: (x: number) => string;
   formatY?: (y: number) => string;
+  locale?: Locale;
 }) {
   const xs = series.flatMap((s) => s.points.map((p) => p.x));
   const xMin = Math.min(...xs);
@@ -143,11 +146,13 @@ export function LineChart({
             {s.label}
           </span>
         ))}
-        <span>نوار کم‌رنگ: بازه‌ی اطمینان ۹۵٪</span>
+        <span>
+          {tr(locale, "نوار کم‌رنگ: بازه‌ی اطمینان ۹۵٪", "Shaded band: 95% confidence interval")}
+        </span>
       </figcaption>
       <details className="mt-2 text-xs">
         <summary className="focus-ring w-fit cursor-pointer rounded-sm text-accent">
-          داده‌های نمودار
+          {tr(locale, "داده‌های نمودار", "Chart data")}
         </summary>
         <div className="mt-2 max-h-64 overflow-auto">
           <table className="w-full text-start tabular-nums">

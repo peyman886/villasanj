@@ -1,7 +1,8 @@
 # Villasanj · ویلاسنج
 
-> **ویلاسنج: یک ویلا، همه‌ی حقیقت**
-> Torob for villas: one real villa, every platform's offer, every claim checked.
+> **ویلاسنج: قبل از رزرو، بسنجید** · *Villasanj: compare before you book.*
+> Villasanj finds the same villa on Jabama and Shab and shows its prices, calendar and reviews
+> side by side, every number with its source.
 
 - **One villa, not two listings.** Entity resolution across jabama and shab (photo hashes, image
   embeddings, location, an LLM judge that can only veto, the owner's labels): precision 100%
@@ -18,8 +19,9 @@ user intent → explain the best choice*). Demo video: link in the submission.
 
 **Built with an AI coding agent, milestone by milestone**, each with written acceptance criteria and
 evidence: see [`docs/ROADMAP.md`](docs/ROADMAP.md) (status generated from the reports) and the
-[decision records](docs/adr/README.md). In the app, `/docs` is the full technical report (Persian)
-with live numbers, diagrams and every evaluation.
+[decision records](docs/adr/README.md). In the app, the full technical report with live numbers,
+diagrams and every evaluation is available in Persian at `/docs` and in English at `/en/docs`,
+page for page.
 
 ### Data and licences
 
@@ -34,7 +36,7 @@ with live numbers, diagrams and every evaluation.
 
 Status (2026-10-09): milestones M0 to M12 are done; M12 redesigned the product (split-view search
 with price pins and filters, a two-platform booking card and Jalali calendar, «چرا مطمئنیم؟» from
-the recorded match evidence, dark mode) and ends with this public release. Four criteria were closed
+the recorded match evidence, a light theme with an optional dark one) and ends with this public release. Four criteria were closed
 by the owner's decision rather than met as written; they are marked so, not as done.
 
 ## What works today
@@ -124,8 +126,8 @@ make help               # every target
 
 ## Documentation
 
-- **In the app: `/docs`** (Persian, the full technical report with live numbers and diagrams;
-  reviewer's guide at `/docs/demo`)
+- **In the app: `/docs` (Persian) and `/en/docs` (English)**, the full technical report with
+  live numbers and diagrams, page for page in both languages (reviewer's guide at `/en/docs/demo`)
 - [Architecture](docs/ARCHITECTURE.md): bounded contexts, layers, domain model, schema, ports, assumptions
 - [Roadmap](docs/ROADMAP.md): milestones, acceptance criteria, what was built ahead and what is blocked
 - [Decisions](docs/adr/README.md): ADRs 0001–0015 (LLM gateway and cost, provenance, crawling ethics,

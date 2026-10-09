@@ -1,0 +1,168 @@
+import { Adr, DocHeader, SourceFile, Step, Steps } from "@/components/docs/blocks";
+import { CatalogCoverage, ConfigSnippet, CrawlHosts } from "@/components/docs/data/live";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Crawling and catalog",
+  description:
+    "Polite crawling, snapshots, pure parsers, normalisation, the gazetteer and the photo pipeline.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Architecture and data" title="Crawling and catalog">
+  Data comes from two platforms through polite crawling, and every response is stored once as an
+  immutable snapshot. The catalog is a pure function of those snapshots: every field can be
+  reproduced from a stored response, and no experiment puts new load on the platforms.
+  <span className="mt-3 flex flex-wrap gap-2">
+    <Adr n="0008" locale="en" />
+    <Adr n="0011" locale="en" />
+    <Adr n="0012" locale="en" />
+  </span>
+</DocHeader>
+
+## Which platforms, and why
+
+Before the first listing request, we read and analysed the robots.txt and the terms of use of seven
+platforms (1 October 2026, `docs/sources/README.md`, with a hash of each document):
+
+| Platform       | robots.txt                                     | Terms of use                                                          | Outcome                            |
+| -------------- | ---------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------- |
+| Jabama         | Everything allowed                             | No clause on automated access                                         | Crawled within the ADR-0008 limits |
+| Shab           | Listing pages allowed; booking and payment not | No explicit clause; the owner decided                                 | Crawled after the owner's approval |
+| Jajiga         | Most paths allowed                             | Clauses 10-3 and 10-4: bots, crawlers and data mining forbidden       | Excluded                           |
+| Otaghak        | `/api` and `/rooms-` disallowed                | Crawling and data mining forbidden; content use needs written consent | Excluded                           |
+| Mihmansho      | Public pages allowed                           | Any copying without written consent forbidden                         | Excluded                           |
+| Homsa, Mizboon | Unreachable                                    | -                                                                     | -                                  |
+
+The absence of a prohibition in the terms is not permission, so Jabama and Shab were crawled under
+the same restrictions: public pages only, without signing in; one request every three seconds per
+host; a stop at any sign of blocking; and nothing republished except thumbnails and summaries with
+attribution. <Adr n="0011" locale="en" />
+
+## Polite crawling
+
+<Steps>
+  <Step title="robots.txt before every URL">
+    `PoliteFetcher` checks robots.txt with protego for every URL and every redirect hop. The
+    robots.txt itself is snapshotted too. Under RFC 9309 a 4xx answer to robots.txt means "no
+    restrictions"; this case, for `s3gw.shab.ir` (a 403 from S3), was recorded and reported to the
+    owner.
+  </Step>
+  <Step title="One request in flight per host">
+    At least 3 seconds between two requests, with jitter, or the Crawl-delay if it is longer.
+    Backoff on 429 and 5xx, honouring `Retry-After`.
+  </Step>
+  <Step title="Stop on block">
+    A burst of 403s or any sign of a captcha marks the platform `BLOCKED` and the run stops. There
+    is no retry with different headers, no proxy and no stealth tooling; resuming takes the owner's
+    decision (`crawl run … --after-block`).
+  </Step>
+  <Step title="Identify ourselves">
+    The user agent names the bot and a contact (`CRAWL__CONTACT` in `.env`). No cookies are kept.
+    The only browser-like trait is the standard `Accept` header, because without it Jabama returns a
+    page with no listings.
+  </Step>
+  <Step title="A snapshot of every response">
+    Body, status, selected headers (no cookies) and fetch time, content-addressed in the blob store.
+    The default is `CRAWL__MODE=offline`; a live run needs an explicit flag.
+  </Step>
+</Steps>
+
+### Measured politeness
+
+This table is computed from the snapshots themselves: the real interval between consecutive
+responses from each host. The shortest interval is never below 3 seconds.
+
+<CrawlHosts locale="en" />
+
+## From snapshot to catalog
+
+Parsing is a pure function of a snapshot: each platform's adapter reads the page without I/O and
+returns a `ParsedListing`, the shared language of ingestion and catalog. `make reparse` rebuilds
+the whole catalog from snapshots without a single network request; a test that blocks sockets
+guarantees this, and two consecutive rebuilds produce the same hash.
+
+The messy data the adapters and the normaliser handle (each case is a table-driven test; more than
+100 cases):
+
+- **Currency:** Jabama publishes rial, Shab publishes toman. Each adapter knows its platform's unit;
+  `Money` is always integer rial, and display is in toman.
+- **"Zero means not set":** Jabama uses `0` to mean "not set" for weekend, holiday and extra-guest
+  prices and for the rating. These become "unknown", never free or a zero rating.
+- **Calendar:** Shab's calendar API returns two payload shapes and keys days by Jalali month.
+  Jabama's `disabled` nights do not say whether they are booked or closed, so they are stored as
+  "unavailable".
+- **Persian text:** Arabic ye and kaf, Persian and Arabic digits, zero-width non-joiners and
+  spacing; the normaliser is idempotent and checked with a property test.
+- **Places:** Jabama's neighbourhood field is always empty; names are resolved with the curated
+  gazetteer `config/gazetteer.toml` (117 places): only names seen in the data, no guessed typo
+  merges.
+
+### Catalog coverage
+
+<CatalogCoverage locale="en" />
+
+## Same-window scenario capture
+
+Comparing two platforms only makes sense when both calendars and prices were seen within a short
+window. `crawl capture` re-captures the calendars of every listing in one window. The 4 October 2026
+capture: Jabama 2,987 of 2,987 listings in 3.2 hours, and Shab 597 of 601 in 0.6 hours (M4
+criterion: a spread under 6 hours). H2 and H3 are computed on this capture.
+
+The price scenarios have fixed dates. The holiday date is not guessed; it comes from Jabama's own
+calendar flag:
+
+<ConfigSnippet file="scenarios.toml" locale="en" />
+
+## The photo pipeline
+
+<Diagram
+  name="photo-pipeline"
+  caption="From a platform photo to matching evidence and image tags"
+  locale="en"
+/>
+
+- **Only the bytes we need:** five cover photos per listing are downloaded once, politely. Every
+  photo shown to users loads straight from the platform's own CDN, so nothing is copied for
+  display.
+- **pHash and dHash** find near-identical copies and give the "document frequency" weight: a
+  photo that appears in several listings (for example a complex's promotional shot) gets little
+  weight.
+- **Local DINOv2-small** gives crop-robust similarity. In a benchmark of 872 photos and 600 queries
+  its recall@1 was 1.0, while pHash found a 70% crop in only 35% of cases. API embeddings
+  (gemini-embedding-2) found every copy but also rated unrelated villas as more similar (99th
+  percentile similarity 0.83 against 0.66). <Adr n="0012" locale="en" />
+- **Computed once:** an embedding is stored per (content hash, model id); a rerun recomputes
+  nothing.
+- **SigLIP 2** gives zero-shot tags (pool, jacuzzi, forest, barbecue, sea view, fireplace), with a
+  threshold set by the owner's labels. Details in [Truth check](/en/docs/truth-check).
+
+<Callout kind="info" title="Why Shab's original photos">
+  Shab's thumbnails are 4:3 crops and break pHash for portrait photos (a distance of 20 to 32 bits).
+  So the original photo is the matching evidence, even when it is larger than the "800 pixels at
+  most" rule; the exception is recorded in ADR-0008.
+</Callout>
+
+## Privacy and republishing
+
+- Reviewer names are not stored, and neither are phone numbers. Host names are used only for
+  matching.
+- Snapshots and photos never enter git. Test fixtures are trimmed and contain no personal data.
+- Booking always happens on the platform itself; every page links directly to the original
+  listing.
+
+## Reproduce
+
+```bash
+make crawl P=jabama            # default: replay snapshots, no network
+make crawl P=jabama LIVE=1     # live crawl (needs CRAWL__CONTACT)
+make crawl-status P=jabama     # frontier queue status
+make reparse                   # rebuild the catalog and photo hashes from snapshots
+make crawl-metrics             # traffic per host with measured intervals
+make report                    # scenario coverage and place resolution
+```
+
+Code: <SourceFile path="ingestion/infrastructure/sources/" /> and
+
+<SourceFile path="ingestion/application/polite_fetcher.py" />.

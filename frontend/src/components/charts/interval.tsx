@@ -1,6 +1,7 @@
 import type { Interval } from "@/lib/artifacts";
 import { cn } from "@/lib/cn";
-import { faInterval } from "@/lib/format";
+import { formatFor } from "@/lib/format";
+import type { Locale } from "@/lib/i18n";
 
 export type IntervalRow = { label: string; interval: Interval | null; highlight?: boolean };
 
@@ -18,6 +19,7 @@ export function IntervalChart({
   max = 1,
   bar,
   barLabel,
+  locale = "fa",
 }: {
   rows: IntervalRow[];
   label: string;
@@ -25,6 +27,7 @@ export function IntervalChart({
   max?: number;
   bar?: number;
   barLabel?: string;
+  locale?: Locale;
 }) {
   const pos = (v: number) => `${((Math.max(min, Math.min(max, v)) - min) / (max - min)) * 100}%`;
   return (
@@ -76,7 +79,7 @@ export function IntervalChart({
                 ) : null}
               </div>
               <span className="text-xs text-fg-muted tabular-nums sm:text-end">
-                {faInterval(i)}
+                {formatFor(locale).interval(i)}
               </span>
             </li>
           );

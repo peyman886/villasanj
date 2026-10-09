@@ -1,0 +1,11 @@
+flowchart TB
+  accTitle: The provenance path of every number
+  accDescr: Every observed value is tied to its snapshot and time; a derived value keeps its inputs and its oldest input; the API sends the provenance next to the number and the interface shows it in a source card.
+  page["Platform page"]:::ext --> snap[("snapshot<br/>id and time")]:::store
+  snap --> obs["Observed value<br/>Provenance(observed)"]
+  obs --> derived["Derived value<br/>derived_from, oldest input"]
+  llm["Model extraction<br/>llm_extracted"]:::llm --> derived
+  human["Human label<br/>human"]:::human --> derived
+  derived --> api["API<br/>ProvenanceOut next to every number"]
+  obs --> api
+  api --> card["Source card<br/>clickable on every number"]:::good

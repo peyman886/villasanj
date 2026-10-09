@@ -22,36 +22,37 @@ export const FEATURE_TEXT: Record<string, string> = {
 };
 
 export const CAUTION_TEXT: Record<string, string> = {
-  may_exceed_budget: "هزینه‌های جانبی منتشر نشده؛ ممکن است از بودجه بیشتر شود",
+  may_exceed_budget:
+    "پلتفرم هزینه‌های جانبی را منتشر نکرده؛ مبلغ نهایی ممکن است از بودجه بیشتر شود",
   capacity_unknown: "ظرفیت منتشر نشده",
   bedrooms_unknown: "تعداد اتاق خواب منتشر نشده",
   price_unknown: "قیمت معلوم نیست",
   feature_unconfirmed: "یکی از امکانات خواسته‌شده تأیید نشد",
-  feature_only_described: "یکی از امکانات خواسته‌شده فقط در توضیحات آمده",
+  feature_only_described: "یکی از امکانات خواسته‌شده فقط در متن آگهی آمده",
   drive_unknown: "زمان رانندگی معلوم نیست",
   may_exceed_drive: "بسته به جای دقیق ویلا، ممکن است از سقف زمان رانندگی بیشتر شود",
   claim_contradicted: "یکی از فاصله‌های اعلام‌شده در آگهی با نقشه نمی‌خواند",
 };
 
 export const EXCLUSION_TEXT: Record<string, string> = {
-  not_bookable: "همه‌ی شب‌ها آزاد نبود",
+  not_bookable: "همه‌ی شب‌های سفر آزاد نبود",
   too_small: "ظرفیت کم",
-  few_bedrooms: "اتاق خواب کمتر از خواسته",
+  few_bedrooms: "اتاق خواب کمتر از تعداد خواسته‌شده",
   over_budget: "بالاتر از بودجه",
   feature_denied: "امکان خواسته‌شده را ندارد",
-  too_far: "بیشتر از سقف زمان رانندگی",
+  too_far: "دورتر از زمان رانندگی خواسته‌شده",
 };
 
 export const MISSING_TEXT: Record<string, string> = {
   dates: "تاریخ سفر را بگویید (مثلاً «آخر هفته‌ی بعد» یا «۱۵ آبان سه شب»).",
   exact_stay: "این بازه شب‌های مشخصی ندارد؛ از کدام شب تا کدام شب؟",
   unresolvable_dates: "این تاریخ گذشته یا ناممکن است؛ تاریخ دیگری بگویید.",
-  guests: "چند نفرید؟ قیمت‌ها بدون تعداد نفر برای یک نفر حساب شده‌اند.",
+  guests: "چند نفرید؟ تا نگویید، قیمت‌ها برای یک نفر حساب می‌شوند.",
 };
 
 export const DATE_CAVEAT_TEXT: Record<string, string> = {
   partial_weekend: "امروز جمعه است؛ از این آخر هفته فقط شب جمعه مانده.",
-  next_year: "این تاریخ امسال گذشته؛ سال بعد در نظر گرفته شد.",
+  next_year: "این تاریخ امسال گذشته؛ همین تاریخ در سال بعد را جستیم.",
   lunar_holidays_unknown:
     "تعطیلات قمری این بازه هنوز در تقویم پلتفرم‌ها دیده نشده؛ ممکن است تعطیلی دیگری هم باشد.",
 };
@@ -119,7 +120,7 @@ export function intentChips(result: SearchOut, drop: string[] = []): Chip[] {
     const unit = intent.max_drive.unit === "hours" ? "ساعت" : "دقیقه";
     chips.push({
       key: "drive",
-      text: `حداکثر ${faNumber(intent.max_drive.value)} ${unit} رانندگی`,
+      text: `تا ${faNumber(intent.max_drive.value)} ${unit} رانندگی`,
     });
   }
   for (const place of result.places) chips.push({ key: `place:${place}`, text: place });
@@ -142,7 +143,7 @@ export function budgetChoices(result: SearchOut): BudgetChoice[] {
   return [
     { label: "هر شب", count: readings.per_night ?? 0, query: `${result.query} شبی` },
     {
-      label: "کل اقامت",
+      label: "کل سفر",
       count: readings.whole_stay ?? 0,
       query: `${result.query} برای کل اقامت`,
     },

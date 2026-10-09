@@ -1,1 +1,1 @@
-"""Villasanj: one villa, the whole truth."""
+"""Villasanj: compare before you book."""

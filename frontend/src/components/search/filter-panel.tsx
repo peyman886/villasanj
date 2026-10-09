@@ -171,9 +171,9 @@ export function FilterPanel({
           </button>
         </header>
 
-        <div className="flex-1 space-y-8 overflow-y-auto px-5 py-6">
+        <div className="flex-1 space-y-6 overflow-y-auto overscroll-contain px-5 py-6">
           <Group title="فیلترهای سریع">
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               <Tile
                 icon={Layers}
                 label="در هر دو پلتفرم"
@@ -223,7 +223,7 @@ export function FilterPanel({
             </div>
           </Group>
 
-          <Group title="امکانات" hint="آنچه خود آگهی گفته یا نقشه و عکس‌ها نشان داده‌اند">
+          <Group title="امکانات" hint="آنچه خود آگهی نوشته، یا نقشه و عکس‌ها نشان می‌دهند">
             <CheckGrid
               items={FEATURES.map((f) => ({
                 value: f,
@@ -273,7 +273,10 @@ export function FilterPanel({
             />
           </Group>
 
-          <Group title="فاصله تا دریا" hint="خط مستقیم تا ساحل، از نزدیک‌ترین جای ممکنِ ویلا">
+          <Group
+            title="فاصله تا دریا"
+            hint="فاصله‌ی خط مستقیم تا ساحل، از نزدیک‌ترین نقطه‌ای که ویلا ممکن است باشد"
+          >
             <ChoiceRow
               label="فاصله تا دریا"
               options={[
@@ -321,8 +324,8 @@ export function FilterPanel({
 
 function Group({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
-    <section aria-label={title}>
-      <h3 className="font-semibold">{title}</h3>
+    <section aria-label={title} className="border-t border-line pt-6 first:border-t-0 first:pt-0">
+      <h3 className="font-bold">{title}</h3>
       {hint ? <p className="mt-0.5 text-sm text-fg-muted">{hint}</p> : null}
       <div className="mt-3">{children}</div>
     </section>
@@ -349,20 +352,27 @@ function Tile({
       onClick={onClick}
       data-quick-filter=""
       className={cn(
-        "focus-ring flex min-h-24 flex-col items-center justify-center gap-1.5 rounded-card border p-2 text-center text-sm transition-colors active:scale-[0.98]",
+        "focus-ring flex min-h-16 items-center gap-3 rounded-card border px-3 py-2.5 text-start text-sm transition-[border-color,background-color,box-shadow] duration-150 active:scale-[0.98]",
         pressed
-          ? "border-brand-700 bg-brand-50 text-brand-900"
-          : "border-line bg-sunken/50 text-fg hover:border-sand-400",
+          ? "border-brand-700 bg-brand-50 text-brand-900 ring-1 ring-brand-700"
+          : "border-line bg-surface text-fg hover:border-line-strong hover:bg-sunken/60",
+        count === 0 && !pressed && "text-fg-muted opacity-60",
       )}
     >
-      <Icon
-        aria-hidden="true"
-        className={cn("size-6", pressed ? "text-brand-800" : "text-fg-muted")}
-      />
-      <span className="leading-tight font-medium">{label}</span>
-      {count !== null ? (
-        <span className="text-xs text-fg-muted tabular-nums">{faNum(count)} ویلا</span>
-      ) : null}
+      <span
+        className={cn(
+          "grid size-9 shrink-0 place-items-center rounded-full",
+          pressed ? "bg-accent-solid text-white" : "bg-sunken text-fg-muted",
+        )}
+      >
+        <Icon aria-hidden="true" className="size-[1.125rem]" />
+      </span>
+      <span className="min-w-0">
+        <span className="block leading-tight font-semibold">{label}</span>
+        <span className="mt-0.5 block h-4 text-xs text-fg-muted tabular-nums">
+          {count !== null ? `${faNum(count)} ویلا` : ""}
+        </span>
+      </span>
     </button>
   );
 }
@@ -476,10 +486,10 @@ function ChoiceRow({
           aria-checked={selected === o.key}
           onClick={() => onSelect(o.key)}
           className={cn(
-            "focus-ring inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm transition-colors",
+            "focus-ring inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm transition-colors duration-150 active:scale-[0.98]",
             selected === o.key
-              ? "border-brand-700 bg-brand-50 font-semibold text-brand-900"
-              : "border-line-strong bg-surface hover:border-sand-500",
+              ? "border-brand-700 bg-brand-50 font-semibold text-brand-900 ring-1 ring-brand-700"
+              : "border-line-strong bg-surface hover:border-sand-500 hover:bg-sunken/60",
           )}
         >
           {o.key !== "all" ? icon : null}
@@ -505,6 +515,7 @@ function PriceFilter({
   const low = draft.price_min ?? h?.min ?? 0;
   const high = draft.price_max ?? h?.max ?? 0;
   const peak = h ? Math.max(1, ...h.bins) : 1;
+  const share = (v: number) => (h && h.max > h.min ? ((v - h.min) / (h.max - h.min)) * 100 : 0);
   const flip = (next: boolean) =>
     set({ per_night: next || undefined, price_min: undefined, price_max: undefined });
   return (
@@ -542,7 +553,10 @@ function PriceFilter({
               return (
                 <span
                   key={i}
-                  className={cn("flex-1 rounded-t-sm", inside ? "bg-brand-600" : "bg-sand-300")}
+                  className={cn(
+                    "flex-1 rounded-t-sm transition-colors duration-150",
+                    inside ? "bg-brand-400" : "bg-sand-200",
+                  )}
                   style={{ height: `${Math.max(4, (n / peak) * 100)}%` }}
                 />
               );
@@ -552,6 +566,14 @@ function PriceFilter({
             <span
               aria-hidden="true"
               className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-sand-300"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent-solid"
+              style={{
+                insetInlineStart: `${share(low)}%`,
+                width: `${Math.max(0, share(high) - share(low))}%`,
+              }}
             />
             <input
               type="range"
@@ -582,15 +604,20 @@ function PriceFilter({
           </div>
           <p className="mt-1 flex justify-between text-sm tabular-nums">
             <span>
-              از <strong>{shortAmount(low, "lower")}</strong>
+              از <strong>{shortAmount(low, "lower")}</strong> تومان
             </span>
-            <span>
-              تا <strong>{shortAmount(high, "upper")}</strong>
-              {draft.price_max === undefined ? " و بیشتر" : ""} تومان
-            </span>
+            {draft.price_max === undefined ? (
+              <span>
+                <strong>{shortAmount(high, "upper")}</strong> تومان و بیشتر
+              </span>
+            ) : (
+              <span>
+                تا <strong>{shortAmount(high, "upper")}</strong> تومان
+              </span>
+            )}
           </p>
-          <p className="mt-1 text-xs text-fg-muted">
-            قیمت هر پلتفرم بدون کارمزد؛ برای همین کف قیمت سنجیده می‌شود.
+          <p className="mt-2 text-xs text-fg-muted">
+            قیمت‌ها بدون کارمزد پلتفرم‌اند؛ فیلتر روی ارزان‌ترین قیمت هر ویلا اعمال می‌شود.
           </p>
         </div>
       ) : (

@@ -4,13 +4,19 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 
 import { CodeBlock, Heading, InlineCode, ProseLink, ProseTable } from "@/components/docs/prose";
+import { docsHref, type Locale } from "@/lib/i18n";
 
 /**
  * Links inside the repository's markdown point at files (`0005-….md`, `../ROADMAP.md`). Inside the
  * portal they become portal routes; a file the portal does not show becomes plain text, so no page
- * ever links to something that 404s.
+ * ever links to something that 404s. Portal routes stay in the reader's language.
  */
-export function portalHref(href: string): string | null {
+export function portalHref(href: string, locale: Locale = "fa"): string | null {
+  const to = portalRoute(href);
+  return to && to.startsWith("/docs") ? docsHref(to, locale) : to;
+}
+
+function portalRoute(href: string): string | null {
   if (/^(https?:|mailto:)/.test(href)) return href;
   if (href.startsWith("#")) return href;
   const [file = "", anchor] = href.split("#");
@@ -32,7 +38,7 @@ export function portalHref(href: string): string | null {
   return known[base] ? `${known[base]}${hash}` : null;
 }
 
-const components: Components = {
+const shared: Components = {
   h1: ({ children }) => <h2 className="mb-4 text-2xl font-bold text-fg">{children}</h2>,
   h2: ({ id, children }) => (
     <Heading as="h2" id={id}>
@@ -58,10 +64,6 @@ const components: Components = {
       {children}
     </ol>
   ),
-  a: ({ href = "", children }) => {
-    const to = portalHref(href);
-    return to ? <ProseLink href={to}>{children}</ProseLink> : <span>{children}</span>;
-  },
   code: ({ children, className }) =>
     className ? <code>{children}</code> : <InlineCode>{children}</InlineCode>,
   pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
@@ -74,17 +76,30 @@ const components: Components = {
   hr: () => <hr className="my-8 border-line" />,
 };
 
+function componentsFor(locale: Locale): Components {
+  return {
+    ...shared,
+    a: ({ href = "", children }) => {
+      const to = portalHref(href, locale);
+      return to ? <ProseLink href={to}>{children}</ProseLink> : <span>{children}</span>;
+    },
+  };
+}
+
+const COMPONENTS: Record<Locale, Components> = { fa: componentsFor("fa"), en: componentsFor("en") };
+
 /** A repository markdown file (an ADR, a report) rendered with the design system. */
 export function Markdown({
   children,
+  locale = "fa",
   ...rest
-}: { children: string } & Omit<ComponentProps<"div">, "children">) {
+}: { children: string; locale?: Locale } & Omit<ComponentProps<"div">, "children">) {
   return (
     <div {...rest}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSlug]}
-        components={components}
+        components={COMPONENTS[locale]}
       >
         {children}
       </ReactMarkdown>

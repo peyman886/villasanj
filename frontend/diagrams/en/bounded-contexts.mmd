@@ -1,0 +1,19 @@
+flowchart BT
+  accTitle: Bounded contexts and the dependency direction
+  accDescr: shared is the base; ingestion depends on it, catalog on ingestion, entity_resolution and pricing on catalog, enrichment on both, discovery on enrichment, and entrypoints on everything. import-linter enforces this direction.
+  shared["shared<br/>shared kernel: money, dates, provenance, LLM ports"]
+  ingestion["ingestion<br/>crawling, snapshots, parsers"]
+  catalog["catalog<br/>listings, calendar, reviews, photos"]
+  er["entity_resolution<br/>pairs, evidence, judge, villas"]
+  pricing["pricing<br/>all-in price, offers"]
+  enrichment["enrichment<br/>geo, claims, truth check, summaries"]
+  discovery["discovery<br/>query understanding, ranking, explanation"]
+  entry["entrypoints<br/>CLI, API, composition root"]:::decision
+  ingestion --> shared
+  catalog --> ingestion
+  er --> catalog
+  pricing --> catalog
+  enrichment --> er
+  enrichment --> pricing
+  discovery --> enrichment
+  entry --> discovery

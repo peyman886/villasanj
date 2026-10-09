@@ -7,7 +7,7 @@ Persistent project memory for agent sessions. Read this first, then `docs/ARCHIT
 
 A Torob-style product for Iranian villa rentals, built for the Torob "AI Product Engineer" challenge
 (`challenge.html`: *crawl offers → normalize messy data → rank by user intent → explain the best
-choice*, 5-minute demo). Concept: **«ویلاسنج: یک ویلا، همه‌ی حقیقت»**. Each real villa gets one
+choice*, 5-minute demo). Concept: **«ویلاسنج: قبل از رزرو، بسنجید»** ("compare before you book"; glossary in `docs/ux/glossary.md`). Each real villa gets one
 canonical page that aggregates its listings across platforms (region Ramsar–Tonekabon). **Crawled
 platforms: jabama and shab only** (ADR-0011); jajiga, otaghak and mihmansho forbid crawling in their
 ToS and are excluded unless written permission arrives: all-in offers per stay + group size, merged calendar, aggregated
@@ -34,6 +34,13 @@ Context files (local):
   «جست‌وجو در همین محدوده», copy and motion polish; plus the owner's additions: search filters
   (`discovery/domain/filters.py` ↔ `frontend/src/lib/filters.ts`, shared cases in
   `backend/tests/fixtures/filter_cases.json`) and dark mode (tokens in `globals.css`).
+- **Final UX pass (2026-10-09, after the release):** light theme by default, dark only by the
+  header's toggle (`lib/theme.ts`, `data-theme` on <html>, saved in localStorage); search cards with
+  a fixed photo frame and one height; pins with preview (hover) and selection (click, Escape) and a
+  phone preview card; the new tagline «قبل از رزرو، بسنجید» (`BRAND` in `lib/copy.ts`); the portal
+  in two languages, `/docs` (fa) and `/en/docs` (en), page for page (route groups `(fa)` and
+  `(en)` each have a root layout; data components take `locale`; English diagrams in
+  `frontend/diagrams/en/`). Terms for both languages: `docs/ux/glossary.md`.
 - **Taste Skill** (Leonxlnx/taste-skill) is installed in `~/.agents/skills` and linked into
   `~/.claude/skills`; UI work uses `design-taste-frontend` and `redesign-existing-projects` (no
   em-dashes, one accent, both colour schemes, no window scroll listeners).

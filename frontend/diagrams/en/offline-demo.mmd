@@ -1,0 +1,13 @@
+flowchart TB
+  accTitle: Offline demo architecture
+  accDescr: The database bundle with the LLM cache is restored into a separate compose project; the API with the offline provider answers from the cache only, and the web app reads the map and the reports from disk.
+  dev[("Development database")]:::store --> bundle["make demo-bundle<br/>pg_dump with the LLM cache"]
+  bundle --> file[("data/demo<br/>bundle + checksum")]:::store
+  file --> restore["make demo<br/>one-time restore"]
+  subgraph demo ["Separate project villasanj-demo"]
+    restore --> db[("Demo Postgres")]:::store
+    db --> api["API<br/>LLM__PROVIDER=offline"]
+    api --> web["Web<br/>map and reports from disk"]
+  end
+  web --> browser["Browser<br/>localhost:3400"]:::human
+  api -. "no outside request" .-x net["Internet"]:::ext

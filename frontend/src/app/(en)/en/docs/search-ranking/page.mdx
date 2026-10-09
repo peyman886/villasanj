@@ -1,0 +1,223 @@
+import { Adr, DocHeader, SourceFile, Step, Steps } from "@/components/docs/blocks";
+import { PerformanceTable } from "@/components/docs/data/quality";
+import { RelevanceResults, UnderstandingResults } from "@/components/docs/data/search";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Search and ranking",
+  description:
+    "Persian query understanding with number, date and holiday guards, transparent ranking, grouping by villa, and slot-based explanations.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Product core" title="Search and ranking">
+  A user types «ویلای استخردار در رامسر برای ۶ نفر آخر هفته بعد زیر ۲۰ میلیون» ("a villa with a pool
+  in Ramsar for 6 people next weekend under 20 million"). An LLM turns the sentence into structured
+  conditions; code checks every number against the query text and resolves dates with the official
+  calendar. Ranking is transparent, and the "why the first option?" explanation never writes a
+  number itself.
+  <span className="mt-3 flex flex-wrap gap-2">
+    <Adr n="0005" locale="en" />
+    <Adr n="0007" locale="en" />
+  </span>
+</DocHeader>
+
+## The path of one request
+
+<Diagram
+  name="search-sequence"
+  caption="A search request: understanding, dates, candidates, ranking, and an explanation that arrives after the results"
+  locale="en"
+/>
+
+<Diagram
+  name="query-to-explanation"
+  caption="From query to explanation: filters, ranking, grouping by villa and slots"
+  locale="en"
+/>
+
+## Query understanding
+
+<Steps>
+  <Step title="LLM with structured output">
+    The query becomes a `SearchIntent` under a strict schema: places, group size, rooms, dates as a
+    relative expression ("next weekend"), budget and its basis, amenities, driving time, and wishes
+    the schema has no field for. The current route is gpt-5.4-mini, with gemini-3.1-flash-lite as
+    the fallback.
+  </Step>
+  <Step title="Number guard">
+    Every number the model returns must appear in the query text; places and out-of-schema wishes
+    must also appear verbatim in the query. If they do not, the model is asked once more with the
+    list of violations, and then the field is dropped. As a result, no invented numeric condition
+    reaches the search.
+  </Step>
+  <Step title="Budget basis">
+    "Per night" or "in total" is kept only when the query says so in words (A19). Otherwise the
+    basis is unknown; the search shows the result count under both readings and asks the user.
+  </Step>
+  <Step title="Dates by code, not by the model">
+    Relative expressions are resolved with the Solar Hijri calendar and holidays: Fridays, fixed
+    solar holidays from `config/holidays.toml` with their sources, and lunar holidays only when
+    Jabama's calendar has flagged them. Beyond the horizon that has been observed, the result says
+    "lunar holidays unknown" instead of guessing (A12).
+  </Step>
+  <Step title="Removable chips">
+    The system's reading is shown as chips, and every chip can be removed; removing one never adds a
+    number, and the search reruns from the same cached understanding. Wishes that cannot be checked
+    ("sauna", "large yard") come back with "we cannot check these wishes".
+  </Step>
+</Steps>
+
+### Model comparison for query understanding
+
+On 50 draft queries (`eval/query-understanding/draft-v1.jsonl`), each model on its own, prompt
+version 3, 2 October. Source: the ADR-0005 amendment of the same day.
+
+| Model                     | Slots correct | Exact match | Invented numbers | Failures | p50   | p95    | Cost for 50 |
+| ------------------------- | ------------- | ----------- | ---------------- | -------- | ----- | ------ | ----------- |
+| gemini-3.1-flash-lite     | 99.3%         | 98%         | 0                | 0        | 2.9 s | 5.5 s  | $0.018      |
+| **gpt-5.4-mini** (chosen) | 97.9%         | 94%         | 0                | 0        | 1.0 s | 1.3 s  | $0.062      |
+| gemini-3.5-flash-lite     | 95.8%         | 92%         | 0                | 0        | 1.0 s | 2.0 s  | $0.026      |
+| gpt-4.1-mini              | 95.1%         | 90%         | 0                | 0        | 1.3 s | 2.6 s  | $0.014      |
+| claude-haiku-4-5          | 90.1%         | 84%         | 0                | 4        | 2.6 s | 15.1 s | $0.118      |
+
+Only gpt-5.4-mini met all three targets (slots ≥ 90%, zero invented numbers, p95 ≤ 3 s) with
+margin. Part of flash-lite's lead came from the prompt having been tuned on its own errors. With
+prompt version 4 (out-of-schema wishes) and the budget-basis guard: slots 100%, exact match 100%,
+zero invented numbers, p95 1.4 s.
+
+### On the owner-reviewed set
+
+The owner reviewed all 50 queries and accepted every one. The evaluation was rerun on this set with
+`--fresh` so that uncached latency is measured (8 October, about $0.07):
+
+<UnderstandingResults locale="en" />
+
+## Ranking
+
+The full rules and the constants the code actually uses are on [How we rank](/how-we-rank); that page
+reads its numbers from `GET /search/ranking`.
+
+1. **Exclude only on a stated fact:** a night that was not free at the latest observation, capacity
+   below the group size, fewer rooms than asked for, a minimum price above the budget, an amenity
+   the listing itself says it lacks, and a driving time above the cap even in the best case. The
+   reason for every exclusion is counted and shown.
+2. **Unknown does not exclude:** unpublished capacity, an unknown fee or an unconfirmed amenity
+   stays in with a warning; a distance claim the map contradicts is also a warning, not an
+   exclusion.
+3. **Order:** listings whose requested amenities are confirmed come first, then the rest. Within
+   each group, the score is the sum of two named parts: price per person per night (60%, relative
+   to this search) and the guest rating (40%, with a Bayesian prior so that two five-star votes do
+   not weigh as much as a hundred). Each part's share is visible on every card.
+4. **No commission:** there is no advertising or commission factor in the rank.
+
+### Grouping by villa
+
+A villa that is on both platforms is one result, ranked by its best listing. The card also shows the
+other platform's offer with its own source (or that it was not free there) and links to the villa
+page. Prices are never merged.
+
+### Driving time and "near the sea"
+
+The driving-time cap is compared with the best case of the uncertainty range; a listing whose range
+crosses the cap gets a "may be longer" warning. A coverage note says how many results remain with a
+cap of 3, 4, 5 and 6 hours. "Near the sea" means within 1 km in a straight line from the coast
+(A17): the map confirms it when the whole blur circle is within that distance, and contradicts it
+when no part of the circle is.
+
+## The "why this villa?" explanation
+
+<Steps>
+  <Step title="Code builds the facts">
+    Price, rating, review count, distance, driving time, availability with the age of the
+    observation, and the comparison with the next result; each one a fact with an ID and a source.
+  </Step>
+  <Step title="The model only writes sentences">
+    The model puts a slot such as `{F1}` wherever a number goes. A deterministic renderer fills the
+    slots with Persian numerals.
+  </Step>
+  <Step title="Verifier">
+    The text is rejected if it contains a raw digit, uses an unknown slot, states a comparison that
+    contradicts the facts, or presents availability as a fact ("is available"). Fewer than two facts
+    is not accepted either.
+  </Step>
+  <Step title="One retry, then a template">
+    Rejected text goes back once with its violations; if it is rejected again, a fixed template
+    states the same facts. The same template is used when no model answers.
+  </Step>
+</Steps>
+
+### Model comparison for the explanation
+
+On 20 draft queries that receive an explanation, each model on its own, 2 October (ADR-0005
+amendment):
+
+| Model                       | Model text | Template | Retries | p50   | p95    | Cost for 20 |
+| --------------------------- | ---------- | -------- | ------- | ----- | ------ | ----------- |
+| **gemini-3.8-flash** (kept) | 100%       | 0%       | 4       | 6.4 s | 10.6 s | $0.014      |
+| gemini-3.5-flash-lite       | 100%       | 0%       | 7       | 1.5 s | 3.0 s  | $0.006      |
+| gemini-3.1-flash-lite       | 100%       | 0%       | 11      | 2.6 s | 3.3 s  | $0.006      |
+| gpt-5.4-mini                | 90%        | 10%      | 5       | 3.1 s | 4.9 s  | $0.033      |
+| gpt-4.1-mini                | 80%        | 20%      | 14      | 3.5 s | 4.3 s  | $0.013      |
+
+Every text shown has passed the verifier, so the choice was about prose: the lite models meet the
+latency target but place the slots in broken sentences. Decision: keep gemini-3.8-flash and move the
+explanation off the critical path of the results. The search page fetches the results without an
+explanation first, and the explanation is streamed afterwards.
+
+<Callout kind="info" title="M10 criterion 4: closed by the owner's decision">
+  The uncached p95 of the explanation is 6.1 to 10.6 s, against a target of 4 s. The results do not
+  wait for the explanation and cached paths are instant; the owner accepted this latency with the
+  cache (5 October) and the criterion was closed. The target is not met for the uncached explanation
+  itself, and this page says so.
+</Callout>
+
+## Latency
+
+<PerformanceTable locale="en" />
+
+A search with cached understanding and no explanation takes about two seconds; no criterion set a
+target for it. The 4 October profile (cProfile, one cached search): about 0.6 s for the
+holiday-flag query, which aggregates the whole calendar observation table every time (561 thousand
+rows after the same-window capture); about 0.7 s loading all listings (twice); about 0.7 s building
+each listing's offer for the query dates; and about 0.3 s for the location verdicts. Every search
+ranks the whole catalogue in memory, and the calendar table grows with every capture; the 2 October measurement, before the same-window capture, was 1.1 s. A separate table summarising
+the holiday flags and loading the listings once are the ways to make it faster.
+
+## Retrieval and ranking evaluation
+
+Retrieval is filtering plus transparent ranking. Full-text (FTS) and vector (pgvector) search were
+not built, because M8 criterion 2 says vector retrieval ships only if it improves nDCG@10 by at
+least 0.03, and that cannot be measured without human grades.
+
+For those grades, 30 real queries with set dates and group sizes (`eval/relevance/queries-v1.txt`)
+were run once, and three orders of the same filtered villas were stored: the current ranking,
+cheapest first and best rated first. The top 20 villas of the current ranking and the top 10 of each
+baseline were pooled (946 villas) and shown to the owner without rank or system name, in random
+order: relevant (2), partly relevant (1), not relevant (0). The owner fully graded 11 queries and
+closed the criterion on that basis:
+
+<RelevanceResults locale="en" />
+
+The current ranking beats both baselines on nDCG@10: on 9 of 11 queries against "cheapest first" and
+on 10 of 11 against "best rated first". The owner said grading was hard and almost every villa could
+be called relevant; 88% of the grades are 1 or 2, so these numbers show an overall advantage, not
+fine differences. Full-text and vector search were not built, so there is nothing to compare them
+with.
+
+## Reproduce
+
+```bash
+cd backend
+uv run villasanj discovery understand --dry-run "ویلای استخردار در رامسر برای ۶ نفر"
+uv run villasanj discovery search "ویلای استخردار در رامسر برای ۶ نفر آخر هفته بعد"
+uv run villasanj discovery eval-understanding ../eval/query-understanding/draft-v1.jsonl --dry-run
+uv run villasanj discovery holidays          # holidays, each with its source
+uv run villasanj discovery relevance-eval --out ../reports/relevance-<date>.md   # after grading
+```
+
+Code: <SourceFile path="discovery/application/search.py" />,
+
+<SourceFile path="discovery/domain/ranking.py" /> and
+<SourceFile path="discovery/domain/dates.py" />.

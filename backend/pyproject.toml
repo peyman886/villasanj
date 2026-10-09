@@ -1,7 +1,7 @@
 [project]
 name = "villasanj"
 version = "0.1.0"
-description = "Villasanj: one villa, the whole truth. Cross-platform villa entity resolution and search."
+description = "Villasanj: compare before you book. Cross-platform villa entity resolution and search."
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.14",

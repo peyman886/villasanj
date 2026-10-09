@@ -1,0 +1,87 @@
+import { Adr, DocHeader, SourceFile, Step, Steps } from "@/components/docs/blocks";
+import { LabellingProgress } from "@/components/docs/data/live";
+import { Diagram } from "@/components/docs/diagram";
+import { Callout } from "@/components/ui/callout";
+
+export const metadata = {
+  title: "Reviews and summaries",
+  description:
+    "Reviews from both platforms, a rating with a Bayesian prior, and a summary whose every point cites real reviews.",
+};
+export const dynamic = "force-dynamic";
+
+<DocHeader eyebrow="Product core" title="Reviews and summaries">
+  A villa's reviews are spread across two platforms. The villa page shows all of them with their
+  platform and builds one summary over them, in which every point cites specific reviews and is
+  checked before it is shown.
+  <span className="mt-3 flex flex-wrap gap-2">
+    <Adr n="0007" locale="en" />
+    <Adr n="0005" locale="en" />
+  </span>
+</DocHeader>
+
+## Reviews
+
+- Reviews are parsed from the same listing-page snapshots; reviewer names are not stored.
+- The guest rating is adjusted with a **Bayesian prior**: the platform average as the default, so
+  that two five-star votes do not weigh as much as a hundred. Ranking uses this adjusted rating.
+- A Jabama rating of "0" means "no rating", not a rating of zero.
+- On the villa page every review carries its platform label and stay date and gets a direct link,
+  so the summary's citations are clickable.
+
+## Summary with citations
+
+<Diagram
+  name="review-summary"
+  caption="Review summary: pros and cons with citations, the verifier, and behaviour without a model"
+  locale="en"
+/>
+
+<Steps>
+  <Step title="Input">
+    The text reviews of every member listing of the villa, each with a `platform:review_id` ID.
+  </Step>
+  <Step title="Structured output">
+    Pros and cons; every point cites the reviews behind it. A point only one guest made is labelled
+    "one guest's view".
+  </Step>
+  <Step title="Verifier">
+    A point without a citation, a citation to a review that was not in the input, or a raw digit in
+    the text is rejected. The model is asked once more and a rejected point is dropped; the summary
+    never shows anything uncited.
+  </Step>
+  <Step title="Display">
+    The summary arrives under Suspense after the rest of the page; every point links to the reviews
+    it cites.
+  </Step>
+</Steps>
+
+## Quality and cost
+
+- **The owner's blind review (M10 criterion 3):** 20 summaries next to all the raw reviews, without
+  seeing which model or prompt wrote them: **20 of 20 faithful** (criterion ≥ 18).
+- **Passing the verifier:** 48 of 48 summaries on the first attempt (0 retries, 0 dropped points).
+- **Reasoning setting:** gemini-3.8-flash "thinks" by default. On the same two listings, `low` cut
+  the cost from $0.0153 to $0.0035 and the latency from about 6 to 2.7 s, with the same points and
+  citations. The later blind review confirmed this setting.
+- **Estimate before running:** after calibrating on 24 listings, the dry-run estimate on 24 other
+  listings was within 3% of the cost ledger (M9 criterion 5: ±25%).
+
+<LabellingProgress locale="en" />
+
+<Callout kind="degraded" title="Without an LLM">
+  A cached summary is shown. A new summary needs a model call; while AvalAI has no credit, the page
+  shows a "review summary is not available right now" box, and the reviews themselves are always
+  complete. No summary is built with a weaker fallback method.
+</Callout>
+
+## Reproduce
+
+```bash
+cd backend
+uv run villasanj catalog reviews                                  # review coverage
+uv run villasanj enrichment summarize jabama <id> --dry-run       # cost estimate, no calls
+uv run villasanj enrichment summary-review-eval                   # blind review result
+```
+
+Code: <SourceFile path="enrichment/application/review_summary.py" />.
