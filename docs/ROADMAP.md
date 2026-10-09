@@ -126,7 +126,7 @@ from `/review`.
 | M7 | 1 | OpenAPI generated; TS client strict; contract tests | ✅ done | make openapi-check. |
 | M7 | 2 | Smoke over 50 multi-platform villas | ✅ done | Two smoke tests (50 sampled listings, 50 sampled two-platform villas): 2 passed, 0 failed. |
 | M7 | 3 | Every number links to its provenance (E2E) | ✅ done | 10 random numbers on listing, villa and search pages. |
-| M7 | 4 | No critical axe violations; keyboard | ✅ done | E2E (with axe): 51 passed, 0 failed. |
+| M7 | 4 | No critical axe violations; keyboard | ✅ done | E2E (with axe): 87 passed, 0 failed. |
 | M7 | 5 | p95 villa + offers < 300 ms | ✅ done | p95 10.4 ms on 50 villas. |
 | M8 | 1 | Query understanding eval on 50 queries | ✅ done | The owner reviewed and accepted all 50 cases; on that set, uncached: slots 99.3%, exact 98.0%, 0 invented numbers, gpt-5.4-mini p95 2085 ms. |
 | M8 | 2 | Retrieval eval: 30 queries with judged relevant villas | ☑️ closed by the owner | The owner fully judged 11 of 30 queries and closed the criterion with them (2026-10-08): ranking nDCG@10 0.786, price nDCG@10 0.581, rating nDCG@10 0.581. The shipped ranking beats both baselines; FTS and dense retrieval were not built. |
@@ -144,7 +144,7 @@ from `/review`.
 | M11 | 1 | make demo from a local bundle, no network but cached LLM answers | ✅ done | Separate project on :3400, cached model answers only, no outbound request; photos stay hotlinked. |
 | M11 | 2 | Every number in the demo script in a generated report | ✅ done | docs/demo-script.md and the demo guide page. |
 | M11 | 3 | LLM spend ≤ $30 and reconciled with the dashboard | ✅ done | The ledger is under the $30 cap and the owner confirmed it against the AvalAI dashboard (2026-10-05). |
-| M11 | 4 | E2E green for the storyboard paths | ✅ done | 51 E2E tests, 0 failed. |
+| M11 | 4 | E2E green for the storyboard paths | ✅ done | 87 E2E tests, 0 failed. |
 | M12 | 1 | 1.1: Number formatting module and vocabulary | ✅ done | 60 table-driven tests (lib/numbers.test.ts); E2E: no Latin digit or forbidden word on search and the demo villa. |
 | M12 | 2 | 1.2: Split-view search with price pins | ✅ done | E2E: map and first full card above the fold at 1440×900 and 1536×864; card ↔ pin hover under 100 ms. |
 | M12 | 3 | 1.3: Intent chips and the two-state budget chip | ✅ done | E2E: nothing between chips and the first card is taller than 80 px; the flip needs no full reload. |

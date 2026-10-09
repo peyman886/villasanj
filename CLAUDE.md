@@ -255,6 +255,8 @@ On the host: `cd backend && uv run villasanj --help` (talks to the db on 127.0.0
   cross-origin and the page never hydrates). `agentRules: false` keeps `next dev` from writing
   its own CLAUDE.md/AGENTS.md under `frontend/`.
 - **Commit only after reading the `make test` result**; pre-commit runs lint, not tests.
+- **`make up` does not rebuild images**: after code changes run `docker compose build` (or
+  `make demo`, which builds them) and then `make up` again, or the stack keeps serving the old code.
 - **Do not rebuild or restart the stack while host jobs run** (crawls, embeddings): `make up` recreates
   the db container when its image changed, and running jobs lose their connection. Interrupted
   claims are recovered by the next crawl run after 10 minutes.
