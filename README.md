@@ -1,23 +1,41 @@
 # Villasanj · ویلاسنج
 
-> یک ویلا، همه‌ی حقیقت: one villa, the whole truth.
+> **ویلاسنج: یک ویلا، همه‌ی حقیقت**
+> Torob for villas: one real villa, every platform's offer, every claim checked.
 
-A Torob-style product for Iranian villa rentals (Ramsar–Tonekabon), built for the Torob "AI Product
-Engineer" challenge: **crawl offers → normalize messy data → rank by user intent → explain the best
-choice.** Each real villa gets one page that brings its listings from different platforms
-together, with the all-in price for your dates and group, a calendar, reviews and a
-truth check of what the listing claims. Every number shown has a source and an observation time.
+- **One villa, not two listings.** Entity resolution across jabama and shab (photo hashes, image
+  embeddings, location, an LLM judge that can only veto, the owner's labels): precision 100%
+  (95% CI 95.9–100%), recall 65.0% on 362 owner-labelled pairs; 3,211 villas, 377 on both
+  platforms ([ER report](reports/er-eval-2026-10-08.md)).
+- **Each platform's own price, never merged.** All-in offers per stay and group, every component
+  with its source and observation time; an unknown fee is said as «از», never guessed.
+- **Claims checked against the map.** Published distances to the sea and to places, measured on
+  OpenStreetMap over each listing's blurred location; «تأیید نشد» unless even the best case fails
+  ([H4 report](reports/h4-2026-10-08.md)).
 
-Status (2026-10-08): every milestone is done. Four criteria were closed by the owner's decision
-rather than met as written (no new platforms, no public direct quote, explanation latency accepted
-with the cache, the retrieval eval on 11 judged queries instead of 30); they are marked so, not as
-done. The status of every criterion, with its evidence, is generated into
-[`docs/ROADMAP.md`](docs/ROADMAP.md) and shown in the app at **`/docs/milestones`**.
+Built for Torob's **AI Product Engineer** challenge (*crawl offers → normalize messy data → rank by
+user intent → explain the best choice*). Demo video: link in the submission.
 
-**Documentation and technical report: [`/docs`](http://localhost:3300/docs)** inside the app
-(Persian): architecture, entity resolution and the label-correction history, search, truth check,
-LLM use and cost, every evaluation with its confidence interval, tests, milestones, ADRs and the
-generated reports, with 20 diagrams. It works in the offline demo too.
+**Built with an AI coding agent, milestone by milestone**, each with written acceptance criteria and
+evidence: see [`docs/ROADMAP.md`](docs/ROADMAP.md) (status generated from the reports) and the
+[decision records](docs/adr/README.md). In the app, `/docs` is the full technical report (Persian)
+with live numbers, diagrams and every evaluation.
+
+### Data and licences
+
+- **No crawled data, photos or reviews are in this repository.** Test fixtures are trimmed pages
+  with synthetic text. A fresh clone has an empty catalog: crawl politely as ADR-0008 describes
+  (`make crawl P=jabama LIVE=1`, with your own `CRAWL__CONTACT`) or rebuild from your own snapshots.
+- `make demo` needs a local data bundle (`data/demo`, a database dump with the LLM cache), which is
+  not published.
+- Source code: [MIT](LICENSE). Map data © OpenStreetMap contributors (ODbL). Vazirmatn font: SIL
+  Open Font License. jabama and shab are trademarks of their owners; this project is not affiliated
+  with them.
+
+Status (2026-10-09): milestones M0 to M12 are done; M12 redesigned the product (split-view search
+with price pins and filters, a two-platform booking card and Jalali calendar, «چرا مطمئنیم؟» from
+the recorded match evidence, dark mode) and ends with this public release. Four criteria were closed
+by the owner's decision rather than met as written; they are marked so, not as done.
 
 ## What works today
 
@@ -25,7 +43,7 @@ generated reports, with 20 diagrams. It works in the offline demo too.
 |---|---|---|
 | Crawl | Polite, ToS-audited crawlers for **jabama** and **shab** (the other platforms forbid crawling; ADR-0011). One request per host every ≥ 3 s, robots.txt honoured, stop on block, every response snapshotted. | 2,987 + 601 listings in the region; every calendar captured again within one window on 2026-10-03 (jabama 3.2 h, shab 0.6 h); 14.4k reviews, 17.9k photos selected (5 per listing) |
 | Normalize | Pure parsers from snapshots: rial/toman, Jalali dates, Persian text, platform quirks (e.g. jabama's `0` means "not set"). Place names through a curated gazetteer. | 0 parse failures on the second discovery pass |
-| Price | All-in offer per listing, stay and group, every component with provenance. Unknown fees give an open bound ("حداقل …"), never an invented cap. | every bookable offer is OPEN today: neither platform publishes its fees |
+| Price | All-in offer per listing, stay and group, every component with provenance. Unknown fees give an open bound («از …»), never an invented cap. | every bookable offer is OPEN today: neither platform publishes its fees |
 | Understand | A Persian query becomes a structured intent (LLM). A verifier rejects any number the query did not say; dates are resolved by code against a sourced holiday calendar. | on the owner-reviewed 50-query set, uncached (2026-10-08): 99.3% slots, 0 invented numbers, p95 2.1 s ([report](reports/understanding-2026-10-08.md)); wishes it cannot measure are said back |
 | Rank | Filters with a stated reason, cautions for unknowns (including a contradicted claim), requested features confirmed first, then a transparent score (price per person and night, Bayesian rating). No commission factor; the rules are public at `/how-we-rank`. | `/search`; on 11 owner-judged queries nDCG@10 0.786 against 0.581 for cheapest-first and best-rated-first ([report](reports/relevance-2026-10-08.md)) |
 | Explain | The LLM writes Persian prose around fact slots (`{F1}`); code formats every number and decides every comparison; a verifier rejects digits, comparatives and availability stated as a fact; a template is the fallback, also when no model can answer. It streams in after the results. | 20 draft queries: 100% LLM text, 0% fallback; p95 6–10 s uncached (not yet the 4 s target) |
@@ -110,10 +128,10 @@ make help               # every target
   reviewer's guide at `/docs/demo`)
 - [Architecture](docs/ARCHITECTURE.md): bounded contexts, layers, domain model, schema, ports, assumptions
 - [Roadmap](docs/ROADMAP.md): milestones, acceptance criteria, what was built ahead and what is blocked
-- [Decisions](docs/adr/README.md): ADRs 0001–0014 (LLM gateway and cost, provenance, crawling ethics,
-  entity resolution, image matching, geo evidence, the ER decision policy)
+- [Decisions](docs/adr/README.md): ADRs 0001–0015 (LLM gateway and cost, provenance, crawling ethics,
+  entity resolution, image matching, geo evidence, the ER decision policy, uncertainty in the UI)
 - [Reports](reports/): hypotheses H1–H3, the ER evaluation, H4, the judge bake-off, quality and
-  performance — generated, each with a JSON artifact (command, time, provenance)
+  performance, and the M12 wave reports: generated, each with a JSON artifact where it has numbers
 - [Sources](docs/sources/README.md): robots/ToS audit and what each platform publishes
 - [Labelling protocol](docs/er-labeling-protocol.md) (Persian) and the
   [research review](docs/research-review.md)
