@@ -10,14 +10,17 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Literal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
+from fastapi import status as http_status
 from pydantic import BaseModel, Field
 
 from villasanj.catalog.domain.listing import Listing
 from villasanj.discovery.application.explanation import ExplainChoice, Explanation, explain_first
 from villasanj.discovery.application.routing import Origin
 from villasanj.discovery.application.search import SearchResult
+from villasanj.discovery.domain.area import InvalidArea, MapArea
 from villasanj.discovery.domain.dates import describe_fa
+from villasanj.discovery.domain.filters import FacetRow, SearchFilters
 from villasanj.discovery.domain.ranking import WEIGHTS, Ranked
 from villasanj.enrichment.domain.features import NEAR_SEA_M, Feature, FeatureEvidence
 from villasanj.enrichment.domain.geo import UNKNOWN_RADIUS_M
@@ -35,6 +38,39 @@ SEARCH_BUDGET_USD = Decimal("0.02")
 router = APIRouter(tags=["search"])
 
 
+class FiltersIn(BaseModel):
+    """The filter panel's choices (``discovery.domain.filters``); every field optional."""
+
+    price_min: int | None = Field(default=None, ge=0)
+    price_max: int | None = Field(default=None, ge=0)
+    per_night: bool = False
+    bedrooms_min: int | None = Field(default=None, ge=1, le=20)
+    capacity_min: int | None = Field(default=None, ge=1, le=50)
+    features: list[Feature] = Field(default_factory=list, max_length=8)
+    property_types: list[str] = Field(default_factory=list, max_length=12)
+    platforms: list[str] = Field(default_factory=list, max_length=4)
+    multi_platform: bool = False
+    instant: bool = False
+    rating_min: float | None = Field(default=None, ge=0, le=5)
+    coast_max_m: float | None = Field(default=None, ge=0)
+
+    def domain(self) -> SearchFilters:
+        return SearchFilters(
+            price_min=self.price_min,
+            price_max=self.price_max,
+            per_night=self.per_night,
+            bedrooms_min=self.bedrooms_min,
+            capacity_min=self.capacity_min,
+            features=frozenset(f.value for f in self.features),
+            property_types=frozenset(self.property_types),
+            platforms=frozenset(self.platforms),
+            multi_platform=self.multi_platform,
+            instant=self.instant,
+            rating_min=self.rating_min,
+            coast_max_m=self.coast_max_m,
+        )
+
+
 class SearchIn(BaseModel):
     query: str = Field(min_length=2, max_length=300)
     # Constraints the user removed: "dates", "nights", "guests", "bedrooms", "budget", "drive",
@@ -43,6 +79,17 @@ class SearchIn(BaseModel):
     # False: results only; the page then streams ``POST /search/explanation`` in after them, so
     # the explanation's latency (one LLM call, ADR-0005) never holds the results back.
     explain: bool = True
+    # The map's visible bounds [west, south, east, north] when the user searched "this area".
+    area: list[float] | None = Field(default=None, min_length=4, max_length=4)
+    filters: FiltersIn | None = None
+
+    def map_area(self) -> MapArea | None:
+        if self.area is None:
+            return None
+        try:
+            return MapArea(*self.area)
+        except InvalidArea as error:
+            raise HTTPException(http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
 
 
 class DatesOut(BaseModel):
@@ -289,7 +336,13 @@ async def search(body: SearchIn, request: Request) -> SearchOut:
     ctx = await container.jobs.start("search", SEARCH_BUDGET_USD, {})
     status = JobStatus.FAILED
     try:
-        result = await container.search().run(body.query, ctx, body.drop)
+        result = await container.search().run(
+            body.query,
+            ctx,
+            body.drop,
+            body.map_area(),
+            body.filters.domain() if body.filters else None,
+        )
         why = await _explain(container, result, ctx) if body.explain else None
         status = JobStatus.SUCCEEDED
     finally:
@@ -348,9 +401,64 @@ async def search_explanation(body: SearchIn, request: Request) -> ExplanationOut
     ctx = await container.jobs.start("search_explanation", SEARCH_BUDGET_USD, {})
     status = JobStatus.FAILED
     try:
-        result = await container.search().run(body.query, ctx, body.drop)
+        result = await container.search().run(
+            body.query,
+            ctx,
+            body.drop,
+            body.map_area(),
+            body.filters.domain() if body.filters else None,
+        )
         why = await _explain(container, result, ctx)
         status = JobStatus.SUCCEEDED
     finally:
         await container.jobs.finish(ctx.job_id, status)
     return _explanation_out(why)
+
+
+class FacetOut(BaseModel):
+    listing: str
+    villa: str
+    platform: str
+    multi_platform: bool
+    total_toman: int | None
+    nights: int
+    bedrooms: int | None
+    max_capacity: int | None
+    property_type: str | None
+    instant: bool | None
+    rating: float | None
+    coast_low_m: float | None
+    features: list[str]
+
+    @classmethod
+    def of(cls, row: FacetRow) -> FacetOut:
+        return cls(
+            listing=row.listing,
+            villa=row.villa,
+            platform=row.platform,
+            multi_platform=row.multi_platform,
+            total_toman=row.total_toman,
+            nights=row.nights,
+            bedrooms=row.bedrooms,
+            max_capacity=row.max_capacity,
+            property_type=row.property_type,
+            instant=row.instant,
+            rating=row.rating,
+            coast_low_m=round(row.coast_low_m, 1) if row.coast_low_m is not None else None,
+            features=sorted(row.features),
+        )
+
+
+@router.post("/search/facets")
+async def search_facets(body: SearchIn, request: Request) -> list[FacetOut]:
+    """Every ranked listing of the query (inside the map area, before the filters), as the filter
+    panel needs it for its live count and price histogram. The filters in the body are ignored."""
+    container: Container = request.app.state.container
+    ctx = await container.jobs.start("search_facets", SEARCH_BUDGET_USD, {})
+    status = JobStatus.FAILED
+    try:
+        result = await container.search().run(body.query, ctx, body.drop, body.map_area())
+        status = JobStatus.SUCCEEDED
+    finally:
+        await container.jobs.finish(ctx.job_id, status)
+    return [FacetOut.of(row) for row in result.facets]

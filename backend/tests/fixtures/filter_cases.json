@@ -1,0 +1,22 @@
+{
+  "_comment": "Shared by backend/tests/unit/discovery/test_filters.py and frontend/src/lib/filters.test.ts: the filter panel's live count and the search must agree.",
+  "rows": [
+    {"listing": "jabama:1", "villa": "v-a", "platform": "jabama", "multi_platform": true, "total_toman": 8500000, "nights": 2, "bedrooms": 3, "max_capacity": 10, "property_type": "villa", "instant": true, "rating": 4.9, "coast_low_m": 200, "features": ["pool", "parking"]},
+    {"listing": "shab:1", "villa": "v-a", "platform": "shab", "multi_platform": true, "total_toman": 9200000, "nights": 2, "bedrooms": 3, "max_capacity": 10, "property_type": "villa", "instant": false, "rating": 4.6, "coast_low_m": 250, "features": ["pool"]},
+    {"listing": "jabama:2", "villa": "jabama:2", "platform": "jabama", "multi_platform": false, "total_toman": 4000000, "nights": 2, "bedrooms": 1, "max_capacity": 4, "property_type": "apartment", "instant": null, "rating": null, "coast_low_m": 3000, "features": []},
+    {"listing": "shab:2", "villa": "shab:2", "platform": "shab", "multi_platform": false, "total_toman": null, "nights": 2, "bedrooms": null, "max_capacity": null, "property_type": "cottage", "instant": true, "rating": 4.2, "coast_low_m": null, "features": ["forest", "fireplace"]}
+  ],
+  "cases": [
+    {"name": "no filter keeps everything", "filters": {}, "listings": ["jabama:1", "shab:1", "jabama:2", "shab:2"], "villas": 3},
+    {"name": "whole-stay price bounds; an unknown price fails", "filters": {"price_min": 5000000, "price_max": 9000000}, "listings": ["jabama:1"], "villas": 1},
+    {"name": "per-night price divides by the nights", "filters": {"price_max": 4300000, "per_night": true}, "listings": ["jabama:1", "jabama:2"], "villas": 2},
+    {"name": "rooms and capacity; unknown fails", "filters": {"bedrooms_min": 2, "capacity_min": 8}, "listings": ["jabama:1", "shab:1"], "villas": 1},
+    {"name": "every chosen feature must be present", "filters": {"features": ["pool", "parking"]}, "listings": ["jabama:1"], "villas": 1},
+    {"name": "property types are alternatives", "filters": {"property_types": ["apartment", "cottage"]}, "listings": ["jabama:2", "shab:2"], "villas": 2},
+    {"name": "platforms are alternatives", "filters": {"platforms": ["shab"]}, "listings": ["shab:1", "shab:2"], "villas": 2},
+    {"name": "only villas on both platforms", "filters": {"multi_platform": true}, "listings": ["jabama:1", "shab:1"], "villas": 1},
+    {"name": "instant booking; unknown fails", "filters": {"instant": true}, "listings": ["jabama:1", "shab:2"], "villas": 2},
+    {"name": "rating; unknown fails", "filters": {"rating_min": 4.5}, "listings": ["jabama:1", "shab:1"], "villas": 1},
+    {"name": "distance to the sea: the best case decides; unmeasured fails", "filters": {"coast_max_m": 1000}, "listings": ["jabama:1", "shab:1"], "villas": 1}
+  ]
+}

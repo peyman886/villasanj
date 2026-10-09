@@ -473,6 +473,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Facets
+         * @description Every ranked listing of the query (inside the map area, before the filters), as the filter
+         *     panel needs it for its live count and price histogram. The filters in the body are ignored.
+         */
+        post: operations["search_facets_search_facets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search/ranking": {
         parameters: {
             query?: never;
@@ -851,6 +872,35 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** FacetOut */
+        FacetOut: {
+            /** Bedrooms */
+            bedrooms: number | null;
+            /** Coast Low M */
+            coast_low_m: number | null;
+            /** Features */
+            features: string[];
+            /** Instant */
+            instant: boolean | null;
+            /** Listing */
+            listing: string;
+            /** Max Capacity */
+            max_capacity: number | null;
+            /** Multi Platform */
+            multi_platform: boolean;
+            /** Nights */
+            nights: number;
+            /** Platform */
+            platform: string;
+            /** Property Type */
+            property_type: string | null;
+            /** Rating */
+            rating: number | null;
+            /** Total Toman */
+            total_toman: number | null;
+            /** Villa */
+            villa: string;
+        };
         /**
          * Feature
          * @enum {string}
@@ -876,6 +926,45 @@ export interface components {
              * @enum {string}
              */
             verdict: "supported" | "consistent" | "not_confirmed" | "inconsistent" | "contradicted" | "shared" | "not_checked";
+        };
+        /**
+         * FiltersIn
+         * @description The filter panel's choices (``discovery.domain.filters``); every field optional.
+         */
+        FiltersIn: {
+            /** Bedrooms Min */
+            bedrooms_min?: number | null;
+            /** Capacity Min */
+            capacity_min?: number | null;
+            /** Coast Max M */
+            coast_max_m?: number | null;
+            /** Features */
+            features?: components["schemas"]["Feature"][];
+            /**
+             * Instant
+             * @default false
+             */
+            instant: boolean;
+            /**
+             * Multi Platform
+             * @default false
+             */
+            multi_platform: boolean;
+            /**
+             * Per Night
+             * @default false
+             */
+            per_night: boolean;
+            /** Platforms */
+            platforms?: string[];
+            /** Price Max */
+            price_max?: number | null;
+            /** Price Min */
+            price_min?: number | null;
+            /** Property Types */
+            property_types?: string[];
+            /** Rating Min */
+            rating_min?: number | null;
         };
         /** GalleryPhotoOut */
         GalleryPhotoOut: {
@@ -1590,6 +1679,8 @@ export interface components {
         };
         /** SearchIn */
         SearchIn: {
+            /** Area */
+            area?: number[] | null;
             /** Drop */
             drop?: string[];
             /**
@@ -1597,6 +1688,7 @@ export interface components {
              * @default true
              */
             explain: boolean;
+            filters?: components["schemas"]["FiltersIn"] | null;
             /** Query */
             query: string;
         };
@@ -2572,6 +2664,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExplanationOut"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_facets_search_facets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacetOut"][];
                 };
             };
             /** @description Validation Error */

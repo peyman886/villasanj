@@ -205,6 +205,28 @@ async def test_removed_chips_widen_the_search() -> None:
     assert len(result.ranking.results) == 4
 
 
+async def test_filters_narrow_the_ranked_results_and_report_every_facet() -> None:
+    from villasanj.discovery.domain.area import MapArea
+    from villasanj.discovery.domain.filters import SearchFilters
+
+    query = "ویلای استخردار در رامسر برای ۴ نفر آخر هفته زیر ۵ میلیون"
+    plain = await search(WEEKEND).run(query, CTX)
+    assert [f.listing for f in plain.facets] == ["p:pool", "p:contradicted"]
+    pool = plain.facets[0]
+    assert pool.nights == 2
+    assert "pool" in pool.features
+    assert pool.total_toman is not None
+    cheap = SearchFilters(price_max=pool.total_toman - 1)
+    narrowed = await search(WEEKEND).run(query, CTX, filters=cheap)
+    assert narrowed.ranking is not None
+    assert pool.listing not in [r.candidate.id for r in narrowed.ranking.results]
+    assert [f.listing for f in narrowed.facets] == ["p:pool", "p:contradicted"]  # before filters
+    nowhere = MapArea(west=10.0, south=10.0, east=11.0, north=11.0)
+    empty = await search(WEEKEND).run(query, CTX, area=nowhere)
+    assert empty.ranking is not None
+    assert (empty.ranking.results, empty.facets) == ((), ())
+
+
 async def test_a_contradicted_distance_claim_is_a_caution_on_the_result() -> None:
     from tests.unit.enrichment.test_truth import Places, place
     from villasanj.enrichment.domain.places import PlaceKind

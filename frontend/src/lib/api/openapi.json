@@ -496,6 +496,131 @@
         "title": "ExplanationOut",
         "type": "object"
       },
+      "FacetOut": {
+        "properties": {
+          "bedrooms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bedrooms"
+          },
+          "coast_low_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coast Low M"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "instant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instant"
+          },
+          "listing": {
+            "title": "Listing",
+            "type": "string"
+          },
+          "max_capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Capacity"
+          },
+          "multi_platform": {
+            "title": "Multi Platform",
+            "type": "boolean"
+          },
+          "nights": {
+            "title": "Nights",
+            "type": "integer"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "property_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Property Type"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          },
+          "total_toman": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Toman"
+          },
+          "villa": {
+            "title": "Villa",
+            "type": "string"
+          }
+        },
+        "required": [
+          "listing",
+          "villa",
+          "platform",
+          "multi_platform",
+          "total_toman",
+          "nights",
+          "bedrooms",
+          "max_capacity",
+          "property_type",
+          "instant",
+          "rating",
+          "coast_low_m",
+          "features"
+        ],
+        "title": "FacetOut",
+        "type": "object"
+      },
       "Feature": {
         "enum": [
           "pool",
@@ -569,6 +694,127 @@
           "evidence_provenance"
         ],
         "title": "FeatureClaimOut",
+        "type": "object"
+      },
+      "FiltersIn": {
+        "description": "The filter panel's choices (``discovery.domain.filters``); every field optional.",
+        "properties": {
+          "bedrooms_min": {
+            "anyOf": [
+              {
+                "maximum": 20.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bedrooms Min"
+          },
+          "capacity_min": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Min"
+          },
+          "coast_max_m": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coast Max M"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "maxItems": 8,
+            "title": "Features",
+            "type": "array"
+          },
+          "instant": {
+            "default": false,
+            "title": "Instant",
+            "type": "boolean"
+          },
+          "multi_platform": {
+            "default": false,
+            "title": "Multi Platform",
+            "type": "boolean"
+          },
+          "per_night": {
+            "default": false,
+            "title": "Per Night",
+            "type": "boolean"
+          },
+          "platforms": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Platforms",
+            "type": "array"
+          },
+          "price_max": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Max"
+          },
+          "price_min": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Min"
+          },
+          "property_types": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Property Types",
+            "type": "array"
+          },
+          "rating_min": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating Min"
+          }
+        },
+        "title": "FiltersIn",
         "type": "object"
       },
       "GalleryPhotoOut": {
@@ -2858,6 +3104,22 @@
       },
       "SearchIn": {
         "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
           "drop": {
             "items": {
               "type": "string"
@@ -2870,6 +3132,16 @@
             "default": true,
             "title": "Explain",
             "type": "boolean"
+          },
+          "filters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FiltersIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "query": {
             "maxLength": 300,
@@ -4810,6 +5082,52 @@
           }
         },
         "summary": "Search Explanation",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/search/facets": {
+      "post": {
+        "description": "Every ranked listing of the query (inside the map area, before the filters), as the filter\npanel needs it for its live count and price histogram. The filters in the body are ignored.",
+        "operationId": "search_facets_search_facets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FacetOut"
+                  },
+                  "title": "Response Search Facets Search Facets Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Facets",
         "tags": [
           "search"
         ]

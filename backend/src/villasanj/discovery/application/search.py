@@ -22,7 +22,9 @@ from villasanj.discovery.application.dates import BuildHolidayCalendar
 from villasanj.discovery.application.intent import SearchIntent, without
 from villasanj.discovery.application.routing import DriveTime, DriveTimeStore, Origin
 from villasanj.discovery.application.understanding import Understanding, UnderstandQuery
+from villasanj.discovery.domain.area import MapArea
 from villasanj.discovery.domain.dates import ResolvedDates, resolve
+from villasanj.discovery.domain.filters import FacetRow, SearchFilters, passes
 from villasanj.discovery.domain.ranking import (
     BudgetBasis,
     Candidate,
@@ -85,6 +87,8 @@ class SearchResult:
     # (one card per villa, each platform's own price; ranked by the villa's best listing).
     villa_of: Mapping[str, str] = field(default_factory=dict)
     siblings: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    # Every ranked listing (inside the map area, before the filters) as the filters see it.
+    facets: tuple[FacetRow, ...] = ()
 
 
 class VillaMembers(Protocol):
@@ -143,8 +147,17 @@ class SearchListings:
         self._read_claims = read_claims
         self._villas = villas
 
-    async def run(self, query: str, ctx: JobContext, drop: Sequence[str] = ()) -> SearchResult:
-        """``drop``: constraints the user removed from the understood query (editable chips)."""
+    async def run(
+        self,
+        query: str,
+        ctx: JobContext,
+        drop: Sequence[str] = (),
+        area: MapArea | None = None,
+        filters: SearchFilters | None = None,
+    ) -> SearchResult:
+        """``drop``: constraints the user removed from the understood query (editable chips).
+        ``area``: only villas whose published point is inside it (the map's «search this area»).
+        ``filters``: the filter panel's choices; they narrow the ranked listings, never re-rank."""
         understanding = await self._understand.run(query, ctx)
         if drop:
             understanding = replace(understanding, intent=without(understanding.intent, drop))
@@ -212,7 +225,23 @@ class SearchListings:
         wants = _requirements(intent, dates)
         ranking = rank(candidates, wants)
         villa_of, siblings = await self._villa_groups(offers)
-        ranking = replace(ranking, results=_one_per_villa(ranking.results, villa_of))
+        ranked = ranking.results
+        if area is not None:
+            ranked = tuple(
+                r
+                for r in ranked
+                if (where := listings[r.candidate.id].location) is not None
+                and area.contains(where.point)
+            )
+        nights = (dates.window.check_out - dates.window.check_in).days
+        facets = tuple(
+            _facet(r.candidate, listings[r.candidate.id], geos[r.candidate.id], villa_of, nights)
+            for r in ranked
+        )
+        if filters is not None and not filters.empty:
+            keep = {row.listing for row in facets if passes(row, filters)}
+            ranked = tuple(r for r in ranked if r.candidate.id in keep)
+        ranking = replace(ranking, results=_one_per_villa(ranked, villa_of))
         mentions = {
             key: found
             for key, listing in listings.items()
@@ -235,6 +264,7 @@ class SearchListings:
             mentions,
             villa_of,
             {k: siblings[k] for r in ranking.results if (k := r.candidate.id) in siblings},
+            facets,
         )
 
     async def _villa_groups(
@@ -312,7 +342,7 @@ class SearchListings:
                 [c for c in claims if c.feature is feature],
                 photo_seen=feature in pictured,
             )
-            for feature in (Feature(f) for f in intent.features)
+            for feature in Feature  # every feature: the requested ones rank, all of them filter
         }
         if Feature.NEAR_SEA in features and geo.coast is not None:
             measured = near_sea_evidence(geo.coast.low_m, geo.coast.high_m)
@@ -371,3 +401,34 @@ def _one_per_villa(results: Sequence[Ranked], villa_of: Mapping[str, str]) -> tu
             seen.add(villa)
         kept.append(result)
     return tuple(kept)
+
+
+_PRESENT = frozenset(
+    {
+        FeatureEvidence.LISTED,
+        FeatureEvidence.MEASURED,
+        FeatureEvidence.PHOTO,
+        FeatureEvidence.DESCRIBED,
+    }
+)
+
+
+def _facet(
+    candidate: Candidate, listing: Listing, geo: Geo, villa_of: Mapping[str, str], nights: int
+) -> FacetRow:
+    key = candidate.id
+    return FacetRow(
+        listing=key,
+        villa=villa_of.get(key, key),
+        platform=listing.id.platform,
+        multi_platform=key in villa_of,
+        total_toman=int(candidate.total.low.toman) if candidate.total is not None else None,
+        nights=nights,
+        bedrooms=listing.bedrooms,
+        max_capacity=listing.max_capacity,
+        property_type=listing.property_type,
+        instant=listing.instant_booking,
+        rating=listing.rating_avg,
+        coast_low_m=geo.coast.low_m if geo.coast is not None else None,
+        features=frozenset(f.value for f, e in candidate.features.items() if e in _PRESENT),
+    )

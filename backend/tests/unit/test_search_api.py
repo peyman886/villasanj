@@ -99,6 +99,26 @@ def test_choosing_the_budget_basis_keeps_every_other_chip(client: TestClient) ->
     assert body["budget_readings"] is None
 
 
+def test_the_filter_panel_gets_every_ranked_listing_and_filters_narrow(client: TestClient) -> None:
+    facets = client.post("/search/facets", json={"query": QUERY}).json()
+    assert [f["listing"] for f in facets] == ["p:pool", "p:contradicted"]
+    assert facets[0]["features"] == sorted(facets[0]["features"])
+    cheapest = min(f["total_toman"] for f in facets)
+    body = client.post(
+        "/search", json={"query": QUERY, "filters": {"price_max": cheapest, "features": ["pool"]}}
+    ).json()
+    kept = [
+        f["listing"] for f in facets if f["total_toman"] <= cheapest and "pool" in f["features"]
+    ]
+    assert [r["listing_id"] for r in body["results"]] == kept
+    bad = client.post("/search", json={"query": QUERY, "area": [51.0, 36.0, 50.0, 37.0]})
+    assert bad.status_code == 422
+    assert (
+        client.post("/search", json={"query": QUERY, "filters": {"features": ["x"]}}).status_code
+        == 422
+    )
+
+
 def test_the_explanation_comes_as_linkable_segments(client: TestClient) -> None:
     explanation = client.post("/search", json={"query": QUERY}).json()["explanation"]
     assert explanation["source"] == "llm"
