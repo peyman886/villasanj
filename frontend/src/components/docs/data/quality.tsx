@@ -139,7 +139,7 @@ export async function PerformanceTable() {
               <td>{faDecimal(m.max_ms)} ms</td>
               <td>
                 {m.target_ms === null ? (
-                  "—"
+                  "-"
                 ) : m.p95_ms <= m.target_ms ? (
                   <Badge tone="verified">≤ {faInt(m.target_ms)} ms</Badge>
                 ) : (

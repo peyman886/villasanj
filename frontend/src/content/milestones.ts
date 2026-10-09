@@ -57,13 +57,13 @@ export type Milestone = {
 // English formatting for the ROADMAP (Persian goes through lib/format).
 const en = {
   pct: (v: number | null | undefined) =>
-    v === null || v === undefined ? "—" : `${(v * 100).toFixed(1)}%`,
+    v === null || v === undefined ? "-" : `${(v * 100).toFixed(1)}%`,
   ci: (i: Interval | null | undefined) =>
     !i || i.estimate === null
-      ? "—"
+      ? "-"
       : `${(i.estimate * 100).toFixed(1)}% (${(i.low * 100).toFixed(1)}–${(i.high * 100).toFixed(1)}%)`,
   int: (v: number | null | undefined) =>
-    v === null || v === undefined ? "—" : v.toLocaleString("en-US"),
+    v === null || v === undefined ? "-" : v.toLocaleString("en-US"),
 };
 
 const policy = (e: Evidence, name: string) => e.er?.revised.policies.find((p) => p.name === name);
@@ -482,15 +482,15 @@ export const MILESTONES: Milestone[] = [
           const r = e.er?.revised.gold_threshold;
           const o = e.er?.original.gold_threshold;
           return r
-            ? `فقط قواعد، برچسب‌های اصلاح‌شده: آستانه‌ی ${r.threshold}، دقت ${faInterval(r.precision)}، بازیابی ${faInterval(r.recall)}. روی برچسب‌های اولیه: آستانه‌ی ${o?.threshold ?? "—"}، دقت ${faInterval(o?.precision)}.`
-            : "—";
+            ? `فقط قواعد، برچسب‌های اصلاح‌شده: آستانه‌ی ${r.threshold}، دقت ${faInterval(r.precision)}، بازیابی ${faInterval(r.recall)}. روی برچسب‌های اولیه: آستانه‌ی ${o?.threshold ?? "-"}، دقت ${faInterval(o?.precision)}.`
+            : "-";
         },
         evidence_en: (e) => {
           const r = e.er?.revised.gold_threshold;
           const o = e.er?.original.gold_threshold;
           return r
-            ? `Rules alone on revised labels: threshold ${r.threshold}, precision ${en.ci(r.precision)}, recall ${en.ci(r.recall)}. On the labels as first given: threshold ${o?.threshold ?? "—"}, precision ${en.ci(o?.precision)}.`
-            : "—";
+            ? `Rules alone on revised labels: threshold ${r.threshold}, precision ${en.ci(r.precision)}, recall ${en.ci(r.recall)}. On the labels as first given: threshold ${o?.threshold ?? "-"}, precision ${en.ci(o?.precision)}.`
+            : "-";
         },
       },
       {
@@ -517,11 +517,11 @@ export const MILESTONES: Milestone[] = [
         evidence_fa: (e) =>
           e.hyp
             ? `H1: ${faInt(e.hyp.h1.pairs)} جفت، حدود ${faInt(Math.round(e.hyp.h1.corrected_pairs?.estimate ?? 0))} پس از اصلاح؛ H2: میانه‌ی تعطیلات ${faRatio(e.hyp.h2.find((g) => g.scenario === "holiday")?.median_ratio)}؛ H3: ${faPercent(e.hyp.h3.hidden_nights / Math.max(1, e.hyp.h3.nights_compared))} شب پنهان.`
-            : "—",
+            : "-",
         evidence_en: (e) =>
           e.hyp
             ? `H1: ${e.hyp.h1.pairs} pairs, about ${Math.round(e.hyp.h1.corrected_pairs?.estimate ?? 0)} corrected; H2: holiday median ${e.hyp.h2.find((g) => g.scenario === "holiday")?.median_ratio?.toFixed(2)}×; H3: ${en.pct(e.hyp.h3.hidden_nights / Math.max(1, e.hyp.h3.nights_compared))} hidden nights.`
-            : "—",
+            : "-",
         links: [{ href: "/docs/evaluation", label: "ارزیابی و فرضیه‌ها" }],
       },
       {
@@ -603,11 +603,11 @@ export const MILESTONES: Milestone[] = [
         evidence_fa: (e) =>
           e.er
             ? `${faInterval(e.er.revised.blocking_recall)} روی جفت‌های «یکی است»؛ ${faInt(e.er.candidates?.total)} جفت نامزد، ${faInt(e.er.candidates?.blocked)} از blocking تولید.`
-            : "—",
+            : "-",
         evidence_en: (e) =>
           e.er
             ? `${en.ci(e.er.revised.blocking_recall)} of gold matches; ${en.int(e.er.candidates?.total)} candidate pairs, ${en.int(e.er.candidates?.blocked)} from production blocking.`
-            : "—",
+            : "-",
       },
       {
         n: 2,
@@ -618,13 +618,13 @@ export const MILESTONES: Milestone[] = [
           const c = configured(e);
           return c
             ? `سیاست فعلی (داور رد می‌کند، انسان ادغام می‌کند): دقت ${faInterval(c.metrics.precision)}، بازیابی ${faInterval(c.metrics.recall)}. فقط قواعد در ۰٫۲۵− دیگر پاس نمی‌شود: ${faInterval(policy(e, "rules alone")?.metrics.precision)}.`
-            : "—";
+            : "-";
         },
         evidence_en: (e) => {
           const c = configured(e);
           return c
             ? `Configured policy (judge vetoes, a human merges): precision ${en.ci(c.metrics.precision)}, recall ${en.ci(c.metrics.recall)}. Rules alone at −0.25 no longer pass: ${en.ci(policy(e, "rules alone")?.metrics.precision)}.`
-            : "—";
+            : "-";
         },
         links: [{ href: "/docs/entity-resolution", label: "تطبیق ویلاها" }],
       },
@@ -666,13 +666,13 @@ export const MILESTONES: Milestone[] = [
               )
                 .map(([k, v]) => `${k} ${faInt(v)}`)
                 .join("، ")}.`
-            : "—",
+            : "-",
         evidence_en: (e) =>
           e.er
             ? `DB constraint and tests; merges by decider: ${Object.entries(e.er.villas_now.applied)
                 .map(([k, v]) => `${k} ${v}`)
                 .join(", ")}.`
-            : "—",
+            : "-",
       },
       {
         n: 6,
@@ -692,13 +692,13 @@ export const MILESTONES: Milestone[] = [
             ? `صف er-human: ${Object.entries(e.er.human_queue)
                 .map(([k, v]) => `${k.replace("judge:", "")} ${faInt(v)}`)
                 .join("، ")}؛ هر برچسب ویلاها را دوباره می‌سازد.`
-            : "—",
+            : "-",
         evidence_en: (e) =>
           e.er
             ? `Queue er-human: ${Object.entries(e.er.human_queue)
                 .map(([k, v]) => `${k.replace("judge:", "")} ${v}`)
                 .join(", ")}; each label rebuilds the villas.`
-            : "—",
+            : "-",
       },
     ],
   },
@@ -861,7 +861,7 @@ export const MILESTONES: Milestone[] = [
               e.relevance.systems
                 .map(
                   (x) =>
-                    `${x.system} nDCG@10 ${x.ndcg_at_10 === null ? "—" : faDecimal(x.ndcg_at_10, 3)}`,
+                    `${x.system} nDCG@10 ${x.ndcg_at_10 === null ? "-" : faDecimal(x.ndcg_at_10, 3)}`,
                 )
                 .join("، ") +
               ". رتبه‌بندی فعلی از هر دو baseline بهتر است؛ FTS و جستجوی برداری ساخته نشدند."
@@ -938,12 +938,12 @@ export const MILESTONES: Milestone[] = [
             ? e.h4.platforms
                 .map((p) => `${p.platform === "jabama" ? "جاباما" : "شب"} ${faInterval(p.share)}`)
                 .join("، ") + "؛ فرضیه‌ی ≥ ۲۵٪ تأیید نشد."
-            : "—",
+            : "-",
         evidence_en: (e) =>
           e.h4
             ? e.h4.platforms.map((p) => `${p.platform} ${en.ci(p.share)}`).join(", ") +
               "; the ≥ 25% hypothesis is not supported."
-            : "—",
+            : "-",
       },
       {
         n: 5,

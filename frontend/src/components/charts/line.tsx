@@ -171,7 +171,7 @@ export function LineChart({
                     const v = s.points[index]?.y;
                     return (
                       <td key={s.label} className="p-1">
-                        {v === null || v === undefined ? "—" : formatY(v)}
+                        {v === null || v === undefined ? "-" : formatY(v)}
                       </td>
                     );
                   })}

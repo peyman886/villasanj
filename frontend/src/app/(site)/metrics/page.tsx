@@ -35,7 +35,7 @@ const CLAIM_COLUMN_TEXT: Record<string, string> = {
 };
 
 function seconds(value: number | null): string {
-  return value === null ? "—" : `${faNumber(Math.round(value * 100) / 100)} ثانیه`;
+  return value === null ? "-" : `${faNumber(Math.round(value * 100) / 100)} ثانیه`;
 }
 
 function usd(value: number): string {
@@ -96,7 +96,7 @@ export default async function MetricsPage() {
         />
         <MetricCard
           label="شب‌های پنهان"
-          value={h3 ? faPercent(h3.hidden_nights / h3.nights_compared) : "—"}
+          value={h3 ? faPercent(h3.hidden_nights / h3.nights_compared) : "-"}
           detail={
             h3 ? `در ${faInt(h3.pairs_with_hidden_night)} ویلا از ${faInt(h3.pairs)}` : undefined
           }
@@ -204,7 +204,7 @@ export default async function MetricsPage() {
                   ? `${faNumber(p.distance_contradicted_listings)} از ${faNumber(p.distance_judged_listings)} آگهی (${faPercent(
                       p.distance_contradicted_listings / p.distance_judged_listings,
                     )}؛ ${faPercent(p.distance_contradicted_low)} تا ${faPercent(p.distance_contradicted_high)})`
-                  : "—"}
+                  : "-"}
               </p>
             </div>
           ))}
@@ -283,7 +283,7 @@ export default async function MetricsPage() {
                 <td className="text-fg-muted">
                   {Object.entries(o.by_kind)
                     .map(([k, v]) => `${KIND_TEXT[k] ?? k} ${faNumber(v)}`)
-                    .join("، ") || "—"}
+                    .join("، ") || "-"}
                 </td>
                 <td>{faNumber(o.stale)}</td>
               </tr>

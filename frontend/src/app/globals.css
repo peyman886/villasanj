@@ -121,6 +121,39 @@
   );
 }
 
+/* Two overlaid range inputs make one price slider: only the thumbs take the pointer. */
+@utility range-thumb {
+  &::-webkit-slider-runnable-track {
+    height: 2px;
+    background: transparent;
+  }
+  &::-webkit-slider-thumb {
+    pointer-events: auto;
+    appearance: none;
+    margin-top: -10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    background: var(--color-surface);
+    border: 2px solid var(--color-brand-700);
+    box-shadow: var(--shadow-raised);
+    cursor: grab;
+  }
+  &::-moz-range-thumb {
+    pointer-events: auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: var(--color-surface);
+    border: 2px solid var(--color-brand-700);
+    cursor: grab;
+  }
+  &:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+}
+
 @utility ltr {
   direction: ltr;
   unicode-bidi: isolate;

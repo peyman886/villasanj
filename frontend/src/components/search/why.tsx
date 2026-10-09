@@ -4,16 +4,28 @@ import { Sourced } from "@/components/sourced";
 import { Skeleton } from "@/components/ui/states";
 import { apiClient } from "@/lib/api/client";
 import { COPY } from "@/lib/copy";
+import { filtersBody, type Filters } from "@/lib/filters";
 import { displaySegments, type SearchOut } from "@/lib/search";
 
 type Explanation = NonNullable<SearchOut["explanation"]>;
 
 const WORD_MS = 28; // the reveal of a cached explanation takes about a second
 
-async function loadExplanation(query: string, drop: string[]): Promise<Explanation | null> {
+async function loadExplanation(
+  query: string,
+  drop: string[],
+  area: number[] | null,
+  filters: Filters,
+): Promise<Explanation | null> {
   try {
     const { data } = await apiClient().POST("/search/explanation", {
-      body: { query, drop, explain: true },
+      body: {
+        query,
+        drop,
+        explain: true,
+        ...(area ? { area } : {}),
+        filters: filtersBody(filters),
+      },
       cache: "no-store",
     });
     return data ?? null;
@@ -42,8 +54,20 @@ function Frame({ children }: { children: React.ReactNode }) {
  * it was placed and checked by code (ADR-0007). The words fade in one after another, a
  * presentation of an answer that has already arrived and been verified.
  */
-export async function WhyFirst({ query, drop, now }: { query: string; drop: string[]; now: Date }) {
-  const explanation = await loadExplanation(query, drop);
+export async function WhyFirst({
+  query,
+  drop,
+  area,
+  filters,
+  now,
+}: {
+  query: string;
+  drop: string[];
+  area: number[] | null;
+  filters: Filters;
+  now: Date;
+}) {
+  const explanation = await loadExplanation(query, drop, area, filters);
   if (!explanation) return null;
   let word = 0;
   const delay = () => ({ animationDelay: `${word++ * WORD_MS}ms` });

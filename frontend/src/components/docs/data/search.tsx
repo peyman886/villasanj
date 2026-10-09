@@ -80,8 +80,8 @@ export async function RelevanceResults() {
               <th scope="row" className="font-medium">
                 {SYSTEM_FA[x.system] ?? x.system}
               </th>
-              <td>{x.ndcg_at_10 === null ? "—" : faDecimal(x.ndcg_at_10, 3)}</td>
-              <td>{x.recall_at_20 === null ? "—" : faDecimal(x.recall_at_20, 3)}</td>
+              <td>{x.ndcg_at_10 === null ? "-" : faDecimal(x.ndcg_at_10, 3)}</td>
+              <td>{x.recall_at_20 === null ? "-" : faDecimal(x.recall_at_20, 3)}</td>
               <td>{faInt(x.queries)}</td>
             </tr>
           ))}

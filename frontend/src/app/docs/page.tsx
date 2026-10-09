@@ -38,7 +38,7 @@ async function KeyMetrics() {
         tone="verified"
         label="دقت تطبیق ویلاها"
         value={faPercent(policy?.metrics.precision.estimate)}
-        detail={`بازه‌ی ۹۵٪ ${faInterval(policy?.metrics.precision).split("(")[1]?.replace(")", "") ?? "—"}؛ معیار: ≥ ۹۵٪ با کران پایین ≥ ۹۲٪`}
+        detail={`بازه‌ی ۹۵٪ ${faInterval(policy?.metrics.precision).split("(")[1]?.replace(")", "") ?? "-"}؛ معیار: ≥ ۹۵٪ با کران پایین ≥ ۹۲٪`}
         source={chip(er)}
       />
       <MetricCard
@@ -52,7 +52,7 @@ async function KeyMetrics() {
         value={
           hyp
             ? faPercent(hyp.data.h3.hidden_nights / Math.max(1, hyp.data.h3.nights_compared))
-            : "—"
+            : "-"
         }
         detail="شب‌هایی که روی یک پلتفرم آزاد و روی دیگری پر است"
         source={chip(hyp)}
@@ -60,7 +60,7 @@ async function KeyMetrics() {
       <MetricCard
         tone={failed ? "danger" : quality ? "verified" : "neutral"}
         label="تست‌ها"
-        value={quality ? faInt(passed) : "—"}
+        value={quality ? faInt(passed) : "-"}
         detail={
           quality
             ? failed
@@ -76,7 +76,7 @@ async function KeyMetrics() {
               key={p.platform}
               label={`آگهی با ادعای ردشده یا ناهمخوان · ${p.platform === "jabama" ? "جاباما" : "شب"}`}
               value={faPercent(p.share.estimate)}
-              detail={`بازه‌ی ۹۵٪ ${faInterval(p.share).split("(")[1]?.replace(")", "") ?? "—"} (H4)`}
+              detail={`بازه‌ی ۹۵٪ ${faInterval(p.share).split("(")[1]?.replace(")", "") ?? "-"} (H4)`}
               source={chip(h4)}
             />
           ))

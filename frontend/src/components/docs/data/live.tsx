@@ -64,9 +64,9 @@ export async function CrawlHosts() {
                 <span className="ltr font-mono text-xs">{h.host}</span>
               </td>
               <td>{faInt(h.responses)}</td>
-              <td>{h.min_interval_s === null ? "—" : `${faNumber(h.min_interval_s)} ثانیه`}</td>
+              <td>{h.min_interval_s === null ? "-" : `${faNumber(h.min_interval_s)} ثانیه`}</td>
               <td>
-                {h.median_interval_s === null ? "—" : `${faNumber(h.median_interval_s)} ثانیه`}
+                {h.median_interval_s === null ? "-" : `${faNumber(h.median_interval_s)} ثانیه`}
               </td>
             </tr>
           ))}

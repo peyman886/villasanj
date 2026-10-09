@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { ResultCard, type CardContext } from "@/components/search/result-card";
 import { SearchSplit, type Pin } from "@/components/search/split";
+import { FilterPanel } from "@/components/search/filter-panel";
 import { WhyFirst, WhyFirstSkeleton } from "@/components/search/why";
 import { buttonClass } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -14,6 +15,7 @@ import { apiClient } from "@/lib/api/client";
 import { readBasemap } from "@/lib/basemap";
 import { cn } from "@/lib/cn";
 import { COPY } from "@/lib/copy";
+import { filterChips, filterParams, filtersBody, filtersFrom, type Filters } from "@/lib/filters";
 import { faDigits, faNum, pinToman, shortAmount } from "@/lib/numbers";
 import {
   BASIS_TEXT,
@@ -39,10 +41,22 @@ export const metadata: Metadata = { title: "جستجو" };
 type SearchParams = Record<string, string | string[] | undefined>;
 type Outcome = SearchOut | "llm_unavailable" | "error";
 
-async function runSearch(query: string, drop: string[]): Promise<Outcome> {
+async function runSearch(
+  query: string,
+  drop: string[],
+  area: number[] | null,
+  filters: Filters,
+): Promise<Outcome> {
   try {
     const { data, response } = await apiClient().POST("/search", {
-      body: { query, drop, explain: false }, // the explanation streams in after the results
+      // The explanation streams in after the results.
+      body: {
+        query,
+        drop,
+        explain: false,
+        ...(area ? { area } : {}),
+        filters: filtersBody(filters),
+      },
       cache: "no-store",
     });
     if (data) return data;
@@ -52,9 +66,23 @@ async function runSearch(query: string, drop: string[]): Promise<Outcome> {
   }
 }
 
-function searchHref(query: string, drop: string[] = []): string {
+/** The map area from the URL: «west,south,east,north» in degrees, or null. */
+function areaFrom(raw: string | string[] | undefined): number[] | null {
+  const parts = (typeof raw === "string" ? raw : "").split(",").map(Number);
+  const [w, s, e, n] = parts;
+  if (parts.length !== 4 || parts.some((x) => !Number.isFinite(x))) return null;
+  return w !== undefined && s !== undefined && e !== undefined && n !== undefined && w < e && s < n
+    ? parts
+    : null;
+}
+
+/** Params a link keeps besides the query and its edits: the filters and the map area. */
+type Extra = [string, string][];
+
+function searchHref(query: string, drop: string[] = [], extra: Extra = []): string {
   const params = new URLSearchParams({ q: query });
   for (const key of drop) params.append("drop", key);
+  for (const [key, value] of extra) params.set(key, value);
   return `/search?${params}`;
 }
 
@@ -87,12 +115,14 @@ function SearchBar({ query }: { query: string }) {
 export default async function SearchPage(props: { searchParams: Promise<SearchParams> }) {
   const params = await props.searchParams;
   const query = typeof params.q === "string" ? params.q.trim() : "";
+  const area = areaFrom(params.area);
+  const filters = filtersFrom(params);
   const drop = (Array.isArray(params.drop) ? params.drop : params.drop ? [params.drop] : []).slice(
     0,
     12,
   );
   const [result, basemap] = await Promise.all([
-    query.length >= 2 ? runSearch(query, drop) : Promise.resolve(null),
+    query.length >= 2 ? runSearch(query, drop, area, filters) : Promise.resolve(null),
     readBasemap(),
   ]);
   const now = new Date();
@@ -127,7 +157,14 @@ export default async function SearchPage(props: { searchParams: Promise<SearchPa
         </ErrorState>
       ) : null}
       {result && typeof result !== "string" ? (
-        <Results result={result} drop={drop} now={now} basemap={basemap?.pmtiles ?? null} />
+        <Results
+          result={result}
+          drop={drop}
+          area={area}
+          filters={filters}
+          now={now}
+          basemap={basemap?.pmtiles ?? null}
+        />
       ) : null}
     </div>
   );
@@ -153,11 +190,13 @@ function BudgetChip({
   basis,
   result,
   drop,
+  extra,
 }: {
   chip: IntentChip;
   basis: Basis;
   result: SearchOut;
   drop: string[];
+  extra: Extra;
 }) {
   const others = drop.filter((d) => !d.startsWith("basis:"));
   const counts = Object.fromEntries(budgetChoices(result).map((c) => [c.label, c.count]));
@@ -179,7 +218,7 @@ function BudgetChip({
             return (
               <Link
                 key={b}
-                href={searchHref(result.query, [...others, `basis:${b}`])}
+                href={searchHref(result.query, [...others, `basis:${b}`], extra)}
                 aria-current={current ? "true" : undefined}
                 scroll={false}
                 className={cn(
@@ -199,7 +238,7 @@ function BudgetChip({
         </span>
       )}
       <Link
-        href={searchHref(result.query, [...others, "budget"])}
+        href={searchHref(result.query, [...others, "budget"], extra)}
         aria-label={`حذف «${chip.text}» و جستجوی دوباره`}
         className="focus-ring grid size-6 place-items-center rounded-full text-fg-muted transition-colors hover:bg-sand-200 hover:text-fg"
       >
@@ -212,14 +251,20 @@ function BudgetChip({
 function Results({
   result,
   drop,
+  area,
+  filters,
   now,
   basemap,
 }: {
   result: SearchOut;
   drop: string[];
+  area: number[] | null;
+  filters: Filters;
   now: Date;
   basemap: string | null;
 }) {
+  const areaParam: Extra = area ? [["area", area.join(",")]] : [];
+  const extra: Extra = [...filterParams(filters), ...areaParam];
   const chips = intentChips(result, drop);
   const notes = [
     ...(result.dates?.caveats ?? []).map((c) => DATE_CAVEAT_TEXT[c] ?? c),
@@ -269,14 +314,23 @@ function Results({
     <>
       <section aria-label="برداشت ما از جستجو" className="mt-3">
         <ul className="flex flex-wrap items-center gap-2">
+          <li>
+            <FilterPanel query={result.query} drop={drop} area={area} current={filters} />
+          </li>
           {chips.map((chip) => (
             <li key={chip.key}>
               {chip.basis ? (
-                <BudgetChip chip={chip} basis={chip.basis} result={result} drop={drop} />
+                <BudgetChip
+                  chip={chip}
+                  basis={chip.basis}
+                  result={result}
+                  drop={drop}
+                  extra={extra}
+                />
               ) : (
                 <Chip
                   tone="brand"
-                  removeHref={searchHref(result.query, [...drop, chip.key])}
+                  removeHref={searchHref(result.query, [...drop, chip.key], extra)}
                   removeLabel={`حذف «${chip.text}» و جستجوی دوباره`}
                 >
                   {chip.text}
@@ -284,12 +338,36 @@ function Results({
               )}
             </li>
           ))}
+          {filterChips(filters).map((chip) => (
+            <li key={chip.key} data-filter-chip="">
+              <Chip
+                removeHref={searchHref(result.query, drop, [
+                  ...filterParams(chip.without),
+                  ...areaParam,
+                ])}
+                removeLabel={`حذف فیلتر «${chip.text}»`}
+              >
+                {chip.text}
+              </Chip>
+            </li>
+          ))}
+          {area ? (
+            <li data-filter-chip="">
+              <Chip
+                removeHref={searchHref(result.query, drop, filterParams(filters))}
+                removeLabel="حذف «محدوده‌ی نقشه»"
+              >
+                محدوده‌ی نقشه
+              </Chip>
+            </li>
+          ) : null}
           {drop.some((d) => !d.startsWith("basis:")) ? (
             <li>
               <Link
                 href={searchHref(
                   result.query,
                   drop.filter((d) => d.startsWith("basis:")),
+                  extra,
                 )}
                 className="focus-ring inline-flex items-center gap-1 rounded-control px-2 py-1 text-sm text-accent hover:bg-brand-50"
               >
@@ -354,7 +432,13 @@ function Results({
                     explanation={
                       index === 0 && result.dates ? (
                         <Suspense fallback={<WhyFirstSkeleton />}>
-                          <WhyFirst query={result.query} drop={drop} now={now} />
+                          <WhyFirst
+                            query={result.query}
+                            drop={drop}
+                            area={area}
+                            filters={filters}
+                            now={now}
+                          />
                         </Suspense>
                       ) : undefined
                     }
@@ -371,7 +455,7 @@ function Results({
           action={
             chips[0] ? (
               <Link
-                href={searchHref(result.query, [...drop, chips[0].key])}
+                href={searchHref(result.query, [...drop, chips[0].key], extra)}
                 className={buttonClass("secondary")}
               >
                 بدون «{chips[0].text}» جستجو کن

@@ -58,13 +58,13 @@ export async function ErHeadline() {
         tone="verified"
         label="دقت سیاست فعلی"
         value={faPercent(now?.metrics.precision.estimate)}
-        detail={`بازه‌ی ۹۵٪: ${faInterval(now?.metrics.precision).split("(")[1]?.replace(")", "") ?? "—"}`}
+        detail={`بازه‌ی ۹۵٪: ${faInterval(now?.metrics.precision).split("(")[1]?.replace(")", "") ?? "-"}`}
         source={source}
       />
       <MetricCard
         label="بازیابی سیاست فعلی"
         value={faPercent(now?.metrics.recall.estimate)}
-        detail={`بازه‌ی ۹۵٪: ${faInterval(now?.metrics.recall).split("(")[1]?.replace(")", "") ?? "—"}`}
+        detail={`بازه‌ی ۹۵٪: ${faInterval(now?.metrics.recall).split("(")[1]?.replace(")", "") ?? "-"}`}
         source={source}
       />
       <MetricCard
@@ -429,7 +429,7 @@ export async function ErAblations() {
               <td>
                 {x.best_f1
                   ? `${faDecimal(x.best_f1.f1, 3)} (دقت ${faPercent(x.best_f1.precision.estimate)}، بازیابی ${faPercent(x.best_f1.recall.estimate)})`
-                  : "—"}
+                  : "-"}
               </td>
             </tr>
           ))}

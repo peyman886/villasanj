@@ -35,7 +35,7 @@ export default async function HowWeRankPage() {
   }
   const share = (name: string) => {
     const weight = rules?.weights[name];
-    return weight === undefined ? "—" : `${faNumber(Math.round(weight * 100))}٪`;
+    return weight === undefined ? "-" : `${faNumber(Math.round(weight * 100))}٪`;
   };
   const price = share("price");
   const rating = share("rating");

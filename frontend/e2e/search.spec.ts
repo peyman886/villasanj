@@ -117,6 +117,43 @@ test.describe("search page", () => {
     expect(await page.locator("section[aria-label='برداشت ما از جستجو'] li").count()).toBe(chips);
   });
 
+  test("the filter panel counts live, applies on the server and becomes removable chips", async ({
+    page,
+  }) => {
+    await open(page);
+    await page.locator("[data-filter-button]").click();
+    const dialog = page.getByRole("dialog", { name: "فیلترها" });
+    await expect(dialog).toBeVisible();
+    const apply = dialog.locator("[data-apply-filters]");
+    await expect(apply).toHaveText(/نمایش [۰-۹]+ ویلا/, { timeout: 30_000 });
+    const before = await apply.textContent();
+    await dialog.getByRole("button", { name: /رزرو آنی/ }).click();
+    await expect(dialog.getByRole("button", { name: /رزرو آنی/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await dialog.getByRole("radio", { name: /^تا ۱ کیلومتر/ }).click();
+    await expect(apply).not.toHaveText(before ?? "");
+    const promised = ((await apply.textContent()) ?? "").match(/[۰-۹]+/)?.[0];
+    const axe = await new AxeBuilder({ page }).include("dialog[open]").analyze();
+    expect(
+      axe.violations
+        .filter((v) => ["critical", "serious"].includes(v.impact ?? ""))
+        .map((v) => v.id),
+    ).toEqual([]);
+    await apply.click();
+    await expect(page).toHaveURL(/instant=1&sea=1000/, { timeout: 30_000 });
+    await expect(page.locator("#results-title")).toContainText(`${promised} ویلا`);
+    const chips = page.locator("[data-filter-chip]");
+    await expect(chips).toHaveCount(2);
+    await page.getByRole("link", { name: "حذف فیلتر «رزرو آنی»" }).click();
+    await expect(page).not.toHaveURL(/instant=1/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/sea=1000/);
+    await page.locator("[data-filter-button]").click();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+  });
+
   test("words and digits follow the copy rules", async ({ page }) => {
     await open(page);
     await expect(page.locator("#why-title")).toBeVisible({ timeout: 30_000 });
