@@ -1,6 +1,7 @@
 """The API key must never appear in repr, logs or error output."""
 
 import logging
+from pathlib import Path
 
 import pytest
 import structlog
@@ -36,3 +37,22 @@ def test_logs_from_structlog_and_stdlib_are_redacted(capsys: pytest.CaptureFixtu
 def test_redactor_ignores_short_values() -> None:
     redactor = SecretRedactor(["abc"])
     assert redactor.scrub_text("abc def") == "abc def"
+
+
+def test_a_key_listed_without_a_value_means_left_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    """.env.example lists every key empty; copying it to .env must keep the code's defaults."""
+    for key in ("LLM__PROVIDER", "CRAWL__MODE", "AVALAI_BASE_URL", "LLM__BUDGET__PROJECT_USD"):
+        monkeypatch.setenv(key, "")
+    settings = Settings(_env_file=None)
+    assert (settings.llm.provider, settings.crawl.mode) == ("fake", "offline")
+    assert settings.avalai_base_url.startswith("https://")
+    assert settings.llm.budget.project_usd > 0
+
+
+def test_the_example_env_file_carries_no_values() -> None:
+    example = Path(__file__).parents[5] / ".env.example"
+    assignments = [
+        line for line in example.read_text().splitlines() if line and not line.startswith("#")
+    ]
+    assert assignments
+    assert all(line.endswith("=") for line in assignments)

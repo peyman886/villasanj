@@ -75,6 +75,7 @@ class Settings(BaseSettings):
         env_file=("../.env", ".env"),
         env_file_encoding="utf-8",
         env_nested_delimiter="__",
+        env_ignore_empty=True,  # a key listed without a value (.env.example) means "left out"
         extra="ignore",
     )
 
