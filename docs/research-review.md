@@ -4,8 +4,8 @@ The research report is the **reference for product decisions**. This document li
 risky or wrong for building the product, and what the design does about each point. Where the report and
 the owner's summary differ, the report wins; I found no material conflict between them.
 
-> File naming: `research-prompt.md` actually contains the **report**, and `research-report.md`
-> contains the **prompt**. The files are kept as-is; all references in this repo use their current names.
+> File naming: the report is `docs/research-report.md` and the prompt is `docs/research-prompt.md`
+> (the names were swapped at first and corrected when the files moved into `docs/`).
 
 | # | Issue in the report | Why it matters | What we do |
 |---|---|---|---|

@@ -14,9 +14,9 @@ ToS and are excluded unless written permission arrives: all-in offers per stay +
 reviews, and a truth check of listing claims.
 
 Context files (local):
-- `docs/research-prompt.md`: **the deep-research REPORT** (the file names are swapped). It is the
-  reference for product decisions. Critique: `docs/research-review.md`.
-- `docs/research-report.md`: the research **prompt**.
+- `docs/research-report.md`: **the deep-research report**, the reference for product decisions.
+  Critique: `docs/research-review.md`.
+- `docs/research-prompt.md`: the research prompt.
 - `challenge.html`: the challenge page (git-ignored; third-party content).
 
 ## Current status
