@@ -53,7 +53,7 @@ they drift, and `make roadmap` rewrites them. Each milestone's own section keeps
 | M9 | Enrichment & truth check | ✅ done | 5/5 |
 | M10 | Reviews & “why this villa?” | ✅ done (2026-10-05) | 3/4 (+1 closed by the owner) |
 | M11 | Demo polish | ✅ done (2026-10-05) | 4/4 |
-| M12 | UX redesign & public release | ◐ partly done | 23/24 |
+| M12 | UX redesign & public release | ✅ done (2026-10-09) | 24/24 |
 <!-- generated:summary:end -->
 
 ### The owner's decisions of 2026-10-05
@@ -168,14 +168,13 @@ from `/review`.
 | M12 | 21 | 3.4: Copy and motion polish | ✅ done | No detached «می » or « ها» on home, search and villa; with reduced motion no animation is longer than 200 ms and JS scrolling is instant (E2E). |
 | M12 | 22 | 3.5: Search filters | ✅ done | A filter panel with quick tiles, a price histogram, rooms and capacity, amenities, property type, platform, rating and distance to the sea; a live count by the server's own rules (shared cases in filter_cases.json); removable chips (E2E and unit tests). |
 | M12 | 23 | 3.6: Dark mode | ✅ done | Dark tokens for the whole app and a dark map; axe: no serious violation on home, search, villa and docs in dark mode (E2E). |
-| M12 | 24 | Repository published publicly after the audit (docs/release/public-release.md) | ❌ not met | The last step of M12. |
+| M12 | 24 | Repository published publicly after the audit (docs/release/public-release.md) | ✅ done | github.com/peyman886/villasanj is public, tagged v1.0.0; audit A1-A8 green (gitleaks over the whole history, clean clone, no crawled data) (reports/public-release-2026-10-09.md). |
 <!-- generated:criteria:end -->
 
 ### Still open
 
 <!-- generated:open:begin -->
-- **Not met:**
-  - M12 runs end to end without stops: M12 crit. 24 (the public release of the repository).
+Nothing is open: every criterion is done or closed by the owner.
 <!-- generated:open:end -->
 
 ---|---|---|---|

@@ -21,7 +21,9 @@ Context files (local):
 
 ## Current status
 
-- **M12 (UX redesign, then the public release) is in progress** (`docs/ux/`, `docs/release/`):
+- **M12 is done (2026-10-09): the repository is public** at https://github.com/peyman886/villasanj
+  (tag `v1.0.0`, audit in `reports/public-release-2026-10-09.md`). Every milestone M0–M12 is done.
+  M12 (`docs/ux/`, `docs/release/`):
   wave 1 done 2026-10-08 (`reports/m12-wave-1-2026-10-08.md`): split-view search with price pins,
   Torob-style cards, booking card, two-platform Jalali calendar, «چرا مطمئنیم؟», deduplicated
   gallery; presentation rules in ADR-0015 (`frontend/src/lib/numbers.ts`, `lib/copy.ts`). Demo
@@ -35,7 +37,7 @@ Context files (local):
 - **Taste Skill** (Leonxlnx/taste-skill) is installed in `~/.agents/skills` and linked into
   `~/.claude/skills`; UI work uses `design-taste-frontend` and `redesign-existing-projects` (no
   em-dashes, one accent, both colour schemes, no window scroll listeners).
-- **Every milestone M0–M11 is done (2026-10-08).** Status per criterion is
+- M0–M11 were done on 2026-10-08. Status per criterion is
   generated from `frontend/src/content/milestones.ts` + `reports/*.json` into `docs/ROADMAP.md`
   (top) and shown at `/docs/milestones`; a Vitest test fails when they drift (`make roadmap`).
 - **Closed by the owner** (status `waived`, not "done"): M4 crit. 1 (no new platforms), M6 crit. 3

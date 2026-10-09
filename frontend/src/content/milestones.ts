@@ -1105,7 +1105,8 @@ export const MILESTONES: Milestone[] = [
     id: "M12",
     name_fa: "بازطراحی تجربه‌ی کاربری و انتشار عمومی",
     name_en: "UX redesign & public release",
-    status: "partial",
+    status: "done",
+    date: "2026-10-09",
     summary_fa:
       "«حقیقت در دسترس، نه بلند»: جستجو با نقشه و کارت ترب‌وار، کارت رزرو دوپلتفرمی، تقویم دونیمه، «چرا مطمئنیم؟»؛ و در پایان انتشار عمومی مخزن.",
     criteria: [
@@ -1117,9 +1118,11 @@ export const MILESTONES: Milestone[] = [
         n: 24,
         title_fa: "مخزن عمومی و امن منتشر شد",
         title_en: "Repository published publicly after the audit (docs/release/public-release.md)",
-        status: "not_met",
-        evidence_fa: "آخرین گام M12.",
-        evidence_en: "The last step of M12.",
+        status: "done",
+        evidence_fa:
+          "github.com/peyman886/villasanj عمومی با برچسب v1.0.0؛ ممیزی A1 تا A8 سبز (gitleaks روی کل تاریخچه، کلون تمیز، بدون داده‌ی خزیده) (reports/public-release-2026-10-09.md).",
+        evidence_en:
+          "github.com/peyman886/villasanj is public, tagged v1.0.0; audit A1-A8 green (gitleaks over the whole history, clean clone, no crawled data) (reports/public-release-2026-10-09.md).",
       },
     ],
   },
