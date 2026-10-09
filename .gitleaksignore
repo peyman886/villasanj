@@ -1,2 +1,3 @@
 # A fake key in a provider test ("test..."), not a secret (checked against .env: no match).
 57e8122fab055317a87536c008c93e9e7a57f031:backend/tests/unit/shared/infrastructure/test_avalai_provider.py:generic-api-key:23
+backend/tests/unit/shared/infrastructure/test_avalai_provider.py:generic-api-key:24
